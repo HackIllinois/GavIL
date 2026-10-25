@@ -1,0 +1,19 @@
+<!-- @dsCard group="Judging" height=700 -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wayfinding — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Wayfinding,{size:'hero',room:'4217',label:'Head to your room',hint:'Siebel Center, 4th floor. Tables A01–A28.',onMap:function(){}}),h(G.Wayfinding,{room:'4217',table:'A12',label:'1 of 4',onMap:function(){}}),h(G.Wayfinding,{size:'hero',noun:'Table',room:'A12',label:'No picture: flat plates (loading, or it failed)',artState:'failed',onMap:function(){}}),h(G.Wayfinding,{size:'hero',room:'Siebel Center Annex 1404 West Wing',label:'A long value fits its sign',artState:'ready',onMap:function(){}})));
+})();
+</script>
+</body>
+</html>

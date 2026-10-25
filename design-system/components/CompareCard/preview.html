@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=230 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CompareCard — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 9)',paddingTop:'var(--space-4)'}},h('div',{role:'radiogroup','aria-label':'Which was stronger overall?'},h(G.CompareCard,{selected:true,order:'Just now',project:{name:'EcoLens',path:'pro',table:'A17',description:'Point your camera at any product to see its full supply-chain carbon footprint, powered by vision AI and a live emissions database.',notes:'Really impressive demo, CV pipeline was snappy.',nominations:['Best Social Impact','Best UI/UX']}}),h('div',{style:{height:'var(--space-6)'}}),h(G.CompareCard,{order:'Earlier',project:{name:'NeuralMesh',path:'pro',table:'A12',nominations:['Most Creative'],recall:{does:'Self-healing mesh: nodes route around a dead node',demo:'Ran live · rerouted in about 2 s',standout:'Judge pulled a node; back in about 3 s',open:'Asked: what happens with a hundred nodes?'}}}))));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,782 @@
+<!-- @dsCard group="Screens" height=860 width=440 page subtitle="Clickable judge app on one phone (Sarah Kim, Room 4217). Every button works: check in, walk to the table (en route), the right-table check (scan or type A12 · K7; A14 shows the mismatch), Table talk after the team agrees (sample conversation, every failure state under States), evaluate, skip (5 routed reasons incl. busy), compare with recall, waiting for a table, My notes with highlights, offline queue, time up, Round 2." -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Judge prototype</title>
+<style>
+  .stage{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-3) 0;background:var(--ledge)}
+  .phone{position:relative;width:390px;max-width:100%;height:780px;max-height:calc(100vh - var(--space-12) - var(--space-6));max-height:calc(100dvh - var(--space-12) - var(--space-6));border-radius:calc(var(--space-8) + var(--space-1));overflow:hidden;background:var(--ground);box-shadow:var(--shadow-ledge-lg);display:flex;flex-direction:column;transform:translateZ(0)}
+  /* On a phone the demo strip is one short row and the app fills whatever height is left (flex), so its bottom bar is
+     always on screen at 390 x 844, whatever the strip measures. */
+  @media (max-width:440px){.stage{height:100vh;height:100dvh;min-height:0;padding:0;gap:0}.phone{flex:1;min-height:0;height:auto;max-height:none;border-radius:0;box-shadow:none;width:100%}}
+  .scroll{flex:1;min-height:0;display:flex;flex-direction:column}
+  .phone .gv-shell{height:100%;min-height:0}
+  .phone .gv-shell__body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+  .gv-shell{flex:1;max-width:none;width:100%}
+  .kv{display:flex;align-items:center;gap:var(--space-3)}
+  .kv__i{width:calc(var(--space-8) + var(--space-2));height:calc(var(--space-8) + var(--space-2));display:grid;place-items:center;background:linear-gradient(var(--select-tint),var(--select-tint)),var(--surface);color:var(--select);border-radius:var(--radius-sm);flex:none}
+  .kv__k{font:var(--type-label);font-weight:500;color:var(--ink-muted)}
+  .kv__v{font:var(--type-title-sm);letter-spacing:var(--tracking-title-sm)}
+  .steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--space-3)}
+  .steps li{display:flex;gap:var(--space-3);font:var(--type-body-sm);font-weight:400;color:var(--ink-soft)}
+  .steps b{flex:none;width:var(--space-6);height:var(--space-6);border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--on-gold);font:var(--type-numeral);line-height:1}
+  .center{text-align:center}
+  .count{font:var(--type-numeral);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--on-ground-soft)}
+  .notes-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2)}
+  .demo{box-sizing:border-box;max-width:100%;display:flex;flex-wrap:wrap;justify-content:center;gap:var(--space-2);padding:var(--space-1) var(--space-2);min-height:calc(var(--space-12) + var(--space-1));align-items:center}
+  .demo span{font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--on-ground-soft)}
+  .demo button,.demo select{appearance:none;border:0;min-height:var(--tap-min);padding:0 var(--space-3);border-radius:var(--radius-pill);background:var(--ground-deep);box-shadow:inset 0 0 0 var(--stroke-hair) var(--ground-track);color:var(--on-ground);font:var(--type-body-sm);font-weight:600;cursor:pointer;touch-action:manipulation}
+  .demo select{max-width:calc(var(--space-12) * 2);text-overflow:ellipsis}
+  .demo select option{color:var(--ink);background:var(--surface)}
+  .demo button[aria-pressed="true"]{background:var(--gold);color:var(--on-gold)}
+  .demo button:focus-visible,.demo select:focus-visible{outline:var(--stroke-focus) solid var(--gold-on-ground);outline-offset:var(--stroke)}
+  @media (max-width:440px){.demo{flex-wrap:nowrap;gap:var(--space-1);padding:var(--space-1);min-height:0;max-width:100%;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}.demo::-webkit-scrollbar{display:none}.demo span{display:none}.demo button,.demo select{min-height:var(--tap-min);padding:0 var(--space-2);font:var(--type-label);white-space:nowrap}.demo select{max-width:calc(var(--space-12) + var(--space-6))}}
+  .signin{display:flex;flex-direction:column;gap:var(--space-4);padding-top:var(--space-2)}
+  .gv-h1.signin__howdy{font:var(--type-display-lg);font-family:var(--font-western);color:var(--on-ground);text-shadow:var(--shadow-title);margin:var(--space-2) 0 0;text-align:center}
+  .field{display:flex;flex-direction:column;gap:var(--space-2)}
+  .field label{font:var(--type-body-sm);font-weight:600;color:var(--ink)}
+  .field input{appearance:none;-webkit-appearance:none;min-height:var(--tap-min);padding:0 var(--space-3);border:0;border-radius:var(--radius-sm);background:var(--surface-sunken);box-shadow:inset 0 0 0 var(--stroke-hair) var(--line-strong);color:var(--ink);font:var(--type-body)}
+  .field input.code{font:var(--type-title);letter-spacing:calc(var(--tracking-eyebrow) * 2.5)}
+  .field input[aria-invalid="true"]{box-shadow:inset 0 0 0 var(--stroke) var(--danger)}
+  .field input:focus-visible{outline:none;box-shadow:inset 0 0 0 var(--stroke-focus) var(--focus)}
+  .field__err{font:var(--type-body-sm);font-weight:600;color:var(--danger);text-wrap:pretty}
+  .help{margin:0;font:var(--type-label);font-weight:500;color:var(--ink-muted)}
+  .or{display:flex;align-items:center;gap:var(--space-3);font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--ink-muted)}
+  .or::before,.or::after{content:"";flex:1;height:var(--stroke-hair);background:var(--line-strong)}
+  .map{display:grid;grid-template-columns:repeat(7,1fr);gap:var(--space-1);padding:var(--space-3);background:var(--surface-sunken);border-radius:var(--radius-md)}
+  .map__t{aspect-ratio:1;display:grid;place-items:center;border-radius:var(--radius-sm);background:var(--surface);box-shadow:inset 0 0 0 var(--stroke-hair) var(--line-strong);font:var(--type-eyebrow);letter-spacing:0;color:var(--ink-soft)}
+  .map__t--you{background:var(--gold);color:var(--on-gold);box-shadow:inset 0 0 0 var(--stroke) var(--wood-deep)}
+  .map__door{grid-column:1/-1;display:flex;justify-content:space-between;font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--ink-muted)}
+  .p{margin:0}
+  .p-soft{margin:0;font:var(--type-body-sm);font-weight:400;color:var(--ink-soft)}
+  .wait__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+  .wait__list li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);font:var(--type-body-sm);font-weight:500;color:var(--ink-soft)}
+  .wait__list b{font:var(--type-body-strong);color:var(--ink)}
+  .wait__prop{margin:var(--space-4) auto var(--space-2)}
+  .gv-note .gv-recall{margin-top:var(--space-1)}
+  /* With recall rows above it, the typed notes keep their lines and show the first three (the editor has the rest). */
+  .note__clamp{white-space:pre-line;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden}
+</style></head>
+<body class="gv-root">
+<div id="root"></div>
+<script>
+(function(){
+  var G = window.GavIL, M = G.mockServer, h = React.createElement, useState = React.useState, useEffect = React.useEffect, useLayoutEffect = React.useLayoutEffect, useRef = React.useRef;
+  // Canonical dataset (hackillinois-2027): Sarah Kim (j1, Stripe sponsor, Pro, Room 4217 = A). Her Round 1 queue.
+  var PRIZES=['Best UI/UX','Most Creative','Best Social Impact','Most Useless','Most Popular'];
+  var QUEUE=[
+    {id:'p01',name:'NeuralMesh',slug:'neuralmesh',path:'pro',table:'A12',tracks:['Modal'],tagline:'Self-healing P2P mesh networking with RL routing.',description:'A self-organizing peer-to-peer mesh network powered by reinforcement learning. Nodes reroute traffic around failures with zero central coordination.',team:'Ana Ruiz, Dev Patel, Kim Lee',repo:'github.com/neuralmesh/core',commits:48},
+    {id:'p02',name:'EcoLens',slug:'ecolens',path:'pro',table:'A17',tracks:[],tagline:'Carbon footprint of anything you point your camera at.',description:'Point your camera at any product to see its full supply-chain carbon footprint, powered by vision AI and a live emissions database.',team:'Maya Chen, Leo Brooks',repo:'github.com/ecolens/app',commits:131},
+    {id:'p03',name:'PocketLab',slug:'pocketlab',path:'pro',table:'A20',tracks:[],tagline:'A $12 oscilloscope from a phone and a microcontroller.',description:'Turns a phone plus a cheap microcontroller into an oscilloscope and logic analyzer for intro EE labs.',team:'Sam Ortiz, Priya Nair, Jo Kim, Ben Wu',repo:'github.com/pocketlab/fw',commits:76},
+    {id:'p08',name:'Atlas',slug:'atlas',path:'pro',table:'A22',tracks:[],tagline:'Indoor maps from a 30-second phone walkthrough.',description:'Walk a building with your phone for 30 seconds and Atlas builds a navigable indoor map with room labels.',team:'Theo Grant, Lia Novak, Max Ortiz',repo:'github.com/atlas-maps/atlas',commits:95}
+  ];
+  // The phone knows only its own queue. Which project sits at any other code, and every check, are the server's
+  // (G.mockServer in this preview): the phone sends what the judge typed or scanned and shows what comes back.
+  // Round 2: Sarah deliberates Best UI/UX in Room 2405. No Stripe-conflicted project (Tidal) appears.
+  var FINALISTS=[{id:'p02',name:'EcoLens',path:'pro',table:'A17',nominations:9,href:'https://devpost.com/software/ecolens'},{id:'p01',name:'NeuralMesh',path:'pro',table:'A12',nominations:7,href:'https://devpost.com/software/neuralmesh'},{id:'p17',name:'CrisisMap',path:'general',table:'C05',nominations:6,href:'https://devpost.com/software/crisismap'},{id:'p10',name:'Lumen',path:'pro',table:'B07',nominations:4,href:'https://devpost.com/software/lumen'},{id:'p22',name:'Canopy',path:'general',table:'C21',nominations:3,href:'https://devpost.com/software/canopy'}];
+  var BY={}; QUEUE.forEach(function(q){BY[q.id]=q;});
+  // Times come from tokens (motion family), read when used: the undo window, how long a toast stays, the demo's fake
+  // network latency. SECOND is a unit (ms per second), not a design value.
+  var TOTAL=7200, START=4500, SECOND=1000, DEMO_CODE='424242';
+  function UNDO(){ return G.tokenMs('dur-undo',8000); }
+  function WINDOW(){ return G.tokenMs('talk-window',900000); }
+  function tok(n){ return getComputedStyle(document.documentElement).getPropertyValue('--'+n).trim(); }
+  // ?demo=1 turns on the presenter's strip (what a real judge does elsewhere: open the email, go offline, a staff member's
+  // clock, the States menu) and ?walk=0, which skips the walk and the table check (each table opens already checked, as if
+  // its QR was scanned); the States menu may also switch Table talk to this device's real microphone.
+  // Without it there is no strip at all and the app is the real flow.
+  var QS=new URLSearchParams(location.search), DEMO=QS.get('demo')==='1', WALK=!(DEMO&&QS.get('walk')==='0');
+  // A placard opened with the phone's own camera lands here as ?at=A12&k=<signed token> (the web app's /t/A12?k= redirect).
+  // The app takes the token into memory at once and strips it from the address, then asks the server once (clientId).
+  var LINK=(function(){ var at=QS.get('at'), k=QS.get('k'); if(!at||!k) return null; try{ var u=new URL(location.href); ['at','k','via'].forEach(function(n){u.searchParams.delete(n);}); history.replaceState(null,'',u.pathname+u.search+u.hash); }catch(e){} return {code:at.toUpperCase(),k:k}; })();
+  var SKIP_TOAST={absent:'Skipped. We’ll send another judge later.',busy:'No penalty. It comes back to you after your next table.','cant-find':'Staff pinged. It moves to the end of your queue.',conflict:'Removed from your queue.',other:'Skipped. Your note went to staff.'};
+  // Offline nothing reaches staff yet: the toast says so, and the ping waits in the queue.
+  var SKIP_TOAST_OFF={absent:'Skipped. Saved on this phone; staff hear about it when you reconnect.',busy:'No penalty. It comes back to you after your next table.','cant-find':'Moved to the end of your queue. Staff get the ping when you reconnect.',conflict:'Removed from your queue.',other:'Skipped. Your note goes to staff when you reconnect.'};
+  var SKIP_LABEL={absent:'Team wasn’t at the table',conflict:'Conflict of interest','cant-find':'Couldn’t find the table',other:'Other reason'};
+  // A kept highlight becomes one plain line in Private notes, labelled like its row (a concern by its kind: Limitation…).
+  var HL_LINE={does:'Does',how:'How',demo:'Demo',standout:'Notable',question:'Open'};
+  function hlLine(x){ return (x.kind==='concern'?(G.talk.CONCERN_LABEL[x.concernKind]||'Note'):(HL_LINE[x.kind]||'Note'))+': '+x.text; }
+  function isKept(x){ return x.state==='kept'||x.state==='edited'; }
+  // What is saved on the phone of a kept highlight: its words and when, never the quote (the team's sentence) and never
+  // an unreviewed suggestion.
+  function slim(x){ return {id:x.id,kind:x.kind,concernKind:x.concernKind,demoStatus:x.demoStatus,segment:x.segment,text:x.text,at:x.at,certainty:x.certainty,marked:x.marked,state:x.state}; }
+  function slimEvals(ev){ var o={}; Object.keys(ev).forEach(function(id){ var e=Object.assign({},ev[id]); if(e.hl) e.hl=e.hl.filter(isKept).map(slim); o[id]=e; }); return o; }
+  // A memo is offered on the walk (or while waiting, or at the end of Round 1) about the table just left, when Table talk
+  // gave nothing there: the team said no or opted out, both tries were used, or it failed. Never when Table talk is off for
+  // the event, and never when this phone's microphone can't work (blocked or unsupported).
+  var MEMO_AFTER={declined:1,'locked-by-admin':1,'used-up':1,'too-noisy':1,failed:1,'mic-busy':1};
+  function plural(n,one,many){ return n+' '+(n===1?one:many); }
+  function isJudging(s,b){ var j=function(x){ return x==='evaluate'||x==='enroute'||x==='waiting'||x==='compare'||x==='held'; }; return j(s)||(s==='notes'&&j(b)); }
+  // Facing a placard, higher numbers are to your left: Room 4217 is 4 rows of 7, counting up from the door.
+  var WORDS=['','one','two','three','four','five','six'];
+  function directions(from,to){ var a=+from.slice(1)-1, b=+to.slice(1)-1, dc=(b%7)-(a%7), dr=Math.floor(b/7)-Math.floor(a/7), parts=[];
+    if(dr) parts.push(WORDS[Math.abs(dr)]+(Math.abs(dr)===1?' row ':' rows ')+(dr>0?'further from the door':'toward the door'));
+    if(dc) parts.push(WORDS[Math.abs(dc)]+(Math.abs(dc)===1?' table ':' tables ')+'to your '+(dc<0?'right':'left'));
+    return parts.join(', ')||'right here'; }
+  var IDLE_CHECK={state:'idle',via:null,result:null,raw:'',triesLeft:undefined,proof:null,pending:null};
+  function fresh(){ return {phase:'enroute',since:Date.now(),check:Object.assign({},IDLE_CHECK,WALK?{}:{state:'matched',via:'scan'})}; }
+  // A reload never strands the check: a scan that was open closes (the camera is gone), a check that was in flight runs again.
+  function resumeVisit(v){ if(!v||!v.check) return v; var c=v.check; if(c.state==='scanning'||(c.state==='checking'&&!c.pending)) return Object.assign({},v,{check:Object.assign({},IDLE_CHECK,{triesLeft:c.triesLeft})}); return v; }
+  // What of a visit is saved on the phone: its terminal state, never what was typed or the QR's token. A check in flight
+  // keeps its request (so it runs again after a reload) and a check accepted offline keeps its proof until the server has
+  // confirmed it; both are gone the moment they settle.
+  function saveVisit(v){ if(!v||!v.check) return v; var c=v.check, k={state:c.state,via:c.via,triesLeft:c.triesLeft};
+    if(c.state==='checking'&&c.pending) k.pending={method:c.pending.method,code:c.pending.code,check:c.pending.check,k:c.pending.k,clientId:c.pending.clientId};
+    else if(c.state==='offline') k.proof=c.proof;
+    else if(['mismatch','needs-check','not-found','failed','scanning','no-camera','checking'].indexOf(c.state)>=0) k.state='idle';
+    return Object.assign({},v,{check:Object.assign({},IDLE_CHECK,k)}); }
+
+  // Saved on this phone: the judge's session (drafts, the outbox, votes, the queue) survives a reload or a discarded tab.
+  // One saved session per preview page (theme). Signing out or Restart clears it. Never throws. Table talk transcripts
+  // are never saved: only the highlights a judge keeps become part of the evaluation (their words, not the team's quote).
+  var KEY='gavil-proto:'+location.pathname;
+  function readSaved(){ try{ var x=JSON.parse(localStorage.getItem(KEY)||'null'); return x&&x.v===1?x:null; }catch(e){ return null; } }
+  function writeSaved(x){ try{ if(x) localStorage.setItem(KEY,JSON.stringify(x)); else localStorage.removeItem(KEY); }catch(e){} }
+
+  // Floor plan for Room 4217: tables A01–A28, the judge's table highlighted, the door for orientation.
+  function RoomMap(p){
+    var cells=[]; for(var i=1;i<=28;i++){ var code='A'+(i<10?'0':'')+i; cells.push(h('div',{key:i,className:'map__t'+(code===p.table?' map__t--you':''),'aria-hidden':true},code)); }
+    return h(G.Sheet,{title:'Room 4217 floor plan',titleId:'map-t',onClose:p.onClose,
+        lede:p.table?'Your table, '+p.table+', is highlighted. Tables count up from the door; facing a placard, higher numbers are to your left.':'Tables count up from the door; facing a placard, higher numbers are to your left.',
+        actions:function(close){ return h(G.Button,{variant:'secondary',size:'lg',block:true,onClick:function(){close(p.onClose);}},'Close map'); }},
+      h('div',{className:'map',role:'img','aria-label':'Floor plan, 28 tables in 4 rows'+(p.table?', table '+p.table+' highlighted':'')},h('div',{className:'map__door'},h('span',null,'Door'),h('span',null,'Windows')),cells));
+  }
+
+  // Tap a judged project in My notes to edit its notes, demo, highlights and nominations until Round 1 ends. A memo
+  // about that table (only the judge's voice) is here too while it is still offered.
+  function EditNotes(p){
+    // Highlights to review (in memory) and the kept ones (in the evaluation) show together, with Keep / Edit / Remove.
+    var hl=(p.hlProps.items||[]).filter(function(x){return x;});
+    return h(G.Sheet,{title:'Your notes: '+p.project.name,onClose:p.onClose,
+        actions:function(close){ return h(G.Button,{size:'lg',block:true,onClick:function(){close(p.onClose);}},'Save notes'); }},
+      p.memo,
+      hl.length>0&&!p.hideHl&&h('section',{className:'gv-card','aria-label':'Highlights'},h('h3',{className:'gv-card__title'},h(G.Icon,{name:'mic'}),'From table talk'),h(G.HighlightList,p.hlProps)),
+      h(G.DemoStatus,{value:p.draft.demo||null,onChange:function(v){p.onPatch({demo:v});}}),
+      h(G.NotesField,{value:p.draft.note,onChange:function(v){p.onPatch({note:v});},onSave:p.onSave,syncKey:p.syncKey}),
+      h(G.NominationPicker,{prizes:PRIZES,value:p.draft.noms||[],onChange:function(n){p.onPatch({noms:n});},hint:p.pendingNoms?'These nominations are held until staff check this table.':undefined}));
+  }
+  // Tap a skipped project in My notes to put it back in the queue (skips are reversible until Round 1 ends).
+  function Unskip(p){
+    return h(G.Sheet,{title:'Skipped: '+p.project.name,onClose:p.onClose,lede:p.reason+'. Put it back and it comes up after the table you are on.',
+        actions:function(close){ return [h(G.Button,{key:'b',variant:'secondary',size:'lg',onClick:function(){close(p.onClose);}},'Back'),
+          h(G.Button,{key:'u',size:'lg',onClick:function(){close(p.onUnskip);}},'Put back in my queue')]; }},
+      h('p',{className:'p-soft'},'Table '+p.project.table+' · Room 4217'));
+  }
+
+  function App(){
+    var S0=useState(readSaved)[0]||{}, resumed=!!S0.screen;
+    var screen=useState(S0.screen||'signin'), code=useState(''), codeErr=useState(''), tries=useState(0), sending=useState(false), linkBad=useState(false), askOut=useState(false), email=useState(S0.email||''), emailErr=useState(''), sent=useState(false), map=useState(false), netErr=useState(''), failArm=useState(false), failRef=useRef(false);
+    var queue=useState(S0.queue||QUEUE.map(function(q){return q.id;})), evals=useState(S0.evals||{}), order=useState(S0.order||[]), votes=useState(S0.votes||[]);
+    var pending=useState(S0.pending||null), sheet=useState(false), offline=useState(!!S0.offline), toast=useState(null), back=useState(S0.back||null), ranking=useState(S0.ranking||null), r2done=useState(!!S0.r2done), cd=useState(3), loading=useState(false), editing=useState(null), unskip=useState(null), r1done=useState(!!S0.r1done);
+    // The visit to the current table: en route, then at the table with its check (saved without what was typed or scanned).
+    var visit=useState(function(){ return resumeVisit(S0.visit)||null; }), lostTick=useState(0), scanWrong=useState(false), cameraOff=useState(false), scanSeen=useState(null), freeAt=useState(S0.freeAt||null), leftId=useState(S0.leftId||null), leftAt=useState(S0.leftAt||{});
+    // Table talk, per project, in memory: what was heard, the suggestions and their review never touch storage, and a
+    // declined table leaves no trace. Only the tries used are saved (one recording + one retry per table survives a
+    // reload); what the judge keeps goes into the evaluation (evals[id].hl). `talkLive` holds the numbers that change
+    // 15 times a second (level, elapsed). A recording that waited offline lives in memory only (`held`).
+    var talk=useState(function(){ var o={}, tt=S0.talkTries||{}, ev=S0.evals||{}; Object.keys(tt).forEach(function(id){ var n=tt[id][0]||0, kept=((ev[id]||{}).hl||[]).length; o[id]={state:kept?'ready':n>=2?'used-up':n===1?'retry':'idle',attemptsUsed:n,memoUsed:tt[id][1]||0,marks:[]}; }); return o; });
+    var r2shut=useState(false), talkLive=useState({level:0,elapsed:0}), demoState=useState(''), useMic=useState(false), polic=useState(M.policy), aiOff=useState(false), slowMic=useState(false), eng=useRef(null), wantRec=useRef(null), cidN=useRef(0), polRef=useRef(null), talkRef=useRef({}), stopRef=useRef(null);
+    var left=useState(function(){ var l=S0.left!=null?S0.left:START; return resumed&&isJudging(S0.screen,S0.back)?Math.max(0,l-Math.round((Date.now()-S0.savedAt)/SECOND)):l; });
+    // The outbox: work done offline that the server has not had yet, keyed by what it changes: {at, p: payload}.
+    var outbox=useState(S0.outbox||{}), syncN=useState(0), syncing=useState(false);
+    var S=screen[0], live=useRef({}), toastN=useRef(0), linkT=useRef(), submitted=useRef(null), buzzT=useRef(), endsAt=useRef(0), offRef=useRef(!!S0.offline), pendRef=useRef(S0.pending||null), outRef=useRef(S0.outbox||{}), linkRef=useRef(LINK), prevS=useRef(S0.screen||'signin');
+    function go(s,more){ G.swap(function(){ back[1](null); screen[1](s); more&&more(); }); }
+    function say(t,tone){ toastN.current+=1; toast[1]({t:t,n:toastN.current,tone:tone}); }
+    var judging=isJudging(S,back[0]);
+    var unsent=Object.keys(outbox[0]).length;
+    function vid(id){ return 'v-'+id; }
+    function enqueue(key,payload,replace){ if(!offRef.current) return; outbox[1](function(o){ if(o[key]&&!replace) return o; var n=Object.assign({},o); n[key]={at:o[key]&&!replace?o[key].at:Date.now(),p:payload===undefined?null:payload}; return n; }); }
+    function dequeue(key){ outbox[1](function(o){ if(!o[key]) return o; var n=Object.assign({},o); delete n[key]; return n; }); }
+    function syncNote(id){ return function(){ if(offRef.current){ enqueue('eval:'+id); return 'local'; } }; }
+    function starBuzz(){ clearTimeout(buzzT.current); buzzT.current=setTimeout(function(){G.haptic('success');},G.tokenMs('dur-stamp',420)*0.6); }
+    function setLeft(n){ endsAt.current=Date.now()+n*SECOND; left[1](n); }
+    // The next table opens on the walk (en route); with ?demo=1&walk=0 it opens already checked.
+    function nextTable(){ return WALK?'enroute':'evaluate'; }
+
+    // Countdown is driven by the same number it shows. At zero: buzz, then the first table.
+    useEffect(function(){ if(S!=='countdown') return; if(cd[0]<=0){ G.haptic('go'); go(nextTable(),function(){ visit[1](fresh()); if(!WALK) loading[1](true); }); return; } var t=setTimeout(function(){cd[1](cd[0]-1);},SECOND); return function(){clearTimeout(t);}; },[S,cd[0]]);
+    useEffect(function(){ if(!loading[0]) return; var t=setTimeout(function(){ G.swap(function(){loading[1](false);}); },G.tokenMs('demo-latency',700)); return function(){clearTimeout(t);}; },[loading[0]]);
+    useEffect(function(){ if(!judging) return; endsAt.current=Date.now()+left[0]*SECOND; var t;
+      (function tick(){ var ms=endsAt.current-Date.now(); left[1](Math.max(0,Math.ceil(ms/SECOND))); t=setTimeout(tick,ms>0?(ms%SECOND||SECOND):SECOND); })();
+      return function(){clearTimeout(t);}; },[judging]);
+    useEffect(function(){ if(!toast[0]) return; var t=setTimeout(function(){toast[1](null);},G.tokenMs('dur-toast',2600)); return function(){clearTimeout(t);}; },[toast[0]&&toast[0].n]);
+    useEffect(function(){ return function(){ clearTimeout(linkT.current); clearTimeout(buzzT.current); stopEngine(); }; },[]);
+    useLayoutEffect(function(){ if(!sent[0]) return; var a=document.activeElement; if(a&&a!==document.body&&document.contains(a)) return; var t=document.getElementById('si-sent'); t&&t.focus({preventScroll:true}); },[sent[0]]);
+    // A page that reloaded while a recording waited for a connection says so: that recording is gone.
+    useEffect(function(){ var ids=S0.talkHeld||[]; if(ids.length) say('Table talk for '+BY[ids[0]].name+(ids.length>1?' and '+(ids.length-1)+' more':'')+' was discarded when this page reloaded.','warn'); },[]);
+
+    var cur=BY[queue[0][0]], over=left[0]===0;
+    // A new table starts a new visit (en route), whatever screen it was reached from.
+    useEffect(function(){ if(cur&&(!visit[0]||visit[0].id!==cur.id)) visit[1](Object.assign(fresh(),{id:cur.id})); },[cur&&cur.id]);
+    var V=(cur&&visit[0]&&visit[0].id===cur.id)?visit[0]:Object.assign(fresh(),{id:cur&&cur.id});
+    function setVisit(ch){ visit[1](function(v){ var base=(v&&cur&&v.id===cur.id)?v:Object.assign(fresh(),{id:cur&&cur.id}); return Object.assign({},base,typeof ch==='function'?ch(base):ch); }); }
+    function setCheck(ch){ setVisit(function(v){ return {check:Object.assign({},v.check,ch)}; }); }
+    // For an answer that arrives later: the visit it belongs to, whichever table the screen shows by then.
+    function setCheckFor(id,ch){ visit[1](function(v){ if(!v||v.id!==id) return v; return Object.assign({},v,{check:Object.assign({},v.check,ch)}); }); }
+    var checked=V.check.state==='matched'||V.check.state==='offline'||V.check.state==='name';
+    // "Can't find it?" after dur-cant-find on the walk (the demo can jump there).
+    var lost=S==='enroute'&&Date.now()-V.since>=G.tokenMs('dur-cant-find',180000);
+    useEffect(function(){ if(S!=='enroute'||lost) return; var t=setTimeout(function(){lostTick[1](function(n){return n+1;});},Math.max(0,V.since+G.tokenMs('dur-cant-find',180000)-Date.now())+50); return function(){clearTimeout(t);}; },[S,V.since,lost]);
+
+    useEffect(function(){ submitted.current=null; },[cur&&cur.id,S]);
+    useEffect(function(){ if(S==='complete'||S==='round2'||((S==='evaluate'||S==='enroute')&&!cur)) r1done[1](true); },[S,!!cur]);
+    // Once the first project is up, the phone fetches the small art the later screens need (the stars, the wagon of the waiting screen, the Round 1 props) while it still has a connection.
+    useEffect(function(){ if(S==='evaluate') G.prefetchArt(); },[S==='evaluate']);
+    useLayoutEffect(function(){ live.current={S:S,over:over,more:queue[0].length>0,curId:cur&&cur.id,checkState:V.check.state}; outRef.current=outbox[0]; });
+    useEffect(function(){ var tries={}; Object.keys(talk[0]).forEach(function(id){ var t=talk[0][id]; if(t.attemptsUsed||t.memoUsed) tries[id]=[t.attemptsUsed||0,t.memoUsed||0]; });
+      var heldIds=Object.keys(talk[0]).filter(function(id){ return talk[0][id].held; });
+      writeSaved(S==='signin'||S==='redeem'?null:{v:1,savedAt:Date.now(),screen:S==='countdown'?'checkin':S,back:back[0],queue:queue[0],evals:slimEvals(evals[0]),order:order[0],votes:votes[0],pending:pending[0],left:left[0],offline:offline[0],outbox:outbox[0],ranking:ranking[0],r2done:r2done[0],r1done:r1done[0],email:email[0],visit:saveVisit(visit[0]),freeAt:freeAt[0],leftId:leftId[0],leftAt:leftAt[0],talkTries:tries,talkHeld:heldIds}); });
+    var draft=(cur&&evals[0][cur.id])||{note:'',noms:[]};
+    function patch(id,p){ evals[1](function(all){ var n=Object.assign({},all); n[id]=Object.assign({note:'',noms:[]},all[id],p); return n; }); }
+    // A nomination is held (pending) until staff check the table when the judge's arrival there was by name, or is still
+    // waiting to be confirmed (offline) or didn't match.
+    function nomsHeld(id){ var a=(evals[0][id]||{}).arrival; return !!a&&(a.by==='name'||a.state==='pending'||a.state==='unverified'); }
+    function judged(){ return order[0].map(function(id){ var e=evals[0][id]||{}, t=talk[0][id]||{}; return Object.assign({},BY[id],{notes:e.note,nominations:e.noms||[],held:nomsHeld(id),skipped:e.skipped,skipNote:e.skipNote,recall:G.recallOf({highlights:e.hl,demoStatus:e.demo,notes:e.note}),toReview:(t.items||[]).filter(function(x){return x.state==='suggested';}).length}); }); }
+    var toastText=toast[0]?toast[0].t:'', toastId=toast[0]?toast[0].n:undefined;
+    function shell(extra){ return Object.assign({right:notesBtn,offline:offline[0],queued:unsent,unsent:!offline[0]&&!syncing[0]&&unsent>0?{n:unsent,onRetry:function(){ flush('retry'); }}:null,toast:toastText,toastId:toastId,toastTone:toast[0]?toast[0].tone:undefined,recording:recording},extra); }
+
+    // ---- Table talk (the prototype owns the engine; TableTalk only shows it)
+    // The server's policy for Table talk (the event switch, the teams that opted out) has one row, read through
+    // G.mockServer.policy() and written by the admin console (or the States menu, standing in for it). Every place that could
+    // open the microphone asks elig() first: the card (no Ask button), the consent tap, the engine start and Resume.
+    // elig() reads polRef, which is updated the moment the policy changes, never a render's older copy.
+    useLayoutEffect(function(){ polRef.current=polic[0]; talkRef.current=talk[0]; stopRef.current=stopTalk; });
+    useEffect(function(){ function on(e){ if(e.key!==null&&e.key!==M.POLICY_KEY) return; var n=M.policy(); polRef.current=n; polic[1](n); } window.addEventListener('storage',on); return function(){ window.removeEventListener('storage',on); }; },[]);
+    function adminSets(ch){ var n=Object.assign({},polRef.current||polic[0],ch); polRef.current=n; try{ localStorage.setItem(M.POLICY_KEY,JSON.stringify(n)); }catch(e){} polic[1](n); }
+    function micOK(){ if(!useMic[0]) return true; try{ return G.talk.MicEngine().supported(); }catch(e){ return false; } }
+    // `fresh` asks the server's row again (a lock written a moment ago, before the storage event reached this page): the
+    // consent tap, the engine start and Resume use it, so a late lock still stops the microphone request.
+    function livePolicy(){ try{ if(localStorage.getItem(M.POLICY_KEY)!=null){ var n=M.policy(), c=polRef.current||polic[0]; if(JSON.stringify(n)!==JSON.stringify(c)){ polRef.current=n; polic[1](n); } return n; } }catch(e){} return polRef.current||polic[0]; }
+    function elig(id,mode,fresh){ var pol=fresh?livePolicy():(polRef.current||polic[0]); return G.talk.eligibility({eventEnabled:pol.eventEnabled,projectOptedOut:pol.optedOut.indexOf(id)>=0,judgeSupported:micOK(),mode:mode}); }
+    var T=function(id){ return talk[0][id]||{state:'idle',attemptsUsed:0,memoUsed:0,marks:[]}; };
+    function setTalk(id,ch){ talk[1](function(all){ var n=Object.assign({},all); n[id]=Object.assign({state:'idle',attemptsUsed:0,memoUsed:0,marks:[]},all[id],ch); return n; }); }
+    function project(id){ var q=BY[id]; return {id:q.id,name:q.name,tagline:q.tagline,tracks:q.tracks,team:q.team.split(', ')}; }
+    // Stopping always lets go of the microphone and drops any audio the engine held (nothing is uploaded here).
+    function stopEngine(){ var e=eng.current; eng.current=null; if(e){ clearTimeout(e.capT); clearTimeout(e.warnT); e.offs.forEach(function(f){f();}); e.engine.stop(); e.engine.discard(); } return e; }
+    // The recording's 8:00 cap and its one-minute warning run on a wall-clock timer of their own, armed when the engine
+    // listens and again after a Resume (the cap counts recorded time, so a pause adds to what is left). They never wait for
+    // the analyser: an engine that reports no levels still stops at the cap. The sample conversation plays at demo-talk-rate
+    // times real time, so its timers are scaled by it; a real microphone runs at 1.
+    function armCap(rec){
+      clearTimeout(rec.capT); clearTimeout(rec.warnT);
+      var scale=rec.engine.kind==='mic'?1:(parseFloat(tok('demo-talk-rate'))||6), done=rec.engine.elapsed()*SECOND, cap=G.tokenMs('rec-cap',480000), warn=G.tokenMs('rec-warn',420000);
+      if(!rec.warned) rec.warnT=setTimeout(function(){ if(eng.current!==rec||rec.warned) return; rec.warned=true; setTalk(rec.id,{warn:true}); G.haptic('warn'); },Math.max(0,warn-done)/scale);
+      rec.capT=setTimeout(function(){ if(eng.current===rec) stopRef.current(); },Math.max(0,cap-done)/scale);
+    }
+    // A lock that arrives while a recording runs (the admin switched Table talk off, the team opted out) lets go of the
+    // microphone at once; the card then shows the lock. The judge may be looking at the team, not the phone, so it is also
+    // said (the toast is a live region) and felt (a warn buzz): the recording ended and nothing was kept.
+    function enforcePolicy(fresh){ var rec=eng.current; if(!rec) return false; var el=elig(rec.id,rec.mode,fresh); if(el.allowed) return false;
+      var er=stopEngine(), et=T(er.id), live=et.state==='recording'||et.state==='paused'; setTalk(er.id,{state:er.mode==='memo'?'memo':et.attemptsUsed>=2?'used-up':et.attemptsUsed===1?'retry':'idle',marks:[],warn:false});
+      say((live?'Recording stopped. ':'')+(el.reason||'Table talk is not available here.')+(live?' Nothing was kept.':' Nothing was recorded.'),'warn'); G.haptic('warn'); return true; }
+    useEffect(function(){ enforcePolicy(); },[polic[0]]);
+    // Runs inside the tap that said "Everyone agreed": the engine asks for the microphone first thing (iOS allows it only
+    // from a gesture). The card says "Waiting for the microphone…" until the engine reports it is listening.
+    function startTalk(id,mode){
+      // Fail closed before anything asks for the microphone: the event switch, the team's opt-out and this browser all say yes.
+      var el=elig(id,mode,true); if(!el.allowed){ var t1=T(id); setTalk(id,{state:mode==='memo'?'memo':t1.attemptsUsed>=2?'used-up':t1.attemptsUsed===1?'retry':'idle'}); say(el.reason,'warn'); return; }
+      if(eng.current) stopTalk(); // a memo still running finishes first (its highlights wait for review)
+      var fx=mode==='memo'?G.talk.memoFor(project(id)):(G.talk.FIXTURES[id]||{project:project(id),segments:[],marks:[]});
+      var rate=parseFloat(tok('demo-talk-rate'))||6;
+      var engine=useMic[0]?G.talk.MicEngine():G.talk.FixtureEngine({fixture:fx,rate:rate,startDelay:slowMic[0]?G.tokenMs('demo-wait',6000):G.tokenMs('demo-latency',700)/2});
+      var rec={engine:engine,id:id,mode:mode,segs:[],fx:fx,warned:false,offs:[],counted:false,t0:Date.now()};
+      eng.current=rec; talkLive[1]({level:0,elapsed:0});
+      rec.offs.push(engine.onSegment(function(s){ rec.segs.push(s); }));
+      rec.offs.push(engine.onLevel(function(lv,at){ if(eng.current!==rec) return; var sec=Math.floor(at);
+        talkLive[1](function(l){ return Object.assign({},l,{level:lv,elapsed:sec}); }); }));
+      rec.offs.push(engine.onState(function(st,d){ if(eng.current!==rec) return;
+        if(st==='starting'){ setTalk(id,{state:'starting',failedAt:null}); return; }
+        // A microphone that never opened (blocked, busy, unsupported, or it just didn't start) heard nothing: no try used.
+        if(st==='error'){ stopEngine(); var r=d&&d.reason; setTalk(id,{state:r==='denied'||r==='mic-busy'||r==='unsupported'?r:'failed',failedAt:d&&d.stage==='start'?'start':null,warn:false}); G.haptic('error'); return; }
+        if(st==='listening'){ var first=!rec.counted; rec.counted=true;
+          // One recording + one retry per table (and per memo): a try is used when the microphone actually starts.
+          talk[1](function(all){ var n=Object.assign({},all), t0=Object.assign({state:'idle',attemptsUsed:0,memoUsed:0,marks:[]},all[id]), ch={state:'recording',pausedReason:null,failedAt:null};
+            if(first&&mode==='memo') ch.memoUsed=Math.min(2,(t0.memoUsed||0)+1); else if(first) ch.attemptsUsed=Math.min(2,t0.attemptsUsed+1);
+            n[id]=Object.assign(t0,ch); return n; }); armCap(rec); }
+        if(st==='paused'){ clearTimeout(rec.capT); clearTimeout(rec.warnT); setTalk(id,{state:'paused',pausedReason:d&&(d.reason==='screen'||d.reason==='interrupted')?d.reason:'user'}); } }));
+      setTalk(id,{mode:mode,marks:[],warn:false,state:'starting',failedAt:null});
+      engine.start();
+    }
+    // Stop: rules first (instant, on the phone); offline, the recording waits on the phone and is processed on reconnect.
+    // Suggestions stay in memory (talk[id].items); only what the judge keeps is written into the evaluation. This preview
+    // uploads no audio: a real microphone's recording is dropped at Stop and the demo transcript below stands in for it.
+    function finishTalk(id,rec){
+      var segs=rec.engine.kind==='mic'?rec.fx.segments:rec.segs;
+      var hl=G.talk.extract({project:rec.fx.project,segments:segs,marks:T(id).marks,mode:rec.mode});
+      var items=G.talk.toItems(hl);
+      if(hl.stats.tooShort||!items.length){ setTalk(id,{state:'too-noisy',mode:rec.mode,warn:false}); G.haptic('warn'); return; }
+      var t=T(id), kept=(t.items||(evals[0][id]||{}).hl||[]).filter(isKept), ids={}; kept.forEach(function(x){ids[x.id]=1;});
+      setTalk(id,{state:'ready',mode:rec.mode,warn:false,items:kept.concat(items.filter(function(x){return !ids[x.id];})),fallback:G.talk.fallbackOf(hl),prize:rec.mode==='memo'?t.prize||null:(hl.prizeSuggestions[0]||null),
+        demoSuggested:rec.mode!=='memo'&&hl.demo.status!=='unclear'?hl.demo.status:t.demoSuggested||null,meta:G.talk.mmss(rec.engine.elapsed())+' · '+hl.stats.words+' words',lowAudio:hl.stats.lowAudio});
+    }
+    function stopTalk(){ var rec=stopEngine(); if(!rec) return; var id=rec.id;
+      if(offRef.current){ setTalk(id,{state:'offline-queued',held:rec,heldAt:Date.now(),warn:false}); return; }
+      setTalk(id,{state:'processing',warn:false}); setTimeout(function(){ finishTalk(id,rec); },G.tokenMs('demo-latency',700)); }
+    // "Stop and delete": the microphone is let go and nothing is pulled out or kept (the try it used stays used).
+    function stopDelete(){ var rec=stopEngine(); if(!rec) return; var id=rec.id, t=T(id), memo=rec.mode==='memo', u=memo?t.memoUsed:t.attemptsUsed;
+      setTalk(id,{state:memo?(u>=2?'used-up':'memo'):(u>=2?'used-up':'retry'),mode:rec.mode,marks:[],warn:false}); say('Deleted. Nothing was kept.'); }
+    // The tap that said "Everyone agreed" sits exactly over Submit. Until the microphone is open (Cancel is on the card),
+    // a finger tap on Submit is that judge tapping again, not a submit: it is ignored for at most `talk-start-hold`, so a
+    // microphone that never answers can't hold Submit for good. A key or assistive-tech press (detail 0) always acts.
+    function micWaiting(){ var r=eng.current; return !!r&&!!cur&&r.id===cur.id&&T(cur.id).state==='starting'&&Date.now()-r.t0<G.tokenMs('talk-start-hold',8000); }
+    function cancelStart(){ var rec=eng.current; if(rec){ stopEngine(); var t=T(rec.id); setTalk(rec.id,{state:rec.mode==='memo'?'memo':t.attemptsUsed>=2?'used-up':t.attemptsUsed===1?'retry':'idle'}); } else if(cur) setTalk(cur.id,{state:'idle'}); }
+    // Resume asks for a fresh microphone stream: the policy is checked first, like a start.
+    function resumeTalk(){ var rec=eng.current; if(!rec) return; if(enforcePolicy(true)) return; rec.engine.resume(); }
+    function markTalk(){ var rec=eng.current; if(!rec) return; var t=T(rec.id); setTalk(rec.id,{marks:t.marks.concat([Math.floor(rec.engine.elapsed())])}); }
+    // The pinned "Recording" tag brings the recorder back: from My notes it goes back first, then scrolls to Stop.
+    function showRecorder(){ if(S==='notes'){ wantRec.current='notes'; go(back[0]||nextTable()); } else focusRecorder(); }
+    function focusRecorder(){ var el=document.querySelector('.gv-rec__big'); if(!el) return; el.scrollIntoView({block:'center',behavior:G.motionOK()?'smooth':'auto'}); el.focus({preventScroll:true}); }
+    useLayoutEffect(function(){ if(wantRec.current&&S!==wantRec.current){ wantRec.current=null; focusRecorder(); } });
+    var recNow=eng.current&&T(eng.current.id), recording=recNow&&(recNow.state==='recording'||recNow.state==='paused')?{elapsed:talkLive[0].elapsed,paused:recNow.state==='paused',memo:eng.current.mode==='memo',onShow:showRecorder}:null;
+    // Leaving the screen the recording was started on (My notes, anything else) lets go of the microphone: it pauses, and
+    // Resume needs a fresh tap and a fresh stream.
+    useEffect(function(){ var was=prevS.current; prevS.current=S; if(was===S) return; var rec=eng.current; if(!rec) return; var st=T(rec.id).state; if(st==='recording'||st==='starting') rec.engine.pause('screen'); },[S]);
+    // A recording that waited offline is discarded when its 15 minutes (counted from leaving the table) are up.
+    var heldKey=Object.keys(talk[0]).filter(function(id){ return talk[0][id].held; }).map(function(id){ return id+':'+talk[0][id].heldAt; }).join();
+    // The timer is only a courtesy: a throttled or suspended page runs it late, so every place that would hand held audio
+    // on (a reconnect, the page coming back) asks heldExpired() against the wall clock first.
+    useEffect(function(){ var ts=[]; Object.keys(talk[0]).forEach(function(id){ var t=talk[0][id]; if(!t.held) return; ts.push(setTimeout(function(){ expireHeld(id); },Math.max(0,t.heldAt+WINDOW()-Date.now()))); }); return function(){ ts.forEach(clearTimeout); }; },[heldKey]);
+    function heldExpired(heldAt,now){ return !(heldAt>0)||now-heldAt>=WINDOW(); }
+    function expireHeld(id){ var t=talkRef.current[id]||T(id); if(!t.held) return; var u=t.attemptsUsed||0; setTalk(id,{state:u>=2?'used-up':'retry',held:null,heldAt:null,marks:[]}); say('Table talk for '+BY[id].name+' was discarded: you weren’t back online within 15 minutes.','warn'); }
+    // The page coming back (the screen unlocked, a tab restored from the back-forward cache) discards what has run out.
+    useEffect(function(){
+      function back(){ if(document.visibilityState==='hidden') return; var all=talkRef.current; Object.keys(all).forEach(function(id){ var t=all[id]; if(t.held&&heldExpired(t.heldAt,Date.now())) expireHeld(id); }); }
+      document.addEventListener('visibilitychange',back); window.addEventListener('pageshow',back); window.addEventListener('focus',back);
+      return function(){ document.removeEventListener('visibilitychange',back); window.removeEventListener('pageshow',back); window.removeEventListener('focus',back); };
+    },[]);
+
+    // Keep moves a highlight into the evaluation and adds it to Private notes as a plain line. Remove and unreviewed
+    // suggestions stay in memory; the evaluation (saved, and synced) only ever holds the kept ones.
+    function hlProps(id){
+      var e=evals[0][id]||{}, t=T(id), items=t.items||e.hl||[];
+      function upd(fn,more){ var next=items.map(fn), was=JSON.stringify(items.filter(isKept)), now=next.filter(isKept); setTalk(id,{items:next});
+        if(more||JSON.stringify(now)!==was){ patch(id,Object.assign({hl:now},more||{})); enqueue('eval:'+id); } }
+      function addLines(xs){ var n=(e.note||'').replace(/\s+$/,''), add=xs.map(hlLine).filter(function(l){ return n.indexOf(l)<0; }); return add.length?(n?n+'\n':'')+add.join('\n'):e.note||''; }
+      return {items:items,lowAudio:!!t.lowAudio,prize:t.prize||null,fallback:t.fallback||null,
+        onKeep:function(hid){ var x=items.filter(function(i){return i.id===hid;})[0]; upd(function(i){ return i.id===hid?Object.assign({},i,{state:'kept'}):i; },{note:addLines([x])}); },
+        onKeepAll:function(){ var xs=items.filter(function(i){return i.state==='suggested';}); upd(function(i){ return i.state==='suggested'?Object.assign({},i,{state:'kept'}):i; },{note:addLines(xs)}); say('Kept '+plural(xs.length,'highlight','highlights')+' and added them to your notes.'); },
+        onEdit:function(hid,text){ upd(function(i){ return i.id===hid?Object.assign({},i,{text:text,state:'edited'}):i; }); },
+        onRemove:function(hid){ var x=items.filter(function(i){return i.id===hid;})[0], wasKept=x&&isKept(x); var n=(e.note||'').split('\n').filter(function(l){ return !x||l!==hlLine(x); }).join('\n'); upd(function(i){ return i.id===hid?Object.assign({},i,{state:'removed',was:i.state}):i; },wasKept||n!==(e.note||'')?{note:n}:undefined); },
+        onRestore:function(hid){ upd(function(i){ return i.id===hid?Object.assign({},i,{state:i.was||'suggested'}):i; }); },
+        onNominate:function(pz){ var noms=e.noms||[]; patch(id,{noms:noms.indexOf(pz)>=0?noms:noms.concat([pz])}); setTalk(id,{prize:Object.assign({},t.prize,{state:'accepted'})}); enqueue('eval:'+id); },
+        onDismissPrize:function(){ setTalk(id,{prize:Object.assign({},t.prize,{state:'dismissed'})}); }};
+    }
+    // The demo's States menu: show any recorder state, the busy-tables wait, or the walk running long.
+    function applyDemo(v){
+      demoState[1]('');
+      if(v==='mic'){ useMic[1](!useMic[0]); say(useMic[0]?'Back to the sample conversation.':'Table talk will use this device’s microphone.'); return; }
+      if(v==='ai'){ aiOff[1](!aiOff[0]); say(aiOff[0]?'AI summaries are on: the consent script names Anthropic.':'AI summaries are off: the consent script names Cloudflare only.'); return; }
+      if(v==='slow'){ slowMic[1](!slowMic[0]); say(slowMic[0]?'The microphone starts at once again.':'The next microphone takes a few seconds to start.'); return; }
+      if(v==='camera'){ cameraOff[1](true); say('The next scan finds the camera blocked.'); return; }
+      if(v==='sync-fail'){ M.failNext(1); say('The next item to send fails once.'); return; }
+      if(v==='busy'){ if(cur&&judging) go('waiting',function(){ freeAt[1](Date.now()+G.tokenMs('demo-wait',6000)); }); return; }
+      if(v==='free'){ freeAt[1](Date.now()); return; }
+      if(v==='lost'){ setVisit({since:Date.now()-G.tokenMs('dur-cant-find',180000)}); return; }
+      if(v==='scan-a14'){ scanWrong[1](true); say('The next scan reads table A14’s placard.'); return; }
+      // What an admin does elsewhere: the event switch (Settings) and a team's opt-out. Both are the one policy row; with the
+      // event off, Table talk and memos are gone from every table, and a recording that runs is let go at once.
+      if(v==='event'){ var on=!polic[0].eventEnabled; adminSets({eventEnabled:on}); say(on?'Table talk is back on for the event.':'Table talk is off for the event.'); return; }
+      if(v==='optout'){ if(!cur) return; var out=polic[0].optedOut.indexOf(cur.id)>=0; adminSets({eventEnabled:true,optedOut:out?polic[0].optedOut.filter(function(x){return x!==cur.id;}):polic[0].optedOut.concat([cur.id])}); say(out?cur.name+' can be recorded again, with consent.':cur.name+' opted out of recording.'); return; }
+      if(!cur) return;
+      stopEngine();
+      // Any recorder state needs Table talk to be reachable at this table: undo a lock first.
+      if(!polic[0].eventEnabled||polic[0].optedOut.indexOf(cur.id)>=0) adminSets({eventEnabled:true,optedOut:polic[0].optedOut.filter(function(x){return x!==cur.id;})});
+      var map0={retry:{state:'retry',attemptsUsed:1},used:{state:'used-up',attemptsUsed:2},'failed-start':{state:'failed',failedAt:'start'}};
+      setTalk(cur.id,Object.assign({lockedReason:null,lockedSub:null,failedAt:null},map0[v]||{state:v,attemptsUsed:v==='too-noisy'||v==='failed'?1:T(cur.id).attemptsUsed}));
+    }
+
+    // ---- The right-table check. The phone sends what the judge typed or scanned and shows what the server says; it holds
+    // no check and compares none. Offline it can still tell that a code is not its own table, but not which team is there,
+    // and it keeps the check (or the scan's token) as a proof that waits to be confirmed on reconnect: never "matched"
+    // until the server says so.
+    function later(v){ return new Promise(function(res){ setTimeout(function(){ res(v); },G.tokenMs('demo-latency',700)/2); }); }
+    // What the server says of another table, in words the card can print (the room plan of Room 4217 is the phone's own).
+    function adapt(r,table){
+      if(r.status!=='mismatch') return r;
+      var same=r.room==='4217';
+      return {status:'mismatch',code:r.code,name:same?r.name:(r.name?r.name+' in Room '+r.room:null),direction:same?directions(r.code,table):'in Room 4217'+(r.room==='1404'?', up on the 4th floor':'')};
+    }
+    function offlineAnswer(req,table){
+      var c=req.code;
+      if(c!==table) return {status:'mismatch',code:c,name:null,offline:true,direction:/^A(0[1-9]|1\d|2[0-8])$/.test(c)?directions(c,table):'in Room 4217'};
+      if(req.method==='scan') return req.k?{status:'offline',via:'qr',proof:{method:'scan',code:c,k:req.k,cid:req.clientId,at:Date.now()}}:{status:'needs-check'};
+      if(!req.check||req.check.length<2) return {status:'needs-check'};
+      return {status:'offline',via:'code',proof:{method:'typed',code:c,check:req.check,cid:req.clientId,at:Date.now()}};
+    }
+    function ask(req,table,id){
+      if(!req.code) return later({status:'not-found',code:req.raw});
+      var hint=req.method==='typed'&&req.check?G.checkHint(req.check):null; // a misreading never reaches the server and costs no try
+      if(hint) return later({status:'needs-check',message:hint});
+      if(offRef.current) return later(offlineAnswer(req,table));
+      M.lease(vid(id),table);
+      return M.arrive(req).then(function(r){ return adapt(r,table); });
+    }
+    function runCheck(input){
+      var id=cur.id, table=cur.table, cid=input.clientId||('c'+Date.now().toString(36)+(++cidN.current));
+      var req={visitId:vid(id),judgeId:'j1',code:input.code,method:input.method==='qr'?'scan':'typed',check:input.check,k:input.k,clientId:cid,raw:input.raw};
+      setCheck({state:'checking',raw:input.method==='qr'?V.check.raw:(input.raw||V.check.raw),pending:req});
+      ask(req,table,id).then(function(r){
+        var term={matched:1,name:1,offline:1,locked:1}[r.status], ch={state:r.status,result:r,via:r.via==='scan'?'scan':r.via==='typed'?'code':(r.via||input.method),proof:r.proof||null,pending:null};
+        if(term) ch.raw=''; else if(req.method==='typed') ch.raw=input.raw||V.check.raw;
+        if(r.triesLeft!=null) ch.triesLeft=r.triesLeft;
+        setCheckFor(id,ch);
+        if(r.status==='offline') enqueue('arrive:'+id,r.proof,true);
+      },function(){ setCheckFor(id,{state:'failed',pending:null}); });
+    }
+    // A check that was in flight when the page reloaded runs again (its request was saved with it, and is gone once it settles).
+    useEffect(function(){ if(V.check.state==='checking'&&V.check.pending) runCheck(V.check.pending); },[]);
+    // The placard in front of the camera is a demo one: its QR encodes the table and a made-up 43-character sample token (M.demoToken; the
+    // judge side can neither list nor issue placards, and a real phone reads the signed token). The viewfinder draws that QR.
+    var scanN=useRef(0);
+    function startScan(){
+      var wrong=scanWrong[0]; scanWrong[1](false);
+      if(cameraOff[0]){ cameraOff[1](false); setCheck({state:'no-camera'}); return; }
+      var want=wrong?'A14':cur.table, tag=++scanN.current, pl={code:want,k:M.demoToken(want),url:G.placardUrl(want,M.demoToken(want))};
+      setCheck({state:'scanning'}); scanSeen[1](pl);
+      setTimeout(function(){ if(scanN.current!==tag) return; scanSeen[1](null); runCheck({method:'qr',code:pl.code,k:pl.k,raw:pl.code}); },G.tokenMs('demo-latency',700)*2);
+    }
+    function cancelScan(){ scanN.current++; scanSeen[1](null); setCheck({state:'idle'}); }
+    // A link from the phone's own camera (?at=&k=) is read once, when the table's check opens.
+    useEffect(function(){ var l=linkRef.current; if(!l||S!=='evaluate'||!cur||!WALK||V.check.state!=='idle') return; linkRef.current=null; runCheck({method:'qr',code:l.code,k:l.k,raw:l.code}); });
+
+    // ---- Sending the work that waited. Each item goes to the server with its own key (a retry never doubles it); only
+    // what the server took leaves the queue, and what it didn't stays on the phone with a Retry.
+    function replayArrive(id,pf){
+      pf=pf||{}; M.lease(vid(id),BY[id].table);
+      return M.arrive({visitId:vid(id),judgeId:'j1',code:pf.code,method:pf.method,check:pf.check,k:pf.k,clientId:pf.cid,createdAt:pf.at,replay:true}).then(function(r){
+        var ok=r.status==='matched'||r.status==='name', onNow=live.current.curId===id&&live.current.checkState==='offline';
+        if(onNow){
+          if(ok){ setCheckFor(id,{state:'matched',via:r.via==='scan'?'scan':'code',proof:null,pending:null,raw:'',result:null}); return r; }
+          var lockedNow=r.status==='locked', why=r.error==='OfflineTooOld'||r.error==='BadToken'?r.message:'The check you typed offline doesn’t match '+BY[id].table+'’s placard. Your notes are saved; type the 2 characters after the dot again.';
+          setCheckFor(id,{state:lockedNow?'locked':'needs-check',proof:null,pending:null,raw:'',triesLeft:r.triesLeft,result:{status:'needs-check',message:why}}); G.haptic('error');
+        } else {
+          patch(id,{arrival:{by:pf.method==='scan'?'scan':pf.method==='name'?'name':'typed',state:ok?'verified':'unverified'}});
+          if(!ok) say('Table '+BY[id].table+'’s check didn’t match the placard. Staff may ask about that visit.','warn');
+        }
+        return r;
+      });
+    }
+    function send(key,item){ var kind=key.split(':')[0], id=key.slice(kind.length+1); return kind==='arrive'?replayArrive(id,item.p):M.sync({key:key,idem:key+'@'+item.at,kind:kind}); }
+    function flush(why){
+      var items=Object.keys(outRef.current); if(!items.length) return Promise.resolve();
+      syncing[1](true);
+      return Promise.all(items.map(function(k){ return send(k,outRef.current[k]).then(function(){ return {k:k,ok:true}; },function(){ return {k:k,ok:false}; }); })).then(function(res){
+        var okK=res.filter(function(x){return x.ok;}).map(function(x){return x.k;}), bad=res.length-okK.length, pre=why==='reconnect'?'Back online. ':'';
+        outbox[1](function(o){ var n=Object.assign({},o); okK.forEach(function(k){ delete n[k]; }); return n; });
+        syncing[1](false);
+        if(!bad) say(pre+'Sent '+plural(okK.length,'saved item','saved items')+'.');
+        else say(pre+(okK.length?'Sent '+okK.length+' of '+res.length+'. ':'')+plural(bad,'item is','items are')+' still saved on this phone.','warn');
+      });
+    }
+    function setOnline(on){ offRef.current=!on; offline[1](!on); netErr[1](''); if(on){ syncN[1](function(n){return n+1;});
+      // A recording that waited offline is processed now (within 15 minutes of leaving its table).
+      Object.keys(talk[0]).forEach(function(id){ var t=talk[0][id]; if(t.state==='offline-queued'&&t.held){ if(heldExpired(t.heldAt,Date.now())){ expireHeld(id); return; } var rec=t.held; setTalk(id,{state:'processing',held:null,heldAt:null}); setTimeout(function(){ finishTalk(id,rec); say('Table talk for '+BY[id].name+' is ready in My notes.'); },G.tokenMs('demo-latency',700)); } });
+      flush('reconnect'); } }
+
+    function submit(){
+      if(!cur||submitted.current===cur.id||(WALK&&!checked)) return; // a second tap before the screen changes is the same submit
+      submitted.current=cur.id;
+      // Submit never waits on Table talk: a running recording stops and its highlights wait in My notes. A recording that
+      // waits offline now counts its 15 minutes from the moment the judge leaves this table.
+      if(eng.current&&eng.current.id===cur.id){ var rec=stopEngine(); if(rec&&!offRef.current) finishTalk(cur.id,rec); else if(rec) setTalk(cur.id,{state:'offline-queued',held:rec,heldAt:Date.now()}); }
+      else if(T(cur.id).held) setTalk(cur.id,{heldAt:Date.now()});
+      var done=order[0].concat([cur.id]), rest=queue[0].slice(1), id=cur.id;
+      var real=done.filter(function(x){return !(evals[0][x]||{}).skipped;});
+      var next=real.length>=2?'compare':(over||!rest.length)?'complete':nextTable();
+      G.haptic('tap'); enqueue('eval:'+id);
+      // How the judge arrived travels with the evaluation: a scan or the typed check, by name (nominations are held until
+      // staff check the table), or a proof still waiting for the server (offline).
+      var c=V.check, arr=c.state==='offline'?{by:c.proof&&c.proof.method==='scan'?'scan':'typed',state:'pending'}:c.state==='name'?{by:'name',state:'verified'}:c.state==='matched'?{by:c.via==='scan'||c.via==='qr'?'scan':'typed',state:'verified'}:null;
+      if(arr) patch(id,{arrival:arr});
+      leftAt[1](function(m){ var n=Object.assign({},m); n[id]=Date.now(); return n; });
+      go(next,function(){ order[1](done); queue[1](rest); leftId[1](id); if(next===nextTable()) say(offRef.current?'Saved on this phone. Your next table is on the signpost.':'Saved. Your next table is on the signpost.'); });
+    }
+    function skip(reason,note){
+      var id=cur.id, rest=queue[0].slice(1), off=offRef.current;
+      if(eng.current&&eng.current.id===id) stopEngine(); // Skip discards what was heard, with no prompt
+      if(S==='enroute'&&eng.current&&eng.current.mode==='memo') stopTalk(); // a memo about the last table finishes first
+      leftId[1](null);
+      // What was heard (and not kept) goes; the tries used stay, so a table that comes back still has only what's left.
+      var tk=T(id), u=tk.attemptsUsed||0; setTalk(id,{state:u>=2?'used-up':u===1?'retry':'idle',marks:[],items:(tk.items||[]).filter(isKept),prize:null,fallback:null,demoSuggested:null,meta:null,held:null,heldAt:null});
+      if(reason==='busy'){
+        // No penalty: it comes back after one other table. With nothing else free, the judge waits for it.
+        if(!rest.length){ go('waiting',function(){ sheet[1](false); freeAt[1](Date.now()+G.tokenMs('demo-wait',6000)); }); return; }
+        go(nextTable(),function(){ sheet[1](false); say(SKIP_TOAST.busy); queue[1]([rest[0],id].concat(rest.slice(1))); }); return;
+      }
+      if(reason==='cant-find'){
+        enqueue('ping:'+id);
+        if(!rest.length){ go('held',function(){ sheet[1](false); if(off) say('You’re offline: staff get the ping when you reconnect.','warn'); else say('Staff pinged. They’ll help you find Table '+cur.table+'.'); }); return; }
+        go(nextTable(),function(){ sheet[1](false); say((off?SKIP_TOAST_OFF:SKIP_TOAST)[reason],off?'warn':undefined); queue[1](rest.concat([id])); }); return;
+      }
+      enqueue('skip:'+id);
+      go(rest.length?nextTable():'complete',function(){ sheet[1](false); say((off?SKIP_TOAST_OFF:SKIP_TOAST)[reason],off&&reason!=='conflict'?'warn':undefined); patch(id,{skipped:reason,skipNote:note}); order[1](order[0].concat([id])); queue[1](rest); });
+    }
+    // Waiting for a table: when one frees up, buzz and go (the visual cue is the toast and the screen change). The moment
+    // is saved with the session; a wait resumed without one starts a fresh wait instead of hanging.
+    useEffect(function(){ if(S==='waiting'&&!freeAt[0]) freeAt[1](Date.now()+G.tokenMs('demo-wait',6000)); },[S,freeAt[0]]);
+    useEffect(function(){ if(S!=='waiting'||!freeAt[0]) return; var t=setTimeout(function(){ G.haptic('go'); go(nextTable(),function(){ freeAt[1](null); visit[1](Object.assign(fresh(),{id:cur&&cur.id})); say('Table '+(cur?cur.table:'')+' is free. Head over.'); }); },Math.max(0,freeAt[0]-Date.now())); return function(){clearTimeout(t);}; },[S,freeAt[0]]);
+    function putBack(id){
+      var q=queue[0], at=q.length?1:0;
+      patch(id,{skipped:null,skipNote:null}); order[1](order[0].filter(function(x){return x!==id;})); queue[1](q.slice(0,at).concat([id],q.slice(at)));
+      if(outbox[0]['skip:'+id]) dequeue('skip:'+id); else enqueue('unskip:'+id);
+      unskip[1](null); say(BY[id].name+' is back in your queue, after this table.');
+    }
+    function endWithout(){ var id=cur.id; enqueue('skip:'+id); go('complete',function(){ patch(id,{skipped:'cant-find'}); order[1](order[0].concat([id])); queue[1](queue[0].slice(1)); }); }
+
+    function commitVote(){ if(!pendRef.current) return; pendRef.current=null;
+      var L=live.current, next=L.over||!L.more?'complete':nextTable();
+      if(L.S==='compare') go(next,function(){ pending[1](null); }); else { pending[1](null); if(L.S==='notes') back[1](next); } }
+    useEffect(function(){ var pv=pending[0]; if(!pv) return; var t;
+      function check(){ if(pendRef.current!==pv) return; var ms=pv.at+UNDO()-Date.now(); if(ms>0){ clearTimeout(t); t=setTimeout(check,ms); return; } commitVote(); }
+      check(); document.addEventListener('visibilitychange',check);
+      return function(){ clearTimeout(t); document.removeEventListener('visibilitychange',check); }; },[pending[0]]);
+    // Time up while recording: stop and keep the highlights.
+    useEffect(function(){ if(over&&eng.current&&eng.current.mode!=='memo') stopTalk(); },[over]);
+
+    function reset(){ stopEngine(); M.reset(); clearTimeout(linkT.current); clearTimeout(buzzT.current); writeSaved(null); pendRef.current=null; offRef.current=false; screen[1]('signin');sent[1](false);sending[1](false);netErr[1]('');failArm[1](false);failRef.current=false;email[1]('');code[1]('');codeErr[1]('');tries[1](0);linkBad[1](false);map[1](false);back[1](null);queue[1](QUEUE.map(function(q){return q.id;}));evals[1]({});order[1]([]);votes[1]([]);pending[1](null);sheet[1](false);left[1](START);offline[1](false);outbox[1]({});syncing[1](false);ranking[1](null);r2done[1](false);toast[1](null);askOut[1](false);loading[1](false);editing[1](null);unskip[1](null);r1done[1](false);cd[1](3);visit[1](null);talk[1]({});scanWrong[1](false);cameraOff[1](false);scanSeen[1](null);freeAt[1](null);leftId[1](null);leftAt[1]({});aiOff[1](false);slowMic[1](false);useMic[1](false); }
+    var notesBtn=S==='notes'?h(G.Button,{variant:'secondary',shape:'back',onClick:function(){go(back[0]||nextTable());}},'Back'):h(G.Button,{variant:'ghost',icon:'notes',onClick:function(){var b=S; G.swap(function(){screen[1]('notes'); back[1](b);});}},'My notes');
+    var timer=h(G.TimerBar,{secondsLeft:left[0],totalSeconds:TOTAL});
+    // A memo about a table the judge has left (MEMO_AFTER), on the walk, while waiting, after the last table, or from that
+    // project's page in My notes: only the judge's voice. It is offered for 15 minutes (talk-window) after leaving;
+    // a skip or the next arrival ends the offer on the walk; its highlights wait in My notes.
+    function memoCard(id){
+      var pt=id&&T(id), pe=id&&(evals[0][id]||{});
+      if(!id||!BY[id]||!pt||!elig(id,'memo').allowed) return null; // event off, or this browser can't record: no memo
+      if(Date.now()-(leftAt[0][id]||0)>WINDOW()) return null;
+      var teamNo=polic[0].optedOut.indexOf(id)>=0;
+      if(pt.mode!=='memo'&&!((MEMO_AFTER[pt.state]||teamNo)&&!(pe.hl||[]).length&&!(pt.items||[]).length)) return null;
+      return h(G.TableTalk,{key:'memo'+id,mode:'memo',project:BY[id].name,state:pt.mode==='memo'?pt.state:'memo',attemptsUsed:pt.memoUsed||0,failedAt:pt.failedAt,pausedReason:pt.pausedReason,elapsed:talkLive[0].elapsed,level:talkLive[0].level,demo:true,
+        onStart:function(){ startTalk(id,'memo'); },onRetry:function(){ startTalk(id,'memo'); },onCancelStart:cancelStart,onPause:function(){ eng.current&&eng.current.engine.pause(); },onResume:resumeTalk,onStop:stopTalk,onStopDelete:stopDelete,
+        highlights:hlProps(id),meta:pt.meta});
+    }
+    var body;
+
+    // Signing in is a networked step (the server sends the link and checks the code), so it has its own offline and failure states:
+    // offline, nothing is sent and the screen says why (the send and code buttons wait); a send or a check that fails says so, keeps
+    // what was typed and costs no try. The demo strip's "Next send fails" arms one failure.
+    function netFail(kind){ failRef.current=false; failArm[1](false); netErr[1](kind); G.haptic('error'); }
+    function sendLink(e){ e.preventDefault(); var v=email[0].trim();
+      if(sending[0]||offRef.current){ if(offRef.current) G.haptic('error'); return; }
+      if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ emailErr[1]('Enter the email you registered to judge with.'); G.haptic('error'); return; }
+      emailErr[1](''); netErr[1](''); sending[1](true); clearTimeout(linkT.current);
+      linkT.current=setTimeout(function(){ sending[1](false); if(offRef.current||failRef.current){ netFail('send'); return; } sent[1](true); tries[1](0); code[1](''); },G.tokenMs('demo-latency',700)); }
+    var offNote=offline[0]&&h(G.OfflineBanner,null,'We can’t email a link or check a code until you reconnect. Stuck? Ask at the check-in desk.');
+    if(S==='signin') body=h(G.JudgeShell,{screenKey:'signin'},
+      h('div',{className:'gv-seal',style:{marginTop:'auto'}},h(G.Brand,{name:'longhorn'})),
+      h('h1',{className:'gv-h1 signin__howdy',style:{marginTop:0}},'Howdy, judge.'),
+      h('p',{className:'gv-lede',style:{textAlign:'center'}},'No password. Use the sign-in link we emailed you, or scan the QR code at the check-in desk.'),
+      h(G.Card,null,h('div',{className:'signin'},
+        offNote,
+        sent[0]?h('div',{role:'status',id:'si-sent',tabIndex:-1,className:'gv-stack',style:{gap:'var(--space-2)'}},
+            h('div',{className:'gv-card__title',style:{margin:0}},h(G.Icon,{name:'check'}),'Link sent to '+email[0].trim()),
+            h('p',{className:'p-soft'},'Open it on this phone. It works once and expires in 15 minutes.'),
+            h('div',{className:'or'},'or type the code from the email'),
+            h('form',{className:'gv-stack',style:{gap:'var(--space-2)'},noValidate:true,onSubmit:function(e){ e.preventDefault(); if(tries[0]>=5) return; if(!/^\d{6}$/.test(code[0])){ codeErr[1]('The code is the 6 digits in the email.'); G.haptic('error'); return; } if(offRef.current){ G.haptic('error'); return; } if(failRef.current){ netFail('verify'); return; } if(code[0]!==DEMO_CODE){ var n=tries[0]+1; tries[1](n); G.haptic('error'); codeErr[1](n>=5?'Too many tries. That code no longer works, so send a new one.':'That code didn’t work. Check the newest email. '+(5-n)+' '+(5-n===1?'try':'tries')+' left.'); return; } codeErr[1](''); go('checkin'); }},
+              h('div',{className:'field'},h('label',{htmlFor:'si-code'},'6-digit code'),
+                h('input',{id:'si-code',className:'code',inputMode:'numeric',autoComplete:'one-time-code',spellCheck:false,value:code[0],'aria-invalid':!!codeErr[0],'aria-describedby':codeErr[0]?'si-cerr':undefined,onChange:function(e){code[1](e.target.value.replace(/\D/g,'').slice(0,6));codeErr[1]('');netErr[1]('');}}),
+                codeErr[0]&&h('div',{className:'field__err',id:'si-cerr',role:'alert'},codeErr[0])),
+              tries[0]>=5?h(G.Button,{variant:'secondary',block:true,onClick:function(){sent[1](false);tries[1](0);code[1]('');codeErr[1]('');netErr[1]('');}},'Send a new code'):h(G.Button,{type:'submit',variant:'secondary',block:true,disabled:offline[0]},'Sign in with code'),
+              netErr[0]==='verify'&&h('div',{className:'field__err',id:'si-neterr',role:'alert'},'We couldn’t check the code. Check your connection and try again. No try was used.')),
+            h(G.Button,{variant:'ghost',block:true,onClick:function(){sent[1](false);}},'Use a different email'))
+          :h('form',{className:'gv-stack',noValidate:true,onSubmit:sendLink},
+            h('div',{className:'field'},h('label',{htmlFor:'si-email'},'Email'),
+              h('input',{id:'si-email',type:'email',autoComplete:'email',inputMode:'email',spellCheck:false,value:email[0],placeholder:'you@company.com','aria-invalid':!!emailErr[0],'aria-describedby':emailErr[0]?'si-err':undefined,onChange:function(e){email[1](e.target.value);emailErr[1]('');netErr[1]('');}}),
+              emailErr[0]&&h('div',{className:'field__err',id:'si-err',role:'alert'},emailErr[0])),
+            h(G.Button,{type:'submit',block:true,size:'lg',iconRight:'arrow',loading:sending[0],disabled:offline[0]},sending[0]?'Sending…':netErr[0]==='send'?'Try again':'Email me a sign-in link'),
+            netErr[0]==='send'&&h('div',{className:'field__err',id:'si-neterr',role:'alert'},'We couldn’t send the link. Check your connection and try again.')),
+        h('div',{className:'or'},'or'),
+        h(G.Button,{variant:'wood',block:true,icon:'code',disabled:offline[0],onClick:function(){go('checkin');}},'Scan check-in QR'))),
+      h('p',{className:'gv-lede',style:{textAlign:'center'}},'Staff and admins sign in with Google on the admin console.'));
+
+    else if(S==='redeem') body=h(G.JudgeShell,{screenKey:'redeem'+linkBad[0],footer:h(G.ActionBar,null,linkBad[0]
+          ?h(G.Button,{block:true,size:'lg',settle:true,settleKey:'expired',onClick:function(){sent[1](false);go('signin');}},'Send me a new link')
+          :h(G.Button,{block:true,size:'lg',iconRight:'arrow',settle:true,settleKey:'redeem',onClick:function(){go('checkin');}},'Continue'))},
+      h('h1',{className:'gv-h1 signin__howdy'},linkBad[0]?'Link expired.':'One more tap.'),
+      h(G.Card,null,linkBad[0]?h('div',{className:'gv-stack',role:'alert'},
+          h('p',{className:'p'},'This sign-in link has expired or was already used. Links work once, for 15 minutes.'),
+          h('p',{className:'p-soft'},'At the venue? Staff at the check-in desk can sign you in with a QR code.'))
+        :h('div',{className:'gv-stack'},
+          h('p',{className:'p'},'Sign in to judge as ',h('b',null,email[0].trim()||'sarah@stripe.com'),'?'),
+          h('p',{className:'p-soft'},'Not you? Close this page; nothing changes until you continue.'))));
+
+    else if(S==='checkin') body=h(G.JudgeShell,shell({right:null,screenKey:'checkin',footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',onClick:function(){ if(offRef.current){ enqueue('ping:desk'); say('You’re offline: staff get the ping when you reconnect. Or find someone in an orange shirt.','warn'); } else say('Staff pinged. Someone will find you at the desk.'); }},'Something’s wrong'),h(G.Button,{size:'lg',iconRight:'arrow',settle:true,settleKey:'checkin',onClick:function(){go('countdown',function(){cd[1](3);});}},'Looks right'))}),
+      h('div',{className:'gv-step'},'Checked in · 6:42 PM'),
+      h('h1',{className:'gv-h1'},'Welcome, Sarah.'),
+      h('p',{className:'gv-lede'},'Check these before judging starts. If anything is wrong, find a staff member in an orange shirt.'),
+      h(G.Card,null,h('div',{className:'gv-stack',style:{gap:'var(--space-4)'}},
+        h('div',{className:'kv'},h('span',{className:'kv__i'},h(G.Icon,{name:'user',size:'wide'})),h('div',{style:{flex:1}},h('div',{className:'kv__k'},'You judge'),h('div',{className:'kv__v'},'Pro projects')),h(G.PathBadge,{path:'pro'})),
+        h('div',{className:'kv'},h('span',{className:'kv__i'},h(G.Icon,{name:'pin',size:'wide'})),h('div',{style:{flex:1}},h('div',{className:'kv__k'},'Round 1 room'),h('div',{className:'kv__v'},'Room 4217 · A01–A28'))),
+        h('div',{className:'kv'},h('span',{className:'kv__i'},h(G.Icon,{name:'trophy',size:'wide'})),h('div',{style:{flex:1}},h('div',{className:'kv__k'},'Round 2 deliberation'),h('div',{className:'kv__v'},'Best UI/UX · Room 2405'))))),
+      h(G.Card,{title:'How tonight works',icon:'clock'},h('ol',{className:'steps'},
+        h('li',null,h('b',null,'1'),'Walk to the table the app shows you. Scan the QR on its placard, or type its code and the 2 characters after the dot.'),
+        h('li',null,h('b',null,'2'),'Spend about 5 minutes there. If the team agrees, your phone can take notes for you.'),
+        h('li',null,h('b',null,'3'),'From your second project on, pick which of your last two was stronger. No ties.'),
+        h('li',null,h('b',null,'4'),'Nominate standouts for prizes as you go. Most projects get none.'))));
+
+    else if(S==='countdown') body=h(G.JudgeShell,shell({screenKey:'countdown',toast:undefined}),
+      h('h1',{className:'gv-sr'},'Head to Room 4217. Judging begins in a few seconds; your first table appears here.'),
+      h(G.Prop,{name:'neon-board',wide:true}),
+      h('div',{className:'center'},h('div',{className:'gv-step','aria-hidden':true},'Judging begins in'),h('div',{className:'gv-countdown','aria-hidden':true},h('span',{key:cd[0],className:'gv-tick'},G.formatTime(cd[0]))),h('div',{className:'count','aria-hidden':true},'min : sec')),
+      h(G.Wayfinding,{size:'hero',room:'4217',label:'Head to your room',hint:'Siebel Center, 4th floor. Tables A01–A28.',onMap:function(){map[1](true);}}),
+      h('p',{className:'gv-lede center',style:{marginTop:'var(--space-2)'}},'Your first table appears here automatically. No need to refresh.'));
+
+    // En route: the walk to the table. Nothing can be judged yet; "I'm at the table" opens the check.
+    else if(S==='enroute'&&cur){
+      var n0=order[0].length+1, of0=order[0].length+queue[0].length;
+      body=h(G.JudgeShell,shell({timer:timer,screenKey:'enroute'+cur.id,
+          footer:h(G.ActionBar,null,over?null:h(G.Button,{variant:'ghost',icon:'skip',settle:true,settleKey:'e'+cur.id,onClick:function(){sheet[1](true);}},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',block:over,settle:true,settleKey:'e'+cur.id,onClick:function(){ if(eng.current&&eng.current.mode==='memo') stopTalk(); go('evaluate',function(){ setVisit({phase:'table'}); leftId[1](null); }); }},'I’m at the table'))}),
+        h(G.TableProgress,{tone:'plaque',done:n0-1,total:of0,current:true,label:'Next table · '+n0+' of '+of0}),
+        h('h1',{className:'gv-sr'},'Head to Table '+cur.table+' in Room 4217: '+cur.name+'.'),
+        h(G.EnRoute,{table:cur.table,room:'4217',label:'Room 4217 · Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:cur.name,team:cur.team},lost:lost,onMap:function(){map[1](true);},onAskStaff:function(){ skip('cant-find',''); }},memoCard(leftId[0])),
+        sheet[0]&&h(G.SkipSheet,{project:cur.name,onCancel:function(){sheet[1](false);},onSkip:skip}));
+    }
+
+    else if(S==='evaluate'&&cur){
+      var t0=T(cur.id), ev=evals[0][cur.id]||{}, locked=WALK&&!checked, byName=V.check.state==='name', lockMsg='Check the table first: scan its placard or type its code.';
+      var ttEl=elig(cur.id,'table');
+      body=h(G.JudgeShell,shell({timer:timer,screenKey:'evaluate'+cur.id,
+        announce:loading[0]?'Loading your next project…':'Now judging '+cur.name+', table '+cur.table+'.',
+        footer:h(G.ActionBar,null,over?null:h(G.Button,{variant:'ghost',icon:'skip',settle:true,settleKey:cur.id,onClick:function(){sheet[1](true);}},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',block:over,settle:true,settleKey:cur.id,disabled:loading[0]||locked,onClick:function(e){ if(e&&e.detail>0&&micWaiting()) return; submit(); }},over?'Submit final evaluation':'Submit evaluation'))}),
+      h(G.Wayfinding,{room:'4217',table:cur.table,label:(order[0].length+1)+' of '+(order[0].length+queue[0].length),onMap:function(){map[1](true);}}),
+      h(G.TableCheck,{key:cur.id+'c',project:{name:cur.name,table:cur.table,team:cur.team},room:'4217',state:V.check.state,result:V.check.result,via:V.check.via,value:V.check.raw,onChange:function(v){setCheck({raw:v});},
+        triesLeft:V.check.triesLeft,onCheck:runCheck,onScan:startScan,onCancelScan:cancelScan,onRetry:function(){setCheck({state:'idle',result:null,raw:''});},
+        onName:function(){ var cid='c'+Date.now().toString(36)+(++cidN.current); setCheck({state:'name',via:'name',raw:''});
+          if(offRef.current) enqueue('arrive:'+cur.id,{method:'name',code:cur.table,cid:cid,at:Date.now()},true); else { M.lease(vid(cur.id),cur.table); M.arrive({visitId:vid(cur.id),judgeId:'j1',code:cur.table,method:'name',clientId:cid}); } },
+        onMap:function(){map[1](true);},
+        scanPreview:scanSeen[0]?h(G.QR,{value:scanSeen[0].url,label:'Placard QR'}):undefined}),
+      loading[0]?h(G.ProjectSkeleton,{key:'skel',rows:3}):h(G.ProjectHeader,{key:cur.id+'h',as:'h1',name:cur.name,path:cur.path,table:cur.table,room:'4217',tracks:cur.tracks,showLocation:false,eyebrow:'Now judging',tagline:cur.tagline}),
+      !loading[0]&&h('div',{className:'gv-disclosures',key:cur.id+'d'},
+        h(G.Disclosure,{icon:'doc',title:'Devpost description'},cur.description,h('a',{className:'gv-link gv-link--block',href:'https://devpost.com/software/'+cur.slug,target:'_blank',rel:'noopener'},h('span',null,'Open on Devpost'),h(G.Icon,{name:'external'}))),
+        h(G.Disclosure,{icon:'users',title:'Team',meta:cur.team.split(',').length+' members'},cur.team),
+        h(G.Disclosure,{icon:'code',title:'GitHub repository',meta:cur.commits+' commits'},h('a',{className:'gv-link gv-link--block',href:'https://'+cur.repo,target:'_blank',rel:'noopener'},h('span',null,cur.repo),h(G.Icon,{name:'external'})))),
+      !loading[0]&&h(G.Garland,{key:cur.id+'g'}),
+      // Table talk sits between the disclosures and the notes; it never blocks Submit or Skip (Submit ignores a finger tap only while the microphone is starting: micWaiting).
+      h(G.TableTalk,{key:cur.id+'t',project:cur.name,mode:'table',state:t0.state,attemptsUsed:t0.attemptsUsed,marks:t0.marks,warn:t0.warn,pausedReason:t0.pausedReason,failedAt:t0.failedAt,ai:!aiOff[0],demo:true,
+          eligibility:ttEl,disabled:ttEl.allowed&&(locked||byName),lockedReason:locked?lockMsg:byName?'Scan the placard or type its code to use Table talk.':t0.lockedReason,lockedSub:t0.lockedSub,
+          elapsed:talkLive[0].elapsed,level:talkLive[0].level,meta:t0.meta,highlights:hlProps(cur.id),
+          onAsk:function(){ if(!elig(cur.id,'table',true).allowed) return; setTalk(cur.id,{state:'consent'}); },
+          onConsent:function(){ startTalk(cur.id,'table'); },
+          onDecline:function(){ setTalk(cur.id,{state:'declined',declinedAt:1}); },
+          onCancelConsent:function(){ setTalk(cur.id,{state:T(cur.id).attemptsUsed?'retry':'idle'}); },
+          onCancelStart:cancelStart,
+          onMark:markTalk,onPause:function(){ eng.current&&eng.current.engine.pause(); },onResume:resumeTalk,onStop:stopTalk,onStopDelete:stopDelete,
+          onRetry:function(){ if(!elig(cur.id,'table',true).allowed) return; setTalk(cur.id,{state:'consent'}); },
+          onDiscard:function(){ var t=T(cur.id), u=t.attemptsUsed; setTalk(cur.id,{state:u<2?'retry':'used-up',items:(t.items||[]).filter(isKept),prize:null,fallback:null,demoSuggested:null,meta:null,lowAudio:false}); say('Deleted what was heard. Your typed notes stay.'); }}),
+      h(G.DemoStatus,{key:cur.id+'s',value:ev.demo||null,suggested:polic[0].eventEnabled?t0.demoSuggested||null:null,disabled:locked,lockedReason:locked?lockMsg:null,onChange:function(v){patch(cur.id,{demo:v}); enqueue('eval:'+cur.id);}}),
+      h(G.NotesField,{key:cur.id+'n',value:draft.note,syncKey:syncN[0],disabled:locked,placeholder:locked?'Check the table first, then write notes.':undefined,onChange:function(v){patch(cur.id,{note:v}); enqueue('eval:'+cur.id);},onSave:syncNote(cur.id)}),
+      h(G.NominationPicker,{key:cur.id+'p',prizes:PRIZES,value:draft.noms,disabled:locked,onChange:function(n){patch(cur.id,{noms:n}); enqueue('eval:'+cur.id);},hint:locked?lockMsg:byName?'Confirmed by name: nominations are held until staff check this table. Nominate only standouts.':'Nominate only standouts. About 1 in 5 projects per prize.'}),
+      sheet[0]&&h(G.SkipSheet,{project:cur.name,exclude:byName?['absent']:undefined,excludeNote:byName?'Scan the placard or type its code to report the team absent.':undefined,onCancel:function(){sheet[1](false);},onSkip:skip}));
+    }
+
+    else if(S==='waiting'&&cur){ var rest0=queue[0].map(function(id){return BY[id];});
+      body=h(G.JudgeShell,shell({timer:timer,screenKey:'waiting',
+          footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',block:true,settle:true,settleKey:'wait',onClick:function(){ if(offRef.current){ enqueue('ping:wait'); say('You’re offline: staff get the ping when you reconnect.','warn'); } else say('Staff pinged. Someone will come to you in Room 4217.'); }},'Waiting too long? Ping staff'))}),
+        h(G.Prop,{name:'wagon',className:'wait__prop'}),
+        h('h1',{className:'gv-h1 gv-h1--sm center'},'All your tables are busy'),
+        h('p',{className:'gv-lede center'},'We’ll buzz you when one frees up. Stay in Room 4217; this screen moves on by itself.'),
+        memoCard(leftId[0]),
+        h(G.TableProgress,{done:order[0].length,total:order[0].length+queue[0].length}),
+        h(G.Card,{title:'Still to judge',icon:'table'},h('ul',{className:'wait__list'},rest0.map(function(x){ return h('li',{key:x.id},h('span',null,h('b',null,x.name),' · Table '+x.table),h(G.Badge,{tone:'warn',icon:'users'},'With a judge')); }))),
+        h('p',{className:'gv-lede center',style:{marginTop:0}},'Busy tables come back with no penalty.'));
+    }
+
+    else if(S==='held'&&cur) body=h(G.JudgeShell,shell({timer:timer,screenKey:'held'+cur.id,
+        footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',settle:true,settleKey:'held',onClick:endWithout},over?'Finish Round 1':'End Round 1'),h(G.Button,{size:'lg',iconRight:'arrow',settle:true,settleKey:'held',onClick:function(){go('evaluate',function(){ setVisit({phase:'table'}); });}},'I found it'))}),
+      h(G.Wayfinding,{room:'4217',table:cur.table,label:'Last table',onMap:function(){map[1](true);}}),
+      h('div',{className:'gv-step'},offline[0]?'Ping saved on this phone':'Staff pinged'),
+      h('h1',{className:'gv-h1 gv-h1--sm'},offline[0]?'Find a staff member':'Staff are on it'),
+      h('p',{className:'gv-lede'},offline[0]
+        ?cur.name+' is your last table and nobody could find '+cur.table+'. You’re offline, so staff get the ping when you reconnect; until then, find someone in an orange shirt. Found it? Judge it. Otherwise end Round 1 without it; another judge will see it.'
+        :cur.name+' is your last table and nobody could find '+cur.table+'. Stay near the door; staff will come to you. Found it? Judge it. Otherwise end Round 1 without it; another judge will see it.'));
+
+    else if(S==='compare'){ var j=judged().filter(function(x){return !x.skipped;}); var a=j[j.length-2], b=j[j.length-1], pv=pending[0], vk='vote:'+a.id+'-'+b.id;
+      // Recall rows read across: when either card has them, both do (the other's empty rows say "nothing noted").
+      if(a.recall||b.recall){ a=Object.assign({},a,{recall:a.recall||{does:null,demo:null,standout:null,open:null}}); b=Object.assign({},b,{recall:b.recall||{does:null,demo:null,standout:null,open:null}}); }
+      body=h(G.JudgeShell,shell({timer:timer,toast:undefined,screenKey:'compare'+a.id+b.id}),
+        h('div',{className:'gv-step'},'Comparison '+(votes[0].length+(pv?0:1))+' · your last two projects'),
+        h(G.ComparePair,{key:a.id+b.id,as:'h1',a:a,b:b,recorded:pv?pv.choice:null,recordedAt:pv?pv.at:null,undoSeconds:UNDO()/SECOND,toast:toastText,toastId:toastId,
+          nextLabel:(over||!queue[0].length)?'Finish Round 1':'Next table',
+          onConfirm:function(c){ var pv={choice:c,at:Date.now()}; pendRef.current=pv; votes[1](votes[0].concat([{a:a.id,b:b.id,winner:c==='a'?a.id:b.id}])); pending[1](pv); enqueue(vk); },
+          onUndo:function(){ var p=pendRef.current; if(!p||Date.now()>=p.at+UNDO()) return; pendRef.current=null; votes[1](votes[0].slice(0,-1)); pending[1](null); dequeue(vk); },
+          onNext:commitVote})); }
+
+    else if(S==='notes'){ var list=judged(), ed=editing[0]&&BY[editing[0]], us=unskip[0]&&BY[unskip[0]], locked2=r1done[0], memoEd=ed&&memoCard(ed.id);
+      body=h(G.JudgeShell,shell({timer:judging?timer:null,screenKey:'notes'}),
+        h('div',{className:'notes-head'},h('h1',{className:'gv-h1 gv-h1--sm'},'My notes'),h('span',{className:'count'},list.filter(function(x){return !x.skipped;}).length+' judged · '+votes[0].length+(votes[0].length===1?' vote':' votes'))),
+        locked2&&list.length>0&&h('p',{className:'gv-lede',style:{marginTop:0}},'Round 1 is over, so these are read-only. They come with you to Round 2.'),
+        list.length>0&&h(G.Garland,null),
+        list.length?h('div',{className:'gv-notes-list'},list.map(function(x){ var tag=locked2?'div':'button';
+          return h(tag,{className:'gv-note',key:x.id,type:locked2?undefined:'button',onClick:locked2?undefined:function(){ if(x.skipped) unskip[1](x.id); else editing[1](x.id); }},
+            !locked2&&h('span',{className:'gv-sr'},x.skipped?'Put back: ':'Edit: '),
+            h('span',{className:'gv-note__top'},h('span',{className:'gv-note__name'},x.name),x.skipped?h(G.Badge,{tone:'warn',className:'gv-badge--stamp'},'Skipped'):h(G.Badge,{tone:'success',className:'gv-badge--stamp'},'Judged')),
+            h('span',{className:'gv-row',style:{gap:'var(--space-1)'}},h(G.PathBadge,{path:x.path}),h(G.Badge,{mono:true},'Table '+x.table),(x.nominations||[]).map(function(m){return h(G.Badge,{tone:'brand',icon:'star',key:m},m+(x.held?' · pending':''));}),!locked2&&x.toReview>0&&h(G.Badge,{tone:'warn',icon:'mic'},plural(x.toReview,'highlight','highlights')+' to review')),
+            !x.skipped&&x.recall&&h(G.RecallBlock,{rows:x.recall}),
+            h('span',{className:'gv-note__body'+(x.recall?' note__clamp':'')},x.skipped?SKIP_LABEL[x.skipped]+(x.skipNote?': '+x.skipNote:''):(x.notes||'No notes yet.')),
+            !locked2&&h('span',{className:'gv-note__edit','aria-hidden':true},h(G.Icon,{name:x.skipped?'arrow':'notes'}),x.skipped?'Tap to put back':'Tap to edit'));}))
+          :h(G.EmptyState,{as:'h2',prop:'cactus-tall',title:'Nothing judged yet',body:'Projects you evaluate show up here with your notes and nominations. Tap one to edit it until Round 1 ends.'}),
+        h('div',{style:{marginTop:'auto',paddingTop:'var(--space-4)'}},askOut[0]
+          ?h(G.InlineConfirm,{confirmLabel:unsent?'Delete '+unsent+' and sign out':'Sign out',cancelLabel:unsent?'Keep them':'Cancel',onConfirm:reset,onCancel:function(){askOut[1](false);}},
+              unsent?[h('b',{key:'b'},'You’re offline with '+plural(unsent,'unsent item','unsent items')+'.'),' Signing out now deletes them from this phone. Reconnect first and they are sent.']:'Sign out? Your work is already sent. This phone is cleared, so the next person sees nothing.')
+          :h('div',{style:{textAlign:'center'}},h(G.Button,{variant:'ghost',settle:true,settleKey:'so'+(ed?ed.id:'')+(us?us.id:''),onClick:function(){askOut[1](true);}},'Sign out (Sarah Kim)'))),
+        ed&&h(EditNotes,{project:ed,draft:evals[0][ed.id]||{note:'',noms:[]},syncKey:syncN[0],hlProps:hlProps(ed.id),memo:memoEd,hideHl:!!memoEd&&memoEd.props.state==='ready',pendingNoms:nomsHeld(ed.id),onSave:syncNote(ed.id),onPatch:function(p){patch(ed.id,p); enqueue('eval:'+ed.id);},onClose:function(){ if(eng.current&&eng.current.mode==='memo') stopTalk(); editing[1](null); }}),
+        us&&h(Unskip,{project:us,reason:SKIP_LABEL[(evals[0][us.id]||{}).skipped]||'Skipped',onClose:function(){unskip[1](null);},onUnskip:function(){putBack(us.id);}}));
+    }
+
+    else if(S==='complete'||((S==='evaluate'||S==='enroute'||S==='waiting')&&!cur)) body=h(G.JudgeShell,shell({screenKey:'complete',footer:h(G.ActionBar,null,h(G.Button,{block:true,size:'lg',iconRight:'arrow',settle:true,settleKey:'complete',onClick:function(){ if(eng.current&&eng.current.mode==='memo') stopTalk(); go('round2',function(){ leftId[1](null); }); }},'Start Round 2'))}),
+      h('div',{className:'gv-win','aria-hidden':true},h(G.Prop,{name:'horseshoe',small:true}),h('div',{className:'gv-star',onAnimationStart:starBuzz},h(G.Icon,{name:'check',size:'lg',strokeWidth:3})),h(G.Prop,{name:'cactus-round',small:true})),
+      h('h1',{className:'gv-h1 center'},'Round 1 complete'),
+      h('p',{className:'gv-lede center'},plural(order[0].filter(function(id){return !(evals[0][id]||{}).skipped;}).length,'project','projects')+', '+plural(votes[0].length,'comparison','comparisons')+'. Thank you! Round 2 opens at 8:30 PM, when nominations close.'),
+      h(G.TableProgress,{done:order[0].length,total:order[0].length,className:'gv-prog--center'}),
+      h(G.Garland,null),
+      h(G.Wayfinding,{size:'hero',room:'2405',label:'Round 2 · Best UI/UX deliberation',hint:'Siebel Center, 2nd floor. Nominations close 15 minutes after Round 1 ends. Your notes come with you.'}),
+      memoCard(leftId[0]));
+
+    // Round 2 before nominations close (Round 1 end + the 15-minute grace): the page is open but the finalists are not set, so it says when, never an empty board.
+    // The demo opens Round 2 at once (it cannot wait 15 minutes); the demo strip's "Round 2 not open yet" shows this state and "Open Round 2" lets the clock pass.
+    else if(S==='round2'&&r2shut[0]&&!r2done[0]) body=h(G.JudgeShell,shell({screenKey:'round2-closed'}),
+      h('div',{className:'gv-step'},'Round 2 · Best UI/UX'),
+      h(G.Wayfinding,{size:'hero',room:'2405',label:'Round 2 deliberation',hint:'Opens at 8:30 PM, when nominations close.'}),
+      h('div',{className:'gv-card'},h(G.EmptyState,{as:'h1',icon:'clock',title:'Finalists aren’t set yet',body:'Nominations are still coming in. The finalists appear here when Round 2 opens.'})));
+
+    else if(S==='round2'){ var fin=ranking[0]||FINALISTS;
+      body=r2done[0]?h(G.JudgeShell,shell({screenKey:'ranked',footer:h(G.ActionBar,null,h(G.Button,{variant:'secondary',size:'lg',block:true,settle:true,settleKey:'change',onClick:function(){G.swap(function(){r2done[1](false);});}},'Change my ranking'))}),
+          h('div',{className:'gv-star','aria-hidden':true,onAnimationStart:starBuzz},h(G.Icon,{name:'trophy',size:'lg'})),
+          h('h1',{className:'gv-h1 center'},offline[0]?'Ranking saved':'Ranking submitted'),
+          h('p',{className:'gv-lede center'},'Your order: '+fin.slice(0,3).map(function(x){return x.name;}).join(', ')+'. '+(offline[0]?'It is saved on this phone and is sent when you reconnect.':'The group’s combined ranking picks the winners at 9:15 PM.')))
+        : h(G.JudgeShell,shell({screenKey:'round2',footer:h(G.ActionBar,null,h(G.Button,{size:'lg',block:true,iconRight:'arrow',settle:true,settleKey:'submit',disabled:!fin.length,onClick:function(){ enqueue('rank'); G.swap(function(){r2done[1](true);}); }},'Submit my ranking'))}),
+          h('div',{className:'gv-step'},'Round 2 · Best UI/UX · Room 2405'),
+          h('h1',{className:'gv-h1 gv-h1--sm'},'Rank the finalists'),
+          h('p',{className:'gv-lede',style:{marginTop:0}},'Watch each Devpost demo, then order them with the arrows.'),
+          h(G.DeliberationBoard,{top:3,nominees:fin,onReorder:function(l){ranking[1](l); enqueue('rank');}})); }
+
+    // The demo strip lives outside the phone: what a real judge does elsewhere (open the email, a staff member's clock).
+    var demo=[];
+    if(DEMO){
+    if(S==='signin'&&sent[0]){ demo.push(h('button',{key:'link',type:'button',onClick:function(){linkBad[1](false);go('redeem');}},'Open email link'),h('button',{key:'code',type:'button',onClick:function(){code[1](DEMO_CODE);codeErr[1]('');}},'Use code '+DEMO_CODE)); }
+    else if(S==='redeem'&&!linkBad[0]) demo.push(h('button',{key:'exp',type:'button',onClick:function(){linkBad[1](true);}},'Expired link'));
+    else if(S!=='signin'&&S!=='redeem') demo.push(h('button',{key:'1m',type:'button',onClick:function(){setLeft(65);}},'1 min left'),h('button',{key:'up',type:'button',onClick:function(){setLeft(0);}},'Time up'));
+    if(S==='complete'||(S==='round2'&&!r2done[0])) demo.push(r2shut[0]?h('button',{key:'r2',type:'button',onClick:function(){G.swap(function(){r2shut[1](false);});}},'Open Round 2'):h('button',{key:'r2',type:'button',onClick:function(){G.swap(function(){r2shut[1](true);});}},'Round 2 not open yet'));
+    demo.push(h('button',{key:'net',type:'button','aria-pressed':offline[0],onClick:function(){setOnline(offline[0]);}},offline[0]?'Back online':'Go offline'));
+    if(S==='signin') demo.push(h('button',{key:'fail',type:'button','aria-pressed':failArm[0],onClick:function(){ failRef.current=!failRef.current; failArm[1](failRef.current); }},'Next send fails'));
+    // States: show any state the screen can't reach by itself (recorder failures, busy tables, a long walk).
+    if(judging&&cur) demo.push(h('select',{key:'st','aria-label':'Show a state',value:demoState[0],onChange:function(e){applyDemo(e.target.value);}},
+      h('option',{value:''},'States'),
+      h('optgroup',{label:'Table'},h('option',{value:'lost'},'Walked 3 min'),h('option',{value:'scan-a14'},'Next scan reads A14'),h('option',{value:'camera'},'Camera blocked'),S==='waiting'?h('option',{value:'free'},'Free a table now'):h('option',{value:'busy'},'All tables busy')),
+      h('optgroup',{label:'Table talk'},['starting','denied','mic-busy','unsupported','offline-queued','too-noisy','failed','retry'].map(function(v){return h('option',{key:v,value:v},v==='starting'?'waiting for the mic':v.replace('-',' '));}),h('option',{value:'failed-start'},'mic didn’t start'),h('option',{value:'used'},'used up'),h('option',{value:'event'},polic[0].eventEnabled?'off for the event':'back on for the event'),h('option',{value:'optout'},cur&&polic[0].optedOut.indexOf(cur.id)>=0?'team agreed after all':'team opted out'),h('option',{value:'ai'},aiOff[0]?'AI summaries on':'AI summaries off'),h('option',{value:'slow'},slowMic[0]?'Mic starts at once':'Slow mic start'),h('option',{value:'mic'},useMic[0]?'Use the sample conversation':'Use my microphone')),
+      h('optgroup',{label:'Network'},h('option',{value:'sync-fail'},'Next send fails'))));
+    demo.push(h('button',{key:'rs',type:'button',onClick:reset},'Restart'));
+    }
+    return h('div',{className:'stage'},
+      DEMO&&h('div',{className:'demo',role:'group','aria-label':'Demo controls'},h('span',null,'Demo'),demo),
+      h('div',{className:'phone'},h('div',{className:'scroll'},body),
+        map[0]&&h(RoomMap,{table:cur&&S!=='countdown'?cur.table:null,onClose:function(){map[1](false);}})));
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=220 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Disclosure — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-disclosures',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Disclosure,{icon:'doc',title:'Devpost description',defaultOpen:true},'A self-organizing peer-to-peer mesh network powered by reinforcement learning. ',h('a',{className:'gv-link gv-link--block',href:'https://devpost.com/software/neuralmesh',target:'_blank',rel:'noopener'},h('span',null,'Open on Devpost'),h(G.Icon,{name:'external'}))),h(G.Disclosure,{icon:'users',title:'Team',meta:'3 members'},'Ana Ruiz, Dev Patel, Kim Lee'),h(G.Disclosure,{icon:'code',title:'GitHub repository',meta:'48 commits'},h('a',{className:'gv-link gv-link--block',href:'https://github.com/neuralmesh/core',target:'_blank',rel:'noopener'},h('span',null,'github.com/neuralmesh/core'),h(G.Icon,{name:'external'})))));
+})();
+</script>
+</body>
+</html>

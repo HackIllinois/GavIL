@@ -1,0 +1,684 @@
+/*
+ * Admin console layout. A port of the <style> block of design-system/components/AdminConsole/preview.html
+ * (class names get the `ad` prefix so nothing here can meet the older rules in app/styles/app.css).
+ * Tokens only: every value is a var(--token) (lib/__tests__/cadm-css.test.ts checks it, and that the
+ * breakpoints are the ones in tokens.json). Component styles come from gavil.css (generated).
+ */
+
+/* ── Frame ──────────────────────────────────────────────────────────────────────────────────── */
+.ad__in {
+    max-width: var(--admin-max);
+    margin-inline: auto;
+    padding-inline: var(--space-6);
+}
+@media (max-width: 600px) {
+    .ad__in {
+        padding-inline: var(--space-3);
+    }
+}
+.ad__head {
+    position: relative;
+    z-index: 2;
+}
+.ad__head::after {
+    content: "";
+    display: block;
+    height: var(--space-1);
+    background: linear-gradient(
+        90deg,
+        var(--sky-1) 0 25%,
+        var(--sky-2) 25% 50%,
+        var(--sky-3) 50% 75%,
+        var(--sky-4) 75%
+    );
+}
+.ad__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-4);
+    min-height: calc(var(--tap-min) + var(--space-2));
+    padding-block: var(--space-2);
+    flex-wrap: wrap;
+}
+.ad__crumb {
+    margin-inline-start: var(--space-3);
+    padding-inline-start: var(--space-3);
+    border-inline-start: var(--stroke) solid var(--on-wood-soft);
+    font: var(--type-title);
+    letter-spacing: var(--tracking-title);
+    color: var(--on-wood-soft);
+    text-shadow: none;
+}
+.ad__who {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    font: var(--type-body-sm);
+    font-weight: 500;
+    color: var(--on-wood-soft);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.ad__who > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.ad__live {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--on-wood);
+    font: var(--type-caps);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+}
+.ad__live::before {
+    content: "";
+    width: var(--space-2);
+    height: var(--space-2);
+    border-radius: 50%;
+    background: var(--gold-on-ground);
+}
+.ad__logout {
+    color: var(--on-wood);
+}
+/* The skip link is the first stop of the page: hidden until the keyboard reaches it. */
+.ad__skip {
+    position: absolute;
+    inset-inline-start: var(--space-3);
+    top: var(--space-2);
+    z-index: 3;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: var(--type-button);
+    text-decoration: none;
+    transform: translateY(-300%);
+}
+.ad__skip:focus-visible {
+    transform: none;
+    outline: var(--stroke-focus) solid var(--focus);
+    outline-offset: var(--stroke);
+}
+.ad {
+    padding-bottom: calc(var(--space-12) + var(--space-8));
+    color: var(--on-ground);
+}
+.ad__panel {
+    padding-top: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+.ad__panel:focus-visible {
+    outline: var(--stroke-focus) solid var(--gold-on-ground);
+    outline-offset: var(--stroke);
+}
+.ad__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+}
+.ad__two {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .ad__two {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 420px) {
+    .ad__grid {
+        grid-template-columns: 1fr;
+    }
+}
+.ad__sec {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-1) var(--space-3);
+    flex-wrap: wrap;
+}
+.ad__sec > h2 {
+    font: var(--type-h2);
+    margin: var(--space-2) 0 0;
+    color: var(--on-ground);
+    text-shadow: var(--shadow-title);
+    text-wrap: balance;
+}
+.ad__sec > span {
+    font: var(--type-numeral);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--on-ground-soft);
+}
+.ad__detail {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .ad__detail {
+        grid-template-columns: 1fr;
+    }
+}
+.ad__narrow {
+    max-width: calc(var(--space-12) * 13);
+}
+.ad__dl {
+    display: grid;
+    grid-template-columns: calc(var(--space-12) * 3) minmax(0, 1fr);
+    gap: var(--space-3) var(--space-4);
+    margin: 0;
+    font: var(--type-body-sm);
+    font-weight: 400;
+}
+@media (max-width: 420px) {
+    .ad__dl {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
+    }
+    .ad__dl dd {
+        margin-bottom: var(--space-2);
+    }
+}
+.ad__dl dt {
+    color: var(--ink-muted);
+}
+.ad__dl dd {
+    margin: 0;
+}
+.ad__row-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+.ad__muted-note {
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-muted);
+}
+
+/* ── A short form on paper (add staff, check a team in, a cap) ───────────────────────────────── */
+.ad__add {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+    align-items: flex-start;
+    padding: var(--space-3);
+    box-shadow: inset 0 calc(-1 * var(--stroke-hair)) 0 var(--line);
+}
+.ad__add input,
+.ad__num {
+    flex: 1;
+    min-width: calc(var(--space-12) * 4);
+    min-height: calc(var(--tap-min) - var(--space-3));
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+    color: var(--ink);
+    font: var(--type-body);
+}
+.ad__add input[aria-invalid="true"] {
+    box-shadow: inset 0 0 0 var(--stroke) var(--danger);
+}
+.ad__add input:focus-visible,
+.ad__num:focus-visible {
+    outline: none;
+    box-shadow: inset 0 0 0 var(--stroke-focus) var(--focus);
+}
+.ad__err {
+    flex-basis: 100%;
+    color: var(--danger);
+    font: var(--type-body-sm);
+    font-weight: 600;
+}
+.ad__saved {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap-min);
+    font: var(--type-body-sm);
+    font-weight: 600;
+    color: var(--success);
+}
+.ad__saved--idle {
+    color: var(--ink-muted);
+    font-weight: 500;
+}
+/* Laptop-first density; on a phone every control is a thumb target again. */
+@media (max-width: 600px) {
+    .ad__add input,
+    .ad__num {
+        min-width: 0;
+        flex-basis: 100%;
+        min-height: var(--tap-min);
+    }
+}
+.ad__num {
+    flex: 0 1 calc(var(--space-12) * 2);
+    min-width: calc(var(--space-12) * 2);
+    font-variant-numeric: tabular-nums;
+}
+.gv-table td .gv-select {
+    min-width: calc(var(--space-12) * 2 + var(--space-6));
+}
+.gv-table tr.static {
+    cursor: default;
+}
+
+/* ── Presence map: each room's tables as a grid. The state is a fill, a shape and a word in the
+      legend, never colour alone: walking there is a dashed ring, at the table a solid fill, held a
+      corner notch, absent a struck-through number, not here yet a dotted ring. ─────────────────── */
+.ad-pm {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(calc(var(--space-12) * 5), 1fr)
+    );
+    gap: var(--space-5) var(--space-4);
+}
+.ad-pm__room {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+}
+.ad-pm__name {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-2);
+    font: var(--type-body-sm);
+    font-weight: 700;
+    color: var(--ink);
+}
+.ad-pm__name span {
+    font: var(--type-caps);
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+}
+.ad-pm__facts {
+    margin: 0;
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+}
+.ad-pm__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.ad-pm__grid--8 {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+}
+.ad-pm__t {
+    aspect-ratio: 1;
+    min-height: var(--space-6);
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-sm);
+    font: var(--type-eyebrow);
+    letter-spacing: 0;
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+}
+.ad-pm__t--present {
+    background:
+        linear-gradient(var(--success-tint), var(--success-tint)),
+        var(--surface);
+    color: var(--ink);
+    box-shadow: inset 0 0 0 var(--stroke-hair) var(--success);
+}
+.ad-pm__t--enroute {
+    background: var(--surface);
+    color: var(--select);
+    box-shadow: none;
+    outline: var(--stroke) dashed var(--select);
+    outline-offset: calc(-1 * var(--stroke));
+}
+.ad-pm__t--table {
+    background: var(--select);
+    color: var(--on-select);
+}
+.ad-pm__t--held {
+    position: relative;
+    background:
+        linear-gradient(var(--warn-tint), var(--warn-tint)), var(--surface);
+    color: var(--warn);
+    box-shadow: inset 0 0 0 var(--stroke-hair) var(--warn);
+}
+.ad-pm__t--held::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: var(--space-2);
+    height: var(--space-2);
+    background: var(--warn);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    border-top-right-radius: var(--radius-sm);
+}
+.ad-pm__t--absent {
+    background:
+        linear-gradient(var(--danger-tint), var(--danger-tint)), var(--surface);
+    color: var(--danger);
+    box-shadow: inset 0 0 0 var(--stroke) var(--danger);
+    text-decoration: line-through;
+    text-decoration-thickness: var(--stroke);
+}
+.ad-pm__t--notin {
+    background: var(--surface);
+    color: var(--ink-muted);
+    box-shadow: none;
+    outline: var(--stroke) dotted var(--line-strong);
+    outline-offset: calc(-1 * var(--stroke));
+}
+.ad-pm__t--empty {
+    background: transparent;
+    box-shadow: inset 0 0 0 var(--stroke-hair) var(--line);
+}
+.ad-pm__legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    margin: 0 0 var(--space-4);
+    padding: 0;
+    list-style: none;
+    font: var(--type-label);
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+.ad-pm__legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+.ad-pm__legend .ad-pm__t {
+    width: var(--space-4);
+    min-height: 0;
+    height: var(--space-4);
+    aspect-ratio: auto;
+}
+
+/* ── Judges right now ─────────────────────────────────────────────────────────────────────────── */
+.ad-js {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+.ad-js li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2) var(--space-3);
+    flex-wrap: wrap;
+    padding: var(--space-2) 0;
+    box-shadow: inset 0 var(--stroke-hair) 0 var(--line);
+}
+.ad-js li:first-child {
+    box-shadow: none;
+    padding-top: 0;
+}
+.ad-js__who {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.ad-js__who b {
+    font: var(--type-body-strong);
+    color: var(--ink);
+}
+.ad-js__who span {
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Floor tasks ──────────────────────────────────────────────────────────────────────────────── */
+.ad-task {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+}
+.ad-task + .ad-task {
+    box-shadow: inset 0 var(--stroke-hair) 0 var(--line);
+}
+.ad-task__t {
+    font: var(--type-title-sm);
+    letter-spacing: var(--tracking-title-sm);
+    margin: 0;
+    color: var(--ink);
+}
+.ad-task__s {
+    margin: 0;
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+    text-wrap: pretty;
+}
+.ad-task__s + .ad-task__s {
+    margin-top: calc(-1 * var(--space-2));
+}
+.ad-task__foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    box-shadow: inset 0 var(--stroke-hair) 0 var(--line);
+}
+.ad-task__foot .ad__add {
+    flex: 1 1 calc(var(--space-12) * 6);
+    padding: 0;
+    box-shadow: none;
+}
+
+/* ── Settings ─────────────────────────────────────────────────────────────────────────────────── */
+.ad-set {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+.ad-set__nest {
+    margin-inline-start: var(--space-6);
+    padding-inline-start: var(--space-3);
+    box-shadow: inset var(--stroke) 0 0 var(--line);
+}
+@media (max-width: 420px) {
+    .ad-set__nest {
+        margin-inline-start: var(--space-2);
+    }
+}
+.ad-set__opt {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    align-items: center;
+}
+.ad-set__k {
+    font: var(--type-eyebrow);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: var(--space-2) 0 0;
+}
+.ad-set__retention {
+    margin: var(--space-2) 0 0;
+}
+.ad-set__legal {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+    text-wrap: pretty;
+}
+.ad-set__budget {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+    padding: var(--space-1) var(--space-3);
+}
+.ad-set__budget > span {
+    flex: 1 1 calc(var(--space-12) * 4);
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+    font-variant-numeric: tabular-nums;
+}
+.ad-set__budget form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* ── Audit log ────────────────────────────────────────────────────────────────────────────────── */
+.ad-audit {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+.ad-audit li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-3) 0;
+    box-shadow: inset 0 var(--stroke-hair) 0 var(--line);
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink-soft);
+}
+.ad-audit li:first-child {
+    box-shadow: none;
+    padding-top: 0;
+}
+.ad-audit b {
+    font: var(--type-body-strong);
+    color: var(--ink);
+}
+
+/* ── Flag groups, the void-votes field, print names ──────────────────────────────────────────── */
+.ad-flaggrp {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.ad-flaggrp__k {
+    font: var(--type-eyebrow);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--on-ground-soft);
+}
+.ad-void {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+.ad-void .gv-select {
+    width: 100%;
+}
+/* A checkbox with a sentence, one 48px target (the label is the hit area). */
+.ad-opt {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    min-height: var(--tap-min);
+    padding-block: var(--space-2);
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--ink);
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ad-opt input {
+    width: var(--icon-md);
+    height: var(--icon-md);
+    flex: none;
+    margin: 0;
+    accent-color: var(--select);
+}
+.ad-opt input:focus-visible {
+    outline: var(--stroke-focus) solid var(--focus);
+    outline-offset: var(--stroke);
+}
+.ad-pn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--tap-min);
+    padding: 0 var(--space-2);
+    color: var(--on-wood);
+    font: var(--type-body-sm);
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ad-pn input {
+    width: var(--space-5);
+    height: var(--space-5);
+    accent-color: var(--gold);
+}
+.ad-pn input:focus-visible {
+    outline: var(--stroke-focus) solid var(--on-wood);
+    outline-offset: var(--stroke);
+}
+
+/* ── The print page (/admin/placards): the sheet scrolls with the page; paper keeps only the
+      placards. ─────────────────────────────────────────────────────────────────────────────────── */
+.ad-print {
+    padding: var(--space-4);
+}
+.ad-print .gv-print--inline {
+    max-height: none;
+    overflow: visible;
+}
+.ad-print .gv-print__pages {
+    overflow: visible;
+}
+.ad-print .gv-print__bar {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+.ad-print__note {
+    margin: var(--space-3) 0 0;
+    font: var(--type-body-sm);
+    font-weight: 400;
+    color: var(--on-ground-soft);
+    text-wrap: pretty;
+}
+@media print {
+    body {
+        background: none;
+    }
+    .ad-print {
+        padding: 0;
+    }
+    .ad-print__note {
+        display: none;
+    }
+}

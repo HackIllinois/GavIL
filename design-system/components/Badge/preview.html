@@ -1,0 +1,14 @@
+<!-- @dsCard group="Status" height=72 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Badge — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-row'},h(G.Badge,{tone:'pro'},'Pro'),h(G.Badge,{tone:'general'},'General'),h(G.Badge,{tone:'brand',icon:'star'},'Best UI/UX'),h(G.Badge,{tone:'warn',icon:'flag'},'Team member not registered'),h(G.Badge,{tone:'danger',icon:'alert'},'Commits after deadline'),h(G.Badge,{tone:'success'},'Admitted'),h(G.Badge,{mono:true,icon:'table'},'Table A12')));
+})();
+</script>
+</body>
+</html>

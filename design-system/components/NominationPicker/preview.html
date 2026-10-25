@@ -1,0 +1,14 @@
+<!-- @dsCard group="Inputs" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NominationPicker — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.NominationPicker,{prizes:['Best UI/UX','Most Creative','Best Social Impact','Most Useless','Most Popular'],defaultSelected:['Most Creative'],hint:'Nominate only standouts. About 1 in 5 projects per prize.'})));
+})();
+</script>
+</body>
+</html>

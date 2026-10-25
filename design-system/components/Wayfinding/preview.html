@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=700 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Wayfinding — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Wayfinding,{size:'hero',room:'4217',label:'Head to your room',hint:'Siebel Center, 4th floor. Tables A01–A28.',onMap:function(){}}),h(G.Wayfinding,{room:'4217',table:'A12',label:'1 of 4',onMap:function(){}}),h(G.Wayfinding,{size:'hero',noun:'Table',room:'A12',label:'No picture: flat plates (loading, or it failed)',artState:'failed',onMap:function(){}}),h(G.Wayfinding,{size:'hero',room:'Siebel Center Annex 1404 West Wing',label:'A long value fits its sign',artState:'ready',onMap:function(){}})));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=330 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TableProgress — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.TableProgress,{done:3,total:8}),h(G.TableProgress,{done:2,total:4,current:true}),h(G.TableProgress,{done:4,total:4,className:'gv-prog--center'}),h('div',{style:{background:'var(--ground)',padding:'var(--space-3)'}},h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:'Next table · 1 of 4'}))));
+})();
+</script>
+</body>
+</html>

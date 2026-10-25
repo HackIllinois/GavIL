@@ -1,0 +1,17 @@
+<!-- @dsCard group="Print" height=700 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PlacardSheet — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  // Made-up demo placards for four tables of Room 4217 (adonix issues the real ones).
+  var rows=[['A03','N7','Tidal'],['A09','E3','SoundScape'],['A12','K7','NeuralMesh'],['A14','W2','LedgerLite']];
+  root.render(h(G.PlacardSheet,{inline:true,printNames:true,title:'Room 4217 · placards',tables:rows.map(function(r){ var k=G.mockServer.demoToken(r[0]); return {code:r[0],check:r[1],label:r[0]+' · '+r[1],room:'4217',k:k,project:r[2],where:'Siebel Center, 4th floor'}; })}));
+  return;
+})();
+</script>
+</body>
+</html>

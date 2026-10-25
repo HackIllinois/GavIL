@@ -1,0 +1,26 @@
+<!-- @dsCard group="Judging" height=1900 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TableTalk — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var hl=G.talk.extract(G.talk.FIXTURES.p01), items=G.talk.toItems(hl), no=function(){};
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},
+    h(G.TableTalk,{state:'idle',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'starting',project:'NeuralMesh',onCancelStart:no}),
+    h(G.TableTalk,{state:'recording',project:'NeuralMesh',elapsed:72,level:.72,marks:[64],onMark:no,onPause:no,onStop:no,onStopDelete:no}),
+    h(G.TableTalk,{state:'paused',project:'NeuralMesh',elapsed:72,pausedReason:'screen',onResume:no,onStop:no}),
+    h(G.TableTalk,{state:'ready',project:'NeuralMesh',meta:'1:52 · 241 words',demo:true,highlights:{defaultItems:items},onDiscard:no}),
+    h(G.TableTalk,{state:'declined',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'denied',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'too-noisy',project:'NeuralMesh',attemptsUsed:1,onRetry:no}),
+    h(G.TableTalk,{state:'offline-queued',project:'NeuralMesh'}),
+    h(G.TableTalk,{state:'memo',mode:'memo',project:'EcoLens',onStart:no})));
+  return;
+})();
+</script>
+</body>
+</html>

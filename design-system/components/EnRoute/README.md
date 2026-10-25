@@ -1,0 +1,8 @@
+# EnRoute
+
+The walk to the next table: the hero signpost naming the table and its room, "Look for" the project on its last board, the team, and after a few minutes "Can’t find it?" with the floor plan and staff.
+
+- **Provide:** `table` (the placard code, `A12`), `room` (`4217`), `label` (the board's text, e.g. "Room 4217 · Siebel Center, 4th floor"), `hint`, `project` `{name, team}` (team as names or a comma list; first names are shown), `onMap` (or `mapHref`), `lost` (true once the judge has walked for `dur-cant-find`, 3 min), `onAskStaff`, optional `children` (a memo card for the table just left).
+- The visit has two phases: **en route** (this) and **at the table** (`TableCheck`). The parent shows the timer, a `TableProgress` plaque ("Next table · 1 of 4"), **Skip** and **I’m at the table** in its action bar; nothing here can be judged yet.
+- The hero is `Wayfinding size="hero"`: the signpost's big arrow says "TABLE A12", and the last board says "Look for" and the project's name, so who to find is on the sign itself. Under it, ledes name the team's first names (so the judge can ask before the check), say which way the numbers run, and tell the judge what to bring to the placard: scan its QR, or type the table code and the 2 characters after the dot.
+- After `dur-cant-find` the parent sets `lost`: a warn alert offers the floor plan and **Ask staff** (the can’t-find ping). It enters once (rise, an opacity fade under reduced motion). The words are said once by a polite live region that holds only the text (never the buttons), then cleared, so reading the page line by line doesn’t hear them twice.

@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=640 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>JudgeShell — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack'},h('div',{style:{transform:'translateZ(0)'}},h(G.JudgeShell,{style:{width:'100%'},offline:true,queued:2,right:h(G.Button,{variant:'ghost',icon:'notes'},'My notes')},h('div',{className:'gv-step'},'Checked in · 6:42 PM'),h('h1',{className:'gv-h1'},'Welcome, Sarah.'),h('p',{className:'gv-lede'},'Check these before judging starts.'))),h('div',{style:{transform:'translateZ(0)'}},h(G.JudgeShell,{style:{width:'100%'},recording:{elapsed:134,onShow:function(){}},right:h(G.Button,{variant:'ghost',icon:'notes'},'My notes')},h('div',{className:'gv-step'},'Table talk is recording'),h('h2',{className:'gv-h1 gv-h1--sm'},'Scroll anywhere: the tag stays.')))));
+})();
+</script>
+</body>
+</html>

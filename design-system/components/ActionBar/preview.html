@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=150 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ActionBar — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 9)',paddingTop:'calc(var(--space-12) + var(--space-6))',position:'relative'}},h(G.ActionBar,{toast:'Saved. Your next table is on the signpost.'},h(G.Button,{variant:'ghost',icon:'skip'},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow'},'Submit evaluation'))));
+})();
+</script>
+</body>
+</html>

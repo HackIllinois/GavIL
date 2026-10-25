@@ -1,0 +1,17 @@
+<!-- @dsCard group="Judging" height=980 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>HighlightList — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var hl=G.talk.extract(G.talk.FIXTURES.p03), items=G.talk.toItems(hl);
+  items[0]=Object.assign({},items[0],{state:'kept'});
+  root.render(h('div',{className:'gv-card',style:{maxWidth:'calc(var(--space-12) * 8)'}},h(G.HighlightList,{defaultItems:items,prize:hl.prizeSuggestions[0],onNominate:function(){},onDismissPrize:function(){}})));
+  return;
+})();
+</script>
+</body>
+</html>

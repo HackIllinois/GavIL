@@ -1,0 +1,96 @@
+{
+ "planks": {
+  "plank-flat": {
+   "width": 750,
+   "height": 192,
+   "capLeft": 68,
+   "capRight": 67
+  },
+  "plank-point-right": {
+   "width": 755,
+   "height": 192,
+   "capLeft": 94,
+   "capRight": 97
+  },
+  "plank-point-left": {
+   "width": 757,
+   "height": 192,
+   "capLeft": 96,
+   "capRight": 95
+  }
+ },
+ "sizes": {
+  "bg-sunset.webp": [
+   1280,
+   832
+  ],
+  "bg-night.webp": [
+   1280,
+   1189
+  ],
+  "plank-flat.webp": [
+   750,
+   192
+  ],
+  "plank-point-right.webp": [
+   755,
+   192
+  ],
+  "plank-point-left.webp": [
+   757,
+   192
+  ],
+  "signpost.webp": [
+   718,
+   1135
+  ],
+  "star-filled.webp": [
+   192,
+   192
+  ],
+  "star-half.webp": [
+   192,
+   192
+  ],
+  "star-outline.webp": [
+   192,
+   192
+  ],
+  "garland-cream.webp": [
+   780,
+   54
+  ],
+  "garland-brown.webp": [
+   780,
+   55
+  ],
+  "wagon.webp": [
+   266,
+   320
+  ],
+  "horseshoe.webp": [
+   242,
+   256
+  ],
+  "cactus-tall.webp": [
+   300,
+   320
+  ],
+  "cactus-round.webp": [
+   317,
+   256
+  ],
+  "cactus-bushes.webp": [
+   538,
+   220
+  ],
+  "neon-board.webp": [
+   560,
+   328
+  ],
+  "neon-arrow.webp": [
+   560,
+   757
+  ]
+ }
+}

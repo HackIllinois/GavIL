@@ -1,0 +1,5 @@
+{
+ "source": "web/lib/talk/policy.ts",
+ "consentScript": "Okay if my phone takes notes while you demo? Cloudflare transcribes what's said and Anthropic summarizes it with my own notes; from Devpost it gets your project details and first names, not full names. The audio isn't kept, and only I see the notes. You can say no, and it won't affect judging.",
+ "teamNotice": "Judges may ask to take voice notes at your table. If you agree, the conversation is transcribed by Cloudflare and summarized by Anthropic for that judge's private notes. Anthropic gets the transcript, the judge's own typed notes, the times the judge tapped “mark this” and, from your Devpost entry, the project's name, tagline and sponsor tracks and your first names (no full names or emails). Anything said aloud, a full name included, is in the transcript. The audio isn't kept and no one's voice is identified. You can say no. It doesn't affect judging."
+}

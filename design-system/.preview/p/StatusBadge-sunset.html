@@ -1,0 +1,19 @@
+<!-- @dsCard group="Admin" height=56 -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>StatusBadge — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h(G.Card,null,h('div',{className:'gv-row'},['In Review','Scored','Admitted','Admitted + Reimbursements','Waitlisted','Rejected'].map(function(s){return h(G.StatusBadge,{key:s,status:s})}))));
+})();
+</script>
+</body>
+</html>

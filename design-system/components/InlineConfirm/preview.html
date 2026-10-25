@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=110 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>InlineConfirm — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 13)'}},h(G.InlineConfirm,{confirmLabel:'Revoke',onConfirm:function(){},onCancel:function(){}},h('b',null,'Revoke Sarah Kim?'),' They are signed out at once and their unsent work is kept for review.')));
+})();
+</script>
+</body>
+</html>

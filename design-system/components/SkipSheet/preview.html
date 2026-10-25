@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=560 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>SkipSheet — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{position:'relative',height:'calc(var(--space-12) * 11)',maxWidth:'calc(var(--space-12) * 9)',overflow:'hidden',borderRadius:'var(--radius-lg)',transform:'translateZ(0)'}},h(G.SkipSheet,{project:'NeuralMesh',defaultReason:'absent',onCancel:function(){},onSkip:function(){}})));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,178 @@
+<!-- @dsCard group="Screens" height=900 width=7330 page subtitle="Phone judge flow at 390px (Sarah Kim, Room 4217): walk to the table, the right-table check (and the name fallback), the consent script, Table talk, compare with recall, skip (busy), waiting for a table, My notes, time-up offline, Round 2 before it opens, and Round 2" -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><title>Judge journey</title>
+<style>
+  .jj{display:flex;gap:var(--space-8);padding:var(--space-6);align-items:flex-start;background:var(--ledge)}
+  .jj__col{display:flex;flex-direction:column;gap:var(--space-3);flex:none}
+  .jj__cap{font:var(--type-numeral);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--on-ground-soft)}
+  .jj__cap b{color:var(--gold-on-ground);margin-right:var(--space-2)}
+  .phone{position:relative;width:390px;height:800px;border-radius:calc(var(--space-8) + var(--space-2));overflow:hidden;transform:translateZ(0);background:var(--ground);box-shadow:0 0 0 var(--space-2) var(--ground-deep),var(--shadow-ledge-lg);display:flex;flex-direction:column}
+  .phone__scroll{flex:1;overflow:auto;display:flex;flex-direction:column}
+  .phone .gv-shell{flex:1;max-width:none;width:100%}
+  .kv{display:flex;align-items:center;gap:var(--space-3)}
+  .kv__i{width:calc(var(--space-8) + var(--space-2));height:calc(var(--space-8) + var(--space-2));display:grid;place-items:center;background:linear-gradient(var(--select-tint),var(--select-tint)),var(--surface);color:var(--select);border-radius:var(--radius-sm);flex:none}
+  .kv__k{font:var(--type-label);font-weight:500;color:var(--ink-muted)}
+  .kv__v{font:var(--type-title-sm);letter-spacing:var(--tracking-title-sm)}
+  .steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:var(--space-3)}
+  .steps li{display:flex;gap:var(--space-3);font:var(--type-body-sm);font-weight:400;color:var(--ink-soft)}
+  .steps b{flex:none;width:var(--space-6);height:var(--space-6);border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--on-gold);font:var(--type-numeral);line-height:1}
+  .center{text-align:center}
+  .count{font:var(--type-numeral);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--on-ground-soft)}
+  .notes-head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2)}
+  /* Static stills: no entrance motion. */
+  .jj *{animation:none !important}
+  .wait__prop{margin:var(--space-4) auto var(--space-2)}
+  .wait__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
+  .wait__list li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);font:var(--type-body-sm);font-weight:500;color:var(--ink-soft)}
+  .wait__list b{font:var(--type-body-strong);color:var(--ink)}
+</style></head>
+<body class="gv-root">
+<div id="root"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement;
+  var A={name:'NeuralMesh',path:'pro',table:'A12',description:'A self-organizing peer-to-peer mesh network powered by reinforcement learning. Nodes reroute traffic around failures with zero central coordination.',notes:'Live demo worked; RL routing recovered in 3 s after unplugging a node.',nominations:['Most Creative']};
+  var B={name:'EcoLens',path:'pro',table:'A17',description:'Point your camera at any product to see its full supply-chain carbon footprint, powered by vision AI and a live emissions database.',notes:'Water bottle worked live; the soda can came back as a bottle. 40 products typed in by hand.',nominations:['Best Social Impact']};
+  // The same recall rows wherever a comparison shows (frames 07 and 08) and in My notes (frame 11): only what Sarah kept.
+  var RA={does:'A mesh network that heals itself, if a node dies…',demo:'Ran live \u00b7 rerouted in about 2 s',standout:'Judge pulled a node; back in about 3 s',open:'Asked: what happens with a hundred nodes?'};
+  var RB={does:'Points a camera at a product for its carbon footprint',demo:'Partly ran \u00b7 the soda can came back wrong',standout:null,open:'Asked: if it\u2019s not one of the forty?'};
+  var prizes=['Best UI/UX','Most Creative','Best Social Impact','Most Useless','Most Popular'];
+  var FINALISTS=[{id:'p02',name:'EcoLens',path:'pro',table:'A17',nominations:9,href:'https://devpost.com/software/ecolens'},{id:'p01',name:'NeuralMesh',path:'pro',table:'A12',nominations:7,href:'https://devpost.com/software/neuralmesh'},{id:'p17',name:'CrisisMap',path:'general',table:'C05',nominations:6,href:'https://devpost.com/software/crisismap'},{id:'p10',name:'Lumen',path:'pro',table:'B07',nominations:4,href:'https://devpost.com/software/lumen'},{id:'p22',name:'Canopy',path:'general',table:'C21',nominations:3,href:'https://devpost.com/software/canopy'}];
+  var noop=function(){};
+  var notesBtn=h(G.Button,{variant:'ghost',icon:'notes',onClick:noop},'My notes');
+  // A still can open scrolled to the part it is about (`at`: a selector), like a judge who scrolled there.
+  function Scrolled(p){ var ref=React.useRef(); React.useLayoutEffect(function(){ var r=ref.current, t=p.at&&r&&r.querySelector(p.at); if(!t) return; var el=[r.querySelector('.gv-shell__body'),r.querySelector('.phone__scroll')].filter(function(x){ return x&&x.scrollHeight>x.clientHeight+1; })[0]; var top=r.querySelector('.gv-shell__top'), cover=top&&el.contains(top)?top.getBoundingClientRect().height:0; if(el) el.scrollTop=Math.max(0,t.getBoundingClientRect().top-el.getBoundingClientRect().top+el.scrollTop-cover-12); },[]); return h('div',{className:'phone',ref:ref},h('div',{className:'phone__scroll'},p.children)); }
+  function Phone(n,cap,child,at){return h('div',{className:'jj__col',key:n},h('div',{className:'jj__cap'},h('b',null,(n<10?'0':'')+n),cap),h(Scrolled,{at:at},child));}
+  function kv(icon,k,v,aside){return h('div',{className:'kv'},h('span',{className:'kv__i'},h(G.Icon,{name:icon,size:'wide'})),h('div',{style:{flex:1}},h('div',{className:'kv__k'},k),h('div',{className:'kv__v'},v)),aside);}
+
+  var s1=h(G.JudgeShell,{footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',onClick:noop},'Something’s wrong'),h(G.Button,{size:'lg',iconRight:'arrow',onClick:noop},'Looks right'))},
+    h('div',{className:'gv-step'},'Checked in · 6:42 PM'),
+    h('h1',{className:'gv-h1'},'Welcome, Sarah.'),
+    h('p',{className:'gv-lede'},'Check these before judging starts. If anything is wrong, find a staff member in an orange shirt.'),
+    h(G.Card,null,h('div',{className:'gv-stack',style:{gap:'var(--space-4)'}},
+      kv('user','You judge','Pro projects',h(G.PathBadge,{path:'pro'})),
+      kv('pin','Round 1 room','Room 4217 · A01–A28'),
+      kv('trophy','Round 2 deliberation','Best UI/UX · Room 2405'))),
+    h(G.Card,{title:'How tonight works',icon:'clock'},h('ol',{className:'steps'},
+      h('li',null,h('b',null,'1'),'Walk to the table the app shows you. Scan the QR on its placard, or type its code and the 2 characters after the dot.'),
+      h('li',null,h('b',null,'2'),'Spend about 5 minutes there. If the team agrees, your phone can take notes for you.'),
+      h('li',null,h('b',null,'3'),'From your second project on, pick which of your last two was stronger. No ties.'),
+      h('li',null,h('b',null,'4'),'Nominate standouts for prizes as you go. Most projects get none.'))));
+
+  var s2=h(G.JudgeShell,{right:notesBtn},
+    h('h1',{className:'gv-sr'},'Head to Room 4217. Judging begins in about 5 minutes; your first table appears here.'),
+    h(G.Prop,{name:'neon-board',wide:true}),
+    h('div',{className:'center'},h('div',{className:'gv-step','aria-hidden':true},'Judging begins in'),h('div',{className:'gv-countdown','aria-hidden':true},'04:59'),h('div',{className:'count','aria-hidden':true},'min : sec')),
+    h(G.Wayfinding,{size:'hero',room:'4217',label:'Head to your room',hint:'Siebel Center, 4th floor. Tables A01–A28.',onMap:noop}),
+    h('p',{className:'gv-lede center',style:{marginTop:'var(--space-2)'}},'Your first table appears here automatically. No need to refresh.'));
+
+  // One coherent night for Sarah (queue NeuralMesh A12, EcoLens A17, PocketLab A20, Atlas A22), in order:
+  // NeuralMesh, EcoLens, comparison 1 (NeuralMesh vs EcoLens), PocketLab skipped, Atlas at time up (offline), comparison 2,
+  // Round 1 complete: 3 projects, 2 comparisons.
+  var P={
+    neuralmesh:{name:'NeuralMesh',table:'A12',label:'1 of 4',tracks:['Modal'],tagline:'Self-healing P2P mesh networking with RL routing.',desc:A.description,team:'Ana Ruiz, Dev Patel, Kim Lee',members:3,repo:'github.com/neuralmesh/core',commits:48,slug:'neuralmesh'},
+    pocketlab:{name:'PocketLab',table:'A20',label:'3 of 4',tracks:[],tagline:'A $12 oscilloscope from a phone and a microcontroller.',desc:'Turns a phone plus a cheap microcontroller into an oscilloscope and logic analyzer for intro EE labs.',team:'Sam Ortiz, Priya Nair, Jo Kim, Ben Wu',members:4,repo:'github.com/pocketlab/fw',commits:76,slug:'pocketlab'},
+    atlas:{name:'Atlas',table:'A22',label:'4 of 4',tracks:[],tagline:'Indoor maps from a 30-second phone walkthrough.',desc:'Walk a building with your phone for 30 seconds and Atlas builds a navigable indoor map with room labels.',team:'Theo Grant, Lia Novak, Max Ortiz',members:3,repo:'github.com/atlas-maps/atlas',commits:95,slug:'atlas'}
+  };
+  function link(href,text){ return h('a',{className:'gv-link gv-link--block',href:href,target:'_blank',rel:'noopener'},h('span',null,text),h(G.Icon,{name:'external'})); }
+  function evalScreen(opts){
+    var p=opts.p;
+    return h(G.JudgeShell,{right:notesBtn,offline:opts.offline,queued:opts.queued,recording:opts.recording,timer:h(G.TimerBar,{secondsLeft:opts.left,totalSeconds:7200,haptics:false}),
+      footer:h(G.ActionBar,null,opts.left===0?null:h(G.Button,{variant:'ghost',icon:'skip',onClick:noop},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',block:opts.left===0,disabled:!!opts.locked,onClick:noop},opts.left===0?'Submit final evaluation':'Submit evaluation'))},
+      h(G.Wayfinding,{room:'4217',table:p.table,label:p.label,onMap:noop}),
+      h(G.TableCheck,Object.assign({project:{name:p.name,table:p.table,team:p.team},room:'4217',state:'matched',via:'scan',onName:noop,onMap:noop},opts.check||{})),
+      h(G.ProjectHeader,{as:'h1',name:p.name,path:'pro',table:p.table,room:'4217',tracks:p.tracks,showLocation:false,eyebrow:'Now judging',tagline:p.tagline}),
+      h('div',{className:'gv-disclosures'},
+        h(G.Disclosure,{icon:'doc',title:'Devpost description'},p.desc,link('https://devpost.com/software/'+p.slug,'Open on Devpost')),
+        h(G.Disclosure,{icon:'users',title:'Team',meta:p.members+' members'},p.team),
+        h(G.Disclosure,{icon:'code',title:'GitHub repository',meta:p.commits+' commits'},link('https://'+p.repo,p.repo))),
+      h(G.Garland,null),
+      opts.talk!==false&&h(G.TableTalk,Object.assign({state:'idle',project:p.name,onAsk:noop},opts.talk||{})),
+      opts.talk!==false&&h(G.DemoStatus,{defaultValue:opts.demo,suggested:opts.demoSuggested,disabled:!!opts.locked,lockedReason:opts.locked?'Check the table first: scan its placard or type its code.':null}),
+      h(G.NotesField,{defaultValue:opts.note,status:opts.noteStatus,disabled:!!opts.locked}),
+      h(G.NominationPicker,{prizes:prizes,defaultSelected:opts.noms||[],disabled:!!opts.locked,hint:opts.hint||'Nominate only standouts. About 1 in 5 projects per prize.'}),
+      opts.overlay);
+  }
+  var s3=evalScreen({p:P.neuralmesh,left:4488,note:'Demo worked live. Strong RL story; UI rough.',noms:['Most Creative']});
+  // The walk: the table on a hero signpost, who to look for. Nothing can be judged yet.
+  var sWalk=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:4495,totalSeconds:7200,haptics:false}),footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',icon:'skip',onClick:noop},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',onClick:noop},'I\u2019m at the table'))},
+    h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:'Next table \u00b7 1 of 4'}),
+    h('h1',{className:'gv-sr'},'Head to Table A12 in Room 4217: NeuralMesh.'),
+    h(G.EnRoute,{table:'A12',room:'4217',label:'Room 4217 \u00b7 Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:'NeuralMesh',team:'Ana Ruiz, Dev Patel, Kim Lee'},onMap:noop}));
+  // At the table, the wrong placard: notes, nominations, Table talk and Submit stay locked (Skip doesn't).
+  var sCheck=evalScreen({p:P.neuralmesh,left:4470,note:'',locked:true,talk:{disabled:true},check:{state:'mismatch',defaultValue:'A14',result:{code:'A14',name:'LedgerLite',direction:'two tables to your right'}}});
+  // The team agreed: Table talk records (the word Recording, the timer, the level, Mark this, Stop and delete). No live captions: nothing on screen repeats what is said.
+  var sTalk=evalScreen({p:P.neuralmesh,left:4420,note:'',recording:{elapsed:66,onShow:noop},talk:{state:'recording',elapsed:66,level:.7,marks:[64],onMark:noop,onPause:noop,onStop:noop,onStopDelete:noop}});
+  // Ask first: the script the judge reads aloud (who processes the audio, what each gets), and the only way the microphone opens.
+  var sConsent=evalScreen({p:P.neuralmesh,left:4440,note:'',overlay:h(G.ConsentSheet,{ai:true,onCancel:noop,onConsent:noop,onDecline:noop})});
+  // No placard, or it won't scan: the team said its own name. Judging opens, nominations are held for staff, Table talk and "absent" stay off.
+  var sName=evalScreen({p:P.neuralmesh,left:4450,note:'',check:{state:'name',onName:undefined},talk:{disabled:true,lockedReason:'Scan the placard or type its code to use Table talk.'},hint:'Confirmed by name: nominations are held until staff check this table. Nominate only standouts.'});
+  var nm=G.talk.extract(Object.assign({},G.talk.FIXTURES.p01)), nmItems=G.talk.toItems(nm).map(function(x,i){ return i<2?Object.assign({},x,{state:'kept'}):x; });
+  var sReady=evalScreen({p:P.neuralmesh,left:4380,note:'Does: '+nmItems[0].text,demo:'ran_live',talk:{state:'ready',meta:'1:52 \u00b7 241 words',highlights:{defaultItems:nmItems},onDiscard:noop}});
+  // PocketLab's team is presenting to a sponsor: busy, no penalty, it comes back after the next table.
+  var sBusy=evalScreen({p:P.pocketlab,left:2405,note:'',talk:false,overlay:h(G.SkipSheet,{project:'PocketLab',defaultReason:'busy',onCancel:noop,onSkip:noop})});
+  // Every remaining table is taken: the judge waits, and the phone buzzes when one frees up.
+  var sWait=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:2290,totalSeconds:7200,haptics:false})},
+    h(G.Prop,{name:'wagon',className:'wait__prop'}),
+    h('h1',{className:'gv-h1 gv-h1--sm center'},'All your tables are busy'),
+    h('p',{className:'gv-lede center'},'We\u2019ll buzz you when one frees up. Stay in Room 4217; this screen moves on by itself.'),
+    h(G.TableProgress,{done:2,total:4,className:'gv-prog--center'}),
+    h(G.Card,{title:'Still to judge',icon:'table'},h('ul',{className:'wait__list'},[['Atlas','A22'],['PocketLab','A20']].map(function(x){ return h('li',{key:x[1]},h('span',null,h('b',null,x[0]),' \u00b7 Table '+x[1]),h(G.Badge,{tone:'warn',icon:'users'},'With a judge')); }))),
+    h('p',{className:'gv-lede center',style:{marginTop:0}},'Busy tables come back with no penalty.'));
+
+  // Comparison 1 comes after the second project: NeuralMesh (earlier) vs EcoLens (just now).
+  var s4=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:3290,totalSeconds:7200,haptics:false})},
+    h('div',{className:'gv-step'},'Comparison 1 \u00b7 your last two projects'),
+    h(G.ComparePair,{as:'h1',a:Object.assign({},A,{recall:RA}),b:Object.assign({},B,{recall:RB}),defaultSelected:'b'}));
+  var s5=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:3282,totalSeconds:7200,haptics:false})},
+    h('div',{className:'gv-step'},'Comparison 1 \u00b7 your last two projects'),
+    h(G.ComparePair,{as:'h1',a:Object.assign({},A,{recall:RA}),b:Object.assign({},B,{recall:RB}),defaultSelected:'b',recorded:'b',onNext:noop}));
+
+
+  // My notes while waiting: two judged, one vote (PocketLab was busy: deferred, not skipped). Still editable (Round 1 is live).
+  var list=[{n:'NeuralMesh',p:'pro',t:'A12',note:'Demo worked live. Strong RL story; UI rough.',nom:['Most Creative'],recall:RA},{n:'EcoLens',p:'pro',t:'A17',note:B.notes,nom:['Best Social Impact'],recall:RB}];
+  var s7=h(G.JudgeShell,{right:h(G.Button,{variant:'secondary',shape:'back',onClick:noop},'Back'),timer:h(G.TimerBar,{secondsLeft:1980,totalSeconds:7200,haptics:false})},
+    h('div',{className:'notes-head'},h('h1',{className:'gv-h1 gv-h1--sm'},'My notes'),h('span',{className:'count'},'2 judged · 1 vote')),
+    h(G.Garland,null),
+    h('div',{className:'gv-notes-list'},list.map(function(x){return h(x.skipped?'div':'button',{className:'gv-note',key:x.n,type:x.skipped?undefined:'button'},
+      h('span',{className:'gv-note__top'},h('span',{className:'gv-note__name'},x.n),x.skipped?h(G.Badge,{tone:'warn',className:'gv-badge--stamp'},'Skipped'):h(G.Badge,{tone:'success',className:'gv-badge--stamp'},'Judged')),
+      h('span',{className:'gv-row',style:{gap:'var(--space-1)'}},h(G.PathBadge,{path:x.p}),h(G.Badge,{mono:true},'Table '+x.t),x.nom.map(function(m){return h(G.Badge,{tone:'brand',icon:'star',key:m},m)})),
+      !x.skipped&&x.recall&&h(G.RecallBlock,{rows:x.recall}),
+      h('span',{className:'gv-note__body',style:x.recall?{whiteSpace:'pre-line',display:'-webkit-box',WebkitBoxOrient:'vertical',WebkitLineClamp:3,overflow:'hidden'}:undefined},x.skipped||x.note||'No notes yet.'),
+      !x.skipped&&h('span',{className:'gv-note__edit'},h(G.Icon,{name:'notes'}),'Tap to edit'));})));
+
+  // Time is up at the last table, offline: the note is saved on the phone (not an error) and joins the queue the tag counts.
+  var s8=evalScreen({p:P.atlas,left:0,offline:true,queued:2,note:'Last one. Clean demo; it ran on the venue Wi-Fi.',noteStatus:'local'});
+
+  var s9=h(G.JudgeShell,{right:notesBtn,footer:h(G.ActionBar,null,h(G.Button,{block:true,size:'lg',iconRight:'arrow',onClick:noop},'Start Round 2'))},
+    h('div',{className:'gv-win','aria-hidden':true},h(G.Prop,{name:'horseshoe',small:true}),h('div',{className:'gv-star'},h(G.Icon,{name:'check',size:'lg',strokeWidth:3})),h(G.Prop,{name:'cactus-round',small:true})),
+    h('h1',{className:'gv-h1 center'},'Round 1 complete'),
+    h('p',{className:'gv-lede center'},'3 projects, 2 comparisons. Thank you! Round 2 opens at 8:30 PM, when nominations close.'),
+    h(G.TableProgress,{done:4,total:4,className:'gv-prog--center'}),
+    h(G.Garland,null),
+    h(G.Wayfinding,{size:'hero',room:'2405',label:'Round 2 · Best UI/UX deliberation',hint:'Siebel Center, 2nd floor. Nominations close 15 minutes after Round 1 ends. Your notes come with you.'}));
+
+  // Start Round 2 before nominations close: the page is open, the finalists are not set, so it says when (never an empty board).
+  var s9b=h(G.JudgeShell,{right:notesBtn},
+    h('div',{className:'gv-step'},'Round 2 · Best UI/UX'),
+    h(G.Wayfinding,{size:'hero',room:'2405',label:'Round 2 deliberation',hint:'Opens at 8:30 PM, when nominations close.'}),
+    h('div',{className:'gv-card'},h(G.EmptyState,{as:'h1',icon:'clock',title:'Finalists aren’t set yet',body:'Nominations are still coming in. The finalists appear here when Round 2 opens.'})));
+
+  var s10=h(G.JudgeShell,{right:notesBtn,footer:h(G.ActionBar,null,h(G.Button,{size:'lg',block:true,iconRight:'arrow',onClick:noop},'Submit my ranking'))},
+    h('div',{className:'gv-step'},'Round 2 · Best UI/UX · Room 2405'),
+    h('h1',{className:'gv-h1 gv-h1--sm'},'Rank the finalists'),
+    h('p',{className:'gv-lede',style:{marginTop:0}},'Watch each Devpost demo, then order them with the arrows. The group’s combined ranking picks the winners.'),
+    h(G.DeliberationBoard,{top:3,nominees:FINALISTS}));
+
+  ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'jj'},
+    Phone(1,'Check-in confirm',s1),Phone(2,'Countdown',s2),Phone(3,'Walk to the table',sWalk),Phone(4,'Wrong placard: A14',sCheck),Phone(5,'No placard: confirmed by name',sName),Phone(6,'Ask the team first',sConsent),Phone(7,'Right table · Table talk records',sTalk,'.gv-tt'),Phone(8,'Highlights: keep what\u2019s right',sReady,'.gv-tt'),Phone(9,'Compare with recall',s4),Phone(10,'Vote recorded: undo or next table',s5),Phone(11,'Skip: team is busy',sBusy),Phone(12,'All tables busy',sWait),Phone(13,'My notes (tap to edit)',s7),Phone(14,'Time is up, offline',s8),Phone(15,'Round 1 complete',s9),Phone(16,'Round 2 before it opens',s9b),Phone(17,'Round 2 ranking',s10)));
+})();
+</script>
+</body>
+</html>

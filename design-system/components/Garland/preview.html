@@ -1,0 +1,14 @@
+<!-- @dsCard group="Foundations" height=230 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Garland — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Garland,null),h(G.Card,null,h('p',{style:{margin:0}},'Notes'),h(G.Garland,{tone:'paper'}),h('p',{style:{margin:0}},'Nominations'))));
+})();
+</script>
+</body>
+</html>

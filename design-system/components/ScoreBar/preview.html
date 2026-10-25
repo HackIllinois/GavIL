@@ -1,0 +1,14 @@
+<!-- @dsCard group="Admin" height=64 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ScoreBar — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h(G.Card,{style:{maxWidth:'calc(var(--space-12) * 8)'}},h('div',{className:'gv-stack'},h(G.ScoreBar,{label:'Overall score',defaultValue:4}),h(G.ScoreBar,{label:'Overall score',defaultValue:2,disabled:true,lockedReason:'Assigned to Jacob E. Only they or an admin can score.'}))));
+})();
+</script>
+</body>
+</html>

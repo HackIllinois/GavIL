@@ -1,0 +1,47 @@
+{
+    "$schema": "./node_modules/wrangler/config-schema.json",
+    // OpenNext's generated handler (.open-next/worker.js), wrapped so the framework's own answers
+    // (trailing-slash redirects, /_next/image) carry the security headers too.
+    "main": "lib/security/worker.mjs",
+    "name": "gavil",
+    "compatibility_date": "2026-10-01",
+    "compatibility_flags": ["nodejs_compat"],
+    "assets": {
+        "directory": ".open-next/assets",
+        "binding": "ASSETS"
+    },
+    // Workers Logs: what the app prints (console output, uncaught errors) is kept and searchable in
+    // the dashboard. A sign-in link (/auth/magic?token=...) and a placard scan (/t/A12?k=...) carry
+    // a token in the first request's URL, so two settings keep it out of Cloudflare's log store:
+    //   redact_query_string  removes the query string from every request URL in logs and traces
+    //                        (exceptions and spans as well as the invocation line);
+    //   invocation_logs      the automatic one-line-per-request log, also switched OFF: belt and
+    //                        braces, so a token never depends on the redaction alone.
+    // Gav-IL's own code never logs a URL. The cost of invocation_logs=false: no one-line-per-request
+    // listing (the Metrics tab still counts requests and errors). To see request lines during an
+    // incident, set invocation_logs to true, deploy, and set it back (README, Deploy, step 8);
+    // redact_query_string stays true either way.
+    "observability": {
+        "enabled": true,
+        "redact_query_string": true,
+        "logs": { "enabled": true, "invocation_logs": false }
+    },
+    // Not secret, committed here; a staging deploy overrides them.
+    "vars": {
+        "ADONIX_URL": "https://adonix.hackillinois.org",
+        "GAVIL_ORIGIN": "https://judging.hackillinois.org"
+    }
+    // Secrets: never in this file. Set each once per deploy with
+    //   npx wrangler secret put <NAME>
+    // and list what is set with `npx wrangler secret list`. Every one the code reads in
+    // production (web/.env.example says what each is for):
+    //   GAVIL_GRANT_SECRET     REQUIRED. 32+ random characters, Gav-IL only (openssl rand -base64 32)
+    //   GAVIL_JWT_SECRET       recommended. adonix's JWT_SECRET, copied, not generated
+    //   GAVIL_TALK_SECRET      only for Table talk. 32+ characters, shared with adonix
+    //   CF_ACCOUNT_ID          only for Table talk (Workers AI speech to text)
+    //   CF_API_TOKEN           only for Table talk (a Workers AI token for that account)
+    //   ANTHROPIC_API_KEY      optional. Claude highlights; the rule extractor runs without it
+    // Optional setting (a var, not a secret): GAVIL_HIGHLIGHTS_MODEL, from the allowlist in
+    // lib/talk/llm.ts. GAVIL_MOCK and GAVIL_MOCK_DEMO must NEVER be set on a deployment: the
+    // Worker refuses to boot with them.
+}

@@ -1,0 +1,54 @@
+/*
+ * App-level CSS: base document, next/font wiring and the few rules the web app needs that the
+ * design system (gavil.css, generated: do not edit) does not have. Reads only tokens: no raw
+ * sizes, no colours, no shadows (AGENTS rule 1; lib/__tests__/cweb-appcss.test.ts checks it).
+ *
+ * Never re-declare a design-system class here. It loads after gavil.css, so it would win with
+ * stale values; change the token or the design system instead. The judge and admin screens'
+ * own layout lives next to them (app/judge/judge.css, app/admin/admin.css).
+ */
+
+/* next/font exposes hashed family names as --nf-*; point the token font stacks at them. */
+:root {
+    --font-display: var(--nf-ultra), var(--nf-rye), Georgia, serif;
+    --font-condensed: var(--nf-oswald), "Arial Narrow", sans-serif;
+    --font-sans: var(--nf-manrope), system-ui, sans-serif;
+    --font-western: var(--nf-rye), var(--nf-ultra), Georgia, serif;
+}
+
+html,
+body {
+    height: 100%;
+}
+body {
+    margin: 0;
+    background: var(--ground);
+}
+a {
+    color: inherit;
+}
+
+/* Links that wear button classes */
+a.gv-btn {
+    text-decoration: none;
+}
+
+/* Admin tables: a row that is not a link does not look like one; a select in a cell keeps a usable width. */
+.gv-table tr.static {
+    cursor: default;
+}
+.gv-table td .gv-select {
+    min-width: calc(var(--space-12) * 2.5);
+}
+
+/* ── Live camera in TableCheck's viewfinder (web only: the design-system previews draw a faint QR instead) ── */
+.gv-vf__live {
+    position: absolute;
+    inset: 0;
+}
+.gv-vf__video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}

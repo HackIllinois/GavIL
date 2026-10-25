@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=180 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>NotesField — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 9)'}},h('div',{className:'gv-stack'},h(G.NotesField,{defaultValue:'Demo worked live. Strong RL story; UI rough.'}),h(G.NotesField,{defaultValue:'Clean demo.',status:'error'}))));
+})();
+</script>
+</body>
+</html>

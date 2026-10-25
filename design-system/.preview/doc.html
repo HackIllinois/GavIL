@@ -1,0 +1,572 @@
+<meta charset="utf-8"><title>Gav-IL Design Doc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Oswald:wght@400;500&family=Rye&family=Ultra&display=swap">
+<style>
+/* Layout: one reading column of poster paper on a sunset ground, a saloon-plank masthead, a sticky contents rail on wide screens. */
+:root{--ground:#513379;--paper:#fbf4e4;--paper-2:#f1e4c8;--ink:#3d2854;--ink-soft:#5a4d68;--rule:#80705e;--wood:#6a3f22;--wood-deep:#4a2a16;--on-wood:#fbefd4;--gold:#edae33;--accent:#a84a26;
+  --f-display:Ultra,Georgia,serif;--f-sign:Rye,Ultra,Georgia,serif;--f-label:Oswald,"Arial Narrow",sans-serif;--f-body:Manrope,system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--ground:#272b6e;--paper:#1f1a2b;--paper-2:#2a2338;--ink:#f3ead6;--ink-soft:#cfc3b0;--rule:#8e7f6c;--accent:#f2bd4f;color-scheme:dark}}
+:root[data-theme="dark"]{--ground:#272b6e;--paper:#1f1a2b;--paper-2:#2a2338;--ink:#f3ead6;--ink-soft:#cfc3b0;--rule:#8e7f6c;--accent:#f2bd4f;color-scheme:dark}
+body{background:var(--ground);color:var(--ink);font:400 16px/1.65 var(--f-body);-webkit-font-smoothing:antialiased;padding-inline:16px;padding-block:0 48px}
+.mast{margin-inline:-16px;padding:22px 16px 18px;background:repeating-linear-gradient(177deg,transparent 0 7px,rgba(0,0,0,.12) 7px 8px,transparent 8px 19px),linear-gradient(var(--wood),var(--wood-deep));color:var(--on-wood);box-shadow:0 3px 0 #2e190c;text-align:center}
+.mast__k{font:500 12px/16px var(--f-label);letter-spacing:.2em;text-transform:uppercase;color:var(--gold)}
+.mast h1{font:400 clamp(30px,6vw,48px)/1.1 var(--f-display);margin:6px 0 4px;text-shadow:0 3px 0 var(--wood-deep);text-wrap:balance}
+.mast p{margin:0;font:400 14px/20px var(--f-body);opacity:.85}
+.sky{height:6px;margin-inline:-16px;background:linear-gradient(90deg,#673e5b 0 25%,#d96a42 25% 50%,#f7952d 50% 75%,#edae33 75%)}
+.wrap{max-width:1120px;margin:28px auto 0;display:grid;grid-template-columns:220px minmax(0,1fr);gap:28px;align-items:start}
+nav{position:sticky;top:16px;font:500 14px/20px var(--f-label);letter-spacing:.04em}
+nav b{display:block;font:400 15px/20px var(--f-sign);color:var(--gold);margin-bottom:8px;letter-spacing:.06em}
+nav ol{margin:0;padding:0 0 0 18px;color:#f3ead6}
+nav a{color:#f3ead6;text-decoration:none;display:block;padding:3px 0}
+nav a:hover,nav a:focus-visible{color:var(--gold);outline:none;text-decoration:underline}
+article{background:var(--paper);border-radius:6px;padding:clamp(20px,4vw,48px);box-shadow:inset 0 0 0 1px rgba(128,112,94,.35),inset 0 0 0 6px var(--paper),inset 0 0 0 7px rgba(128,112,94,.35),0 5px 0 #2a1c3a;min-width:0}
+article>p:first-child{margin-top:0}
+h2{font:400 26px/1.25 var(--f-display);margin:44px 0 12px;text-wrap:balance;display:flex;align-items:center;gap:12px}
+h2::after{content:"";flex:1;height:6px;border-radius:9px;background:repeating-linear-gradient(115deg,#c49a5c 0 5px,#8a6a42 5px 8px);opacity:.75}
+h2:first-of-type{margin-top:0}
+h3{font:500 18px/1.3 var(--f-label);letter-spacing:.04em;text-transform:uppercase;margin:24px 0 8px}
+p,li{max-width:72ch} p{margin:10px 0} ul,ol{padding-left:22px} li{margin:4px 0}
+strong{font-weight:700;color:var(--ink)}
+a{color:var(--accent);font-weight:600}
+code{font:500 .9em/1 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--paper-2);padding:1px 5px;border-radius:3px}
+pre{background:var(--wood-deep);color:var(--on-wood);padding:16px;border-radius:6px;overflow-x:auto;font:500 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre code{background:none;padding:0;color:inherit}
+.tbl{overflow-x:auto;margin:14px 0;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(128,112,94,.45)}
+table{border-collapse:collapse;width:100%;font-size:14.5px;line-height:1.5}
+th{text-align:left;font:500 12px/16px var(--f-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);background:var(--paper-2);padding:10px 12px}
+td{padding:10px 12px;vertical-align:top;border-top:1px solid rgba(128,112,94,.3)}
+td:first-child{font-weight:600;min-width:110px}
+.foot{max-width:1120px;margin:20px auto 0;text-align:center;color:#f3ead6;font:500 13px/20px var(--f-label);letter-spacing:.08em}
+@media (max-width:860px){.wrap{grid-template-columns:1fr}nav{position:static;background:rgba(0,0,0,.18);padding:12px 14px;border-radius:6px}nav ol{columns:2;column-gap:16px}}
+@media (max-width:480px){nav ol{columns:1}td:first-child{min-width:90px}}
+</style>
+<header class="mast"><div class="mast__k">HackIllinois 2027 · Judging platform</div><h1>Gav-IL judging platform design doc</h1><p>HackIllinois 2027 · Owners: Jacob Edley, Aritro Bhattacharjee · Status: <strong>Draft for review</strong> · 2026-10-11</p></header>
+<div class="sky" aria-hidden="true"></div>
+<div class="wrap">
+<nav aria-label="Contents"><b>Contents</b><ol start="0"><li><a href="#summary">Summary</a></li><li><a href="#why-what-went-wrong-in-2026">Why: what went wrong in 2026</a></li><li><a href="#terms-fixed-used-everywhere-in-ui-and-code">Terms (fixed, used everywhere in UI and code)</a></li><li><a href="#how-judging-works">How judging works</a></li><li><a href="#judge-app-phone-first">Judge app (phone first)</a></li><li><a href="#admin-console-laptop-first-works-on-a-phone">Admin console (laptop first, works on a phone)</a></li><li><a href="#architecture">Architecture</a></li><li><a href="#auth">Auth</a></li><li><a href="#data-model-mongodb-collections-in-adonix-s-judging-service">Data model (MongoDB collections in adonix's judging service)</a></li><li><a href="#queue-and-algorithm">Queue and algorithm</a></li><li><a href="#anti-cheat">Anti-cheat</a></li><li><a href="#design-system">Design system</a></li><li><a href="#repo-and-skeleton">Repo and skeleton</a></li><li><a href="#milestones-proposed">Milestones (proposed)</a></li><li><a href="#open-questions">Open questions</a></li></ol></nav>
+<article><p>Interactive design system and clickable prototypes: <a href="https://claude.ai/artifact/Ttwy6mbJjbjfLXHnnemVAk">https://claude.ai/artifact/Ttwy6mbJjbjfLXHnnemVAk</a> (private until shared)</p>
+
+<h2 id="summary">0. Summary</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Question</th>
+<th>Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>What are we building?</td>
+<td>A phone-first app for judges and a desktop admin console. It runs Round 1 (in-person pairwise judging plus prize nominations), Round 2 (deliberations per prize), anti-cheat review, and the admin side of Admissions and Reimbursements.</td>
+</tr>
+<tr>
+<td>How will it run?</td>
+<td><strong>Next.js 15 (App Router) + React 19 + TypeScript</strong>, deployed to <strong>Cloudflare via OpenNext</strong>, the same stack as <code>HackIllinois/site</code> and <code>admin-site</code>. The code goes in the empty <code>HackIllinois/GavIL</code> repo.</td>
+</tr>
+<tr>
+<td>Where does data live?</td>
+<td>In <strong>adonix</strong> (Express + MongoDB). We add a <code>judging</code> service next to its existing <code>judge</code> service and call it through a client generated from adonix's OpenAPI spec, as <code>admin-site</code> already does.</td>
+</tr>
+<tr>
+<td>Auth</td>
+<td><strong>Judges:</strong> passwordless. A one-tap sign-in link or 6-digit code by email, or a QR code at the check-in desk. This reuses adonix's existing sponsor email-code flow, with a new <code>JUDGE</code> role. <strong>Staff and admins:</strong> adonix's existing Google login, limited to <code>@hackillinois.org</code>, with <code>STAFF</code>/<code>ADMIN</code> roles. One <code>jwt</code> cookie, 24 h expiry.</td>
+</tr>
+<tr>
+<td>Algorithm</td>
+<td>Gavel-style pairwise comparison, adapted from the Figma mock's <code>gavel.ts</code>. The queue runs per room, with a coverage floor of 2 views per project, a conflict list, and a hold on flagged projects.</td>
+</tr>
+<tr>
+<td>Look</td>
+<td>The HackIllinois 2027 brand, pushed toward rodeo / old west: wanted-poster paper cards, saloon wood bars, signpost wayfinding, rubber-stamp statuses, sheriff-star completion, and rosette rankings. Sources: the 2027 Figma Design System, Registration, Website and Theme Moodboard files.</td>
+</tr>
+</tbody>
+</table></div>
+
+<h2 id="why-what-went-wrong-in-2026">1. Why: what went wrong in 2026</h2>
+<p>From the Notion judging pages and the 2026 retro:
+- <strong>Everything was manual.</strong> Spreadsheets drove room and table assignments, judge routing and tallies.
+- <strong>Judges got lost</strong> moving between rooms, and <strong>some teams were never judged.</strong>
+- <strong>The terms confused everyone.</strong> Participants and judges mixed up path, track, prize, company prize and MLH prize.
+- <strong>Sponsors used different rubrics</strong>, and corporate and volunteer judges need different orientation.
+- <strong>Anti-cheat was ad hoc:</strong> late commits, unregistered members, General teams in Pro.</p>
+<p><strong>Goals for 2027</strong>
+1. Every project is seen by at least 2 judges, and the admin console can show that live.
+2. A judge never has to ask "where do I go next?". The app always shows a room and table.
+3. Judging is fair and low-bias: pairwise comparisons, and no 1–10 scores in judging.
+4. Prize winners come from nominations plus a structured deliberation, not ad-hoc opt-ins.
+5. Flagged projects are held out until an admin decides, with the evidence on screen.
+6. It works on a phone, one-handed, in a loud room, on bad Wi-Fi.</p>
+<p><strong>Non-goals:</strong> replacing Devpost; running sponsor-run judging (sponsors may judge their own tracks, and we only record the result); public results pages.</p>
+
+<h2 id="terms-fixed-used-everywhere-in-ui-and-code">2. Terms (fixed, used everywhere in UI and code)</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Examples</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Path</strong></td>
+<td>The division a team competes in</td>
+<td>Pro, General (Beginner is a member level, not a path)</td>
+</tr>
+<tr>
+<td><strong>Track</strong></td>
+<td>A company-sponsored challenge</td>
+<td>Stripe, Modal, Caterpillar, John Deere</td>
+</tr>
+<tr>
+<td><strong>Prize</strong></td>
+<td>What a project can win. Three kinds</td>
+<td>HackIllinois prizes (Best UI/UX, Most Creative, Best Social Impact, Most Useless, Most Popular), company prizes, MLH prizes (no limit on opt-ins)</td>
+</tr>
+<tr>
+<td><strong>Nominate</strong></td>
+<td>A judge marks a project as a standout for a HackIllinois prize</td>
+<td>Most projects get none</td>
+</tr>
+<tr>
+<td><strong>Compare</strong></td>
+<td>A judge picks the stronger of two projects they have seen</td>
+<td>No ties</td>
+</tr>
+<tr>
+<td><strong>Score</strong></td>
+<td><strong>Admissions only</strong> (0–5 applicant score). Judges never "rate" or "score" projects</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<p>Roles: <strong>Judge</strong> (volunteer or sponsor), <strong>Staff</strong> (HackIllinois organizer), <strong>Admin</strong> (organizer with edit rights).</p>
+<p>The Figma mock mixes these terms up. For example, its <code>track</code> field holds Pro/General, and a "Paths" tab is headed "Pro Track". The code uses <code>path</code> for Pro/General and <code>tracks[]</code> for sponsor tracks.</p>
+
+<h2 id="how-judging-works">3. How judging works</h2>
+<pre><code>Before          Check-in (QR at desk) → judge sees path, room, Round 2 prize
+Round 1         Same room all round. Loop: walk to table → ~5 min → submit notes + nominations
+(in person)     → from the 2nd project on: compare with an earlier project → next table
+                Ends at a fixed time; &quot;time is up&quot; lets the judge finish the current project.
+Between         Top N most-nominated projects per HackIllinois prize go to Round 2.
+Round 2         Each prize's judges meet in a deliberation room, watch Devpost demos,
+(deliberation)  each ranks the finalists; combined ranking picks 1st/2nd/3rd.
+After           Admins review results + any open flags, then publish to Devpost.
+</code></pre>
+<p><strong>Capacity math, from 2026: 37 judges, 226 projects.</strong> A floor of 2 views per project means 452 visits. If each visit takes about 5 minutes plus 1.5 minutes of walking, 37 judges complete about 13.8 visits each in 90 minutes, or about 510 visits. That is about 2.3 views per project. The floor is reachable only if the queue serves unseen projects first and judges never leave their room. <strong>The Round 1 window must be at least 85 minutes, or we need more judges.</strong> This is an open question for Experience/Outreach.</p>
+
+<h2 id="judge-app-phone-first">4. Judge app (phone first)</h2>
+<p>Every screen is in the clickable <strong>JudgePrototype</strong> in the design-system artifact. A full-screen storyboard is in <strong>JudgeJourney</strong>.</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>#</th>
+<th>Screen</th>
+<th>What the judge sees and does</th>
+<th>States designed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Sign in</strong></td>
+<td>"Howdy, judge." Enter email to get a sign-in link, or scan the desk QR. No password</td>
+<td>Invalid email inline, link sent, use a different email, expired or used link (§7)</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Check-in</strong></td>
+<td>Name, path (Pro/General), Round 1 room, Round 2 prize, "How tonight works" in 3 steps</td>
+<td>Wrong details → find staff</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Countdown</strong></td>
+<td>Saloon-sign <strong>room number</strong> (huge), building and floor, floor-plan link, live countdown</td>
+<td>Auto-advances at start, no refresh</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Evaluate</strong></td>
+<td>Signpost: room + table (+ map). Wanted-poster project header: path, tracks, name, tagline. Devpost / team / GitHub drawers. Private notes (autosave). Nominate chips (prizes). Pinned bar: <strong>Skip</strong> + <strong>Submit evaluation</strong></td>
+<td>Saving / saved / saved on phone (offline) / not saved + Retry; time up → "Submit final evaluation", Skip removed</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Skip sheet</strong></td>
+<td>Reason required: team absent → re-queued for someone else; can't find table → staff pinged, moved to the end of your queue; conflict → never shown to you again; something else → note required</td>
+<td>Escape/Back cancel, focus trapped</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Compare</strong> (from 2nd project)</td>
+<td>Two poster cards: "Earlier" and "Just now", each with your notes and nominations. Pick one (no ties), <strong>Confirm</strong>, 8 s <strong>Undo</strong></td>
+<td>Opening My notes during undo keeps the vote</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>My notes</strong></td>
+<td>Every project you judged or skipped (stamped JUDGED / SKIPPED), notes, nominations, vote count; editable until Round 1 ends</td>
+<td>Empty state</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Room map</strong></td>
+<td>Floor plan sheet: your table highlighted, door orientation</td>
+<td>Escape closes</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Round 1 complete</strong></td>
+<td>Sheriff star, counts, saloon sign for the Round 2 room and time</td>
+<td>—</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Round 2</strong></td>
+<td>Rank finalists with ▲▼ (keyboard and screen-reader friendly), top 3 wear rosettes, "Below the line" divider; submit, then change</td>
+<td>Announces every move</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Rules the app follows (from the design-system README):</strong>
+- Phone first: 390 px wide, controls at least 48 px, text fields at 16 px so iOS doesn't zoom.
+- The timer and the action bar stay pinned while the content scrolls.
+- Screen readers hear time thresholds (10 min, 2 min, time up), never every tick.
+- Offline: notes, evaluations and votes are kept on the phone and sent on reconnect. The banner shows on every judging screen.</p>
+<p><strong>What we changed from the Figma mock</strong> (full inventory in <code>docs/research/figma-mock-inventory.md</code>):</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Mock</th>
+<th>Problem</th>
+<th>Ours</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>The demo magic link "arrives" after a 2 s timer; any email works</td>
+<td>No real auth</td>
+<td>Emailed link or code through adonix, plus the desk QR (§7)</td>
+</tr>
+<tr>
+<td>Fixed queue that wraps forever; scores reset when it wraps</td>
+<td>Projects are re-judged and compared with themselves</td>
+<td>Server queue per room: unseen first, never repeats, ends cleanly</td>
+</tr>
+<tr>
+<td>No skip</td>
+<td>Absent teams stall judges</td>
+<td>Skip with a routed reason</td>
+</tr>
+<tr>
+<td>No undo</td>
+<td>Mis-taps while walking</td>
+<td>8 s undo on votes</td>
+</tr>
+<tr>
+<td>28 px icon buttons, 14 px textareas, hover-only edit</td>
+<td>Fails on phones</td>
+<td>48 px targets, 16 px fields, no hover-only actions</td>
+</tr>
+<tr>
+<td>No dialog semantics or live regions</td>
+<td>Fails screen readers</td>
+<td>APG patterns, focus traps, polite live regions</td>
+</tr>
+<tr>
+<td>White on orange 3.2:1, muted text at 1.7–2.3:1</td>
+<td>Fails WCAG</td>
+<td>Every pair tested at ≥ 4.5:1 in both themes (107 automated checks)</td>
+</tr>
+<tr>
+<td>Cream and orange, no theme</td>
+<td>Doesn't match the 2027 brand</td>
+<td>2027 brand + rodeo materials</td>
+</tr>
+</tbody>
+</table></div>
+
+<h2 id="admin-console-laptop-first-works-on-a-phone">5. Admin console (laptop first, works on a phone)</h2>
+<p>Tabs, in order of work:</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overview</td>
+<td>Unjudged-projects alert, flag queue, room coverage, judges active, comparisons, time left</td>
+</tr>
+<tr>
+<td>Flagged</td>
+<td>Anti-cheat queue with evidence. Admin: Clear (send to judging) or Escalate</td>
+</tr>
+<tr>
+<td>Judges</td>
+<td>Who checked in, their path, views so far; send or resend sign-in links</td>
+</tr>
+<tr>
+<td>Assignments</td>
+<td>Judge → room (one room per judge for Round 1)</td>
+</tr>
+<tr>
+<td>Deliberations</td>
+<td>Per-prize combined ranking</td>
+</tr>
+<tr>
+<td>Prizes &amp; paths</td>
+<td>Prize list by kind, eligible paths, deliberation room, nominee counts</td>
+</tr>
+<tr>
+<td>Admissions</td>
+<td>Paged applicant table, bulk assign to reviewers, detail page with score / status / notes</td>
+</tr>
+<tr>
+<td>Reimbursements</td>
+<td>Approve or deny travel requests, running approved total</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td>Add or remove <code>@hackillinois.org</code> staff, change role (Staff ↔ Admin)</td>
+</tr>
+</tbody>
+</table></div>
+<p>The mock ordered its tabs alphabetically (Settings first). We order them by how often staff need them.</p>
+<p><strong>Permissions</strong> (one matrix, enforced the same way in tab state, row state, button state, and on the server):</p>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Staff</th>
+<th>Admin</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Overview, Judges, Assignments, Deliberations, Prizes &amp; paths, Reimbursements</td>
+<td>Read</td>
+<td>Read + edit</td>
+</tr>
+<tr>
+<td>Flagged</td>
+<td>Read</td>
+<td>Clear or escalate</td>
+</tr>
+<tr>
+<td>Admissions: unassigned or assigned to me</td>
+<td>Score, status, notes</td>
+<td>Everything + assign</td>
+</tr>
+<tr>
+<td>Admissions: assigned to someone else</td>
+<td>Read (lock + owner's name)</td>
+<td>Everything + reassign</td>
+</tr>
+<tr>
+<td>Settings</td>
+<td>Read</td>
+<td>Edit</td>
+</tr>
+</tbody>
+</table></div>
+<p>Destructive actions need a confirm with the item's name in it: remove staff, escalate, mass email, deny reimbursement. In the mock, mass email sent with no confirm.</p>
+
+<h2 id="architecture">6. Architecture</h2>
+<pre><code> Judge phone ─┐                         ┌──────────── adonix (Express + MongoDB) ─────────────┐
+ Admin laptop ┼─► GavIL (Next.js 15 on  │ auth: Google (staff), email code/link (judges), JWT │
+              │   Cloudflare/OpenNext)  │ judge (existing): judge profiles                    │
+              │   • pages + UI          ├─► judging (new): queue, evaluations, votes, skips,  │
+              │   • middleware: role    │   flags, coverage, rounds, round-2 rankings         │
+              │     gate from JWT       │ admission, registration, … (existing)               │
+              │   • generated API client│ Devpost + GitHub sync job (new, anti-cheat)         │
+              └─  (openapi-ts)          └──────────────────────────────────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>Why not a separate database?</strong> adonix already owns users, roles, registrations, admissions and sponsors, and anti-cheat needs registration data. A second database would mean syncing two sources of truth.</li>
+<li><strong>Why Next.js and not Vite?</strong> It is the same deploy target and tooling as <code>site</code> and <code>admin-site</code>. Middleware gates routes by role before anything renders. The mock's Vite export ports over as plain React components.</li>
+<li><strong>Live updates:</strong> the judge app polls <code>GET /judging/next</code> when a screen opens and after each action. The admin overview polls every 10 s. No websockets are needed for v1.</li>
+<li><strong>Offline:</strong> writes go into an IndexedDB outbox, each with an idempotency key, and are retried on reconnect. The server rejects duplicates.</li>
+<li><strong>Undo:</strong> a vote is stored with <code>committedAt = now + 8 s</code>. Undo before then deletes it, and the algorithm only reads committed votes.</li>
+</ul>
+
+<h2 id="auth">7. Auth</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Who</th>
+<th>How they sign in</th>
+<th>adonix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Judge (volunteer or sponsor)</td>
+<td>Staff add judges in Admin → Judges. A judge enters their email, gets a <strong>one-tap link</strong> plus a <strong>6-digit code</strong> (15-minute expiry, single use), or scans the <strong>QR</strong> at the check-in desk. The QR is a short-lived signed link</td>
+<td>New <code>POST /auth/judge/verify/?email=</code> and <code>POST /auth/judge/login/ {email, code}</code>, built on the existing <code>/auth/sponsor/verify</code> + <code>/auth/sponsor/login</code> code flow (<code>AuthCode</code> model). New <code>GET /auth/judge/magic/?token=</code>. New role <code>Role.JUDGE</code></td>
+</tr>
+<tr>
+<td>Staff / Admin</td>
+<td>"Sign in with Google" → <code>GET /auth/login/google/?redirect=…</code> (existing)</td>
+<td>Existing <code>STAFF</code> / <code>ADMIN</code> roles; domain limited to <code>@hackillinois.org</code></td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>Session:</strong> adonix sets the <code>jwt</code> cookie (24 h, the existing default), and <code>POST /auth/refresh/</code> renews it. GavIL middleware reads the role to route users, and adonix still checks the role on every API call.</li>
+<li><strong>Why passwordless for judges:</strong> they need to be judging within seconds, many are one-night sponsor guests, and we never want to reset their passwords. Emailed codes already work in adonix for sponsors.</li>
+<li><strong>Abuse limits:</strong></li>
+<li><code>verify</code> always returns success, so no one can use it to check which emails have accounts.</li>
+<li>Codes and links are single use, and sending is rate-limited per email and per IP.</li>
+<li>The QR at the desk rotates.</li>
+<li>A judge's JWT carries only <code>JUDGE</code> and works only for the current event.</li>
+<li><strong>Sign-out:</strong> at the bottom of My notes (with a confirm; the outbox is sent first). Admins can revoke a judge from Admin → Judges.</li>
+</ul>
+
+<h2 id="data-model-mongodb-collections-in-adonix-s-judging-service">8. Data model (MongoDB collections in adonix's <code>judging</code> service)</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>Collection</th>
+<th>Key fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JudgingEvent</code></td>
+<td><code>year</code>, <code>round1Start</code>, <code>round1End</code>, <code>round2Start</code>, <code>submissionDeadline</code>, <code>status</code></td>
+</tr>
+<tr>
+<td><code>JudgeAssignment</code></td>
+<td><code>userId</code> (JUDGE), <code>path</code> (pro/general), <code>room</code>, <code>round2Prize</code>, <code>conflicts[projectId]</code>, <code>checkedInAt</code>, <code>kind</code> (volunteer/sponsor)</td>
+</tr>
+<tr>
+<td><code>JudgingProject</code></td>
+<td><code>devpostId</code>, <code>name</code>, <code>path</code>, <code>tracks[]</code>, <code>prizesOptedIn[]</code> (MLH, company), <code>room</code>, <code>table</code>, <code>teamMemberIds[]</code>, <code>repoUrl</code>, <code>hold</code> (flag ids), <code>mu</code>, <code>sigmaSq</code>, <code>views</code></td>
+</tr>
+<tr>
+<td><code>Evaluation</code></td>
+<td><code>judgeId</code>, <code>projectId</code>, <code>notes</code>, <code>nominations[prize]</code>, <code>submittedAt</code>, <code>clientId</code> (idempotency)</td>
+</tr>
+<tr>
+<td><code>Skip</code></td>
+<td><code>judgeId</code>, <code>projectId</code>, <code>reason</code> (absent/cant-find/conflict/other), <code>note</code>, <code>at</code></td>
+</tr>
+<tr>
+<td><code>Vote</code></td>
+<td><code>judgeId</code>, <code>winnerId</code>, <code>loserId</code>, <code>createdAt</code>, <code>committedAt</code>, <code>undoneAt?</code></td>
+</tr>
+<tr>
+<td><code>Flag</code></td>
+<td><code>projectId</code>, <code>kind</code> (late-commit/unregistered/path-mismatch/team-size/prior-project), <code>evidence</code>, <code>status</code> (open/cleared/escalated), <code>decidedBy</code>, <code>decidedAt</code></td>
+</tr>
+<tr>
+<td><code>Round2Ranking</code></td>
+<td><code>prize</code>, <code>judgeId</code>, <code>order[projectId]</code>, <code>submittedAt</code></td>
+</tr>
+<tr>
+<td><code>RoomPlan</code></td>
+<td><code>room</code>, <code>building</code>, <code>floor</code>, <code>tables</code>, <code>layout</code> (for the map)</td>
+</tr>
+<tr>
+<td><code>AuditLog</code></td>
+<td><code>actor</code>, <code>action</code>, <code>target</code>, <code>before</code>, <code>after</code>, <code>at</code>. Every admin edit</td>
+</tr>
+</tbody>
+</table></div>
+
+<h2 id="queue-and-algorithm">9. Queue and algorithm</h2>
+<p><strong>Choosing the next project for a judge</strong> (server side, per request):
+1. Candidates are projects in the judge's room and path that are not held by a flag, not on the judge's conflict list, and not already seen or skipped by this judge.
+2. <strong>Coverage first:</strong> prefer projects with the fewest views, so everything reaches 2 views before anything gets a 3rd. A project another judge is currently visiting counts as half a view.
+3. Break ties by nearest table to the judge's last table (fewer steps), then at random.
+4. "Can't find the table" puts the project back at the end of that judge's queue and pings staff with the room and table.
+5. No candidates left → Round 1 complete for that judge.</p>
+<p><strong>Comparison</strong> (from the second project on). The mock's <code>gavel.ts</code> keeps a Gaussian quality belief (μ, σ²) for each project, updated after each vote by a Thurstone/probit Laplace step (σ² floor 0.05). It picks the earlier project whose predicted outcome is most uncertain, with ε = 0.25 exploration. We keep that math, with these changes:
+- It runs <strong>on the server</strong>, with state per project shared by all judges. In the mock it ran in each browser and was never saved.
+- The opponent is chosen from <strong>this judge's</strong> seen projects, because the judge must remember both.
+- The rng is seedable and the code has unit tests (ported in <code>web/lib/gavel.ts</code>).
+- <strong>Ranking:</strong> order by μ within each path, and show σ² as confidence in the admin console.
+- <strong>Follow-up:</strong> move to full Crowd-BT, which adds per-judge reliability (Gavel's α/β), once we have 2026-style data to fit it. This is an open question.</p>
+<p><strong>Round 2.</strong> Finalists are the top N most-nominated projects per prize, with N set per prize in Settings (default 8). Each deliberation judge ranks all finalists, and a <strong>Borda count</strong> combines the rankings. Admins see the combined ranking and any ties. A tie is broken by discussion in the room and recorded by an admin.</p>
+
+<h2 id="anti-cheat">10. Anti-cheat</h2>
+<p>A sync job pulls submissions from Devpost and repos from GitHub every 10 minutes until Round 1 starts, then flags:
+- <strong>Late commits:</strong> commits after the deadline. The flag shows the hash, time and files.
+- <strong>Unregistered member:</strong> a Devpost team member with no HackIllinois registration.
+- <strong>Path mismatch:</strong> a Pro submission with General members, or the reverse.
+- <strong>Team size:</strong> more than 4 members.
+- <strong>Prior project:</strong> the repo was created before the hackathon, or a known previous Devpost project.</p>
+<p>A flagged project is <strong>held</strong> out of the queue. An admin clears it ("send to judging") or escalates it, and the decision goes in the audit log. Copy leads with the evidence, not an accusation. The mock only offered "restore"; we add escalate, a recorded reason, and the hold.</p>
+
+<h2 id="design-system">11. Design system</h2>
+<p><code>design-system/</code> in the repo is the source of truth (the published artifact mirrors it):
+- <code>tokens.json</code> defines two themes, <strong>Sunset</strong> (purple ground) and <strong>Night</strong> (2027 Registration blue). It also defines the rodeo materials: paper, wood, rope and brass.
+- The type comes from the 2027 Figma Style Guide: <strong>Ultra</strong> for display, <strong>Oswald</strong> for labels and numbers, <strong>Manrope</strong> for body text, and <strong>Rye</strong> for sign lettering.
+- There are 26 components, plus the clickable JudgePrototype, the AdminConsole and the JudgeJourney storyboard.
+- <code>tests/</code> has 107 checks covering flows, keyboard use, offline, permissions, and composited contrast in both themes.
+- The Next.js app syncs tokens and CSS from <code>design-system/</code> at build time, so there is one source.</p>
+<p>Brand assets to export from Figma (not redrawn): the "H" mark, the longhorn logo, the painted canyon backgrounds, the wooden button textures, and the characters (Characters file) for empty states and completion.</p>
+
+<h2 id="repo-and-skeleton">12. Repo and skeleton</h2>
+<pre><code>GavIL/
+  design-system/   tokens, components, prototypes, tests   (exists)
+  docs/            this doc, decisions.md, research/        (exists)
+  web/             Next.js 15 app (skeleton)
+    app/           /login, /judge/*, /admin/* routes, auth callback/magic routes
+    components/    TSX ports of the design-system components (same gv-* classes + ARIA)
+    lib/api/       types, generated adonix client, mock fixtures, CONTRACT.md (endpoints adonix must add)
+    lib/gavel.ts   algorithm + queue, with unit tests
+    middleware.ts  role gate (JUDGE → /judge, STAFF|ADMIN → /admin)
+  AGENTS.md / CLAUDE.md   rules for humans and coding agents
+</code></pre>
+<p><code>GAVIL_MOCK=1</code> runs the whole app on fixtures with a fake session for each role, so frontend work doesn't wait on adonix.</p>
+
+<h2 id="milestones-proposed">13. Milestones (proposed)</h2>
+<div class="tbl"><table>
+<thead>
+<tr>
+<th>When</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Oct</td>
+<td>This doc reviewed. Design system signed off by Design. Skeleton merged to <code>HackIllinois/GavIL</code></td>
+</tr>
+<tr>
+<td>Nov</td>
+<td>adonix: <code>JUDGE</code> role + judge auth, <code>judging</code> service (projects, assignments, evaluations, votes, skips). Judge app on real data</td>
+</tr>
+<tr>
+<td>Dec</td>
+<td>Admin console on real data. Devpost/GitHub sync + flags</td>
+</tr>
+<tr>
+<td>Jan</td>
+<td>Round 2, offline outbox, load test (40 judges × 1 action every 5 s). Judge orientation video and doc</td>
+</tr>
+<tr>
+<td>Feb</td>
+<td>Dry run with staff as judges and 30 fake projects; fix; freeze</td>
+</tr>
+</tbody>
+</table></div>
+
+<h2 id="open-questions">14. Open questions</h2>
+<ol>
+<li><strong>Round 1 length and judge count</strong> (§3 math). At least 85 minutes, or more judges? (Experience)</li>
+<li><strong>Where admin lives:</strong> inside GavIL (this design system), or as routes in <code>admin-site</code> (Material UI)? Recommendation: GavIL. One brand, and the permission matrix stays in one codebase.</li>
+<li><strong>Sponsor-run judging:</strong> which sponsors judge their own tracks, and do they use Gav-IL? (Outreach)</li>
+<li><strong>Prize limits:</strong> is there a cap on how many prizes a team can be considered for? MLH prizes can't be limited.</li>
+<li><strong>Hardware:</strong> a separate Mechathon run by the sponsor (Notion suggestion), or a track?</li>
+<li><strong>Crowd-BT judge reliability:</strong> worth it for v1?</li>
+<li><strong>Beginner:</strong> an unofficial path in Notion. Show it only as a member level?</li>
+<li><strong><code>Room-Setup</code> repo</strong> (empty): fold seating plans into adonix <code>RoomPlan</code>?</li>
+</ol></article>
+</div>
+<p class="foot">Source: docs/design-doc.md in the Gav-IL repo · Edit there, then rebuild this page.</p>

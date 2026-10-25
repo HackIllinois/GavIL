@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=120 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Card — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Card,{title:'Prizes you are deliberating',icon:'trophy'},h('div',{className:'gv-row'},h(G.Badge,{tone:'brand'},'Best UI/UX'),h(G.Badge,{tone:'brand'},'Most Creative')))));
+})();
+</script>
+</body>
+</html>

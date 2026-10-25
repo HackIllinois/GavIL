@@ -1,0 +1,14 @@
+<!-- @dsCard group="Admin" height=56 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>StatusBadge — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h(G.Card,null,h('div',{className:'gv-row'},['In Review','Scored','Admitted','Admitted + Reimbursements','Waitlisted','Rejected'].map(function(s){return h(G.StatusBadge,{key:s,status:s})}))));
+})();
+</script>
+</body>
+</html>

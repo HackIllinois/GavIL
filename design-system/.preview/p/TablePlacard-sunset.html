@@ -1,0 +1,22 @@
+<!-- @dsCard group="Print" height=560 -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TablePlacard — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  // Made-up demo placards (the check and the QR token are not real: adonix issues them, to STAFF and ADMIN only).
+  var A={code:'A12',check:'K7',label:'A12 · K7',room:'4217',k:G.mockServer.demoToken('A12')}, C={code:'C05',check:'W4',label:'C05 · W4',room:'4219',k:G.mockServer.demoToken('C05')};
+  root.render(h('div',{className:'gv-row',style:{alignItems:'flex-start',gap:'var(--space-4)'}},h(G.TablePlacard,Object.assign({},A,{scale:.42,project:'',where:'Siebel Center, 4th floor',notice:G.talk.copy({ai:true}).notice})),h(G.TablePlacard,Object.assign({},C,{scale:.42,project:'',where:'Siebel Center, 4th floor'}))));
+  return;
+})();
+</script>
+</body>
+</html>

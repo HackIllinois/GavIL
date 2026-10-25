@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=520 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>EmptyState — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.EmptyState,{prop:'cactus-tall',title:'Nothing judged yet',body:'Projects you evaluate show up here with your notes and nominations. Tap one to edit it until Round 1 ends.',action:h(G.Button,{variant:'secondary',size:'sm'},'Back to judging')}),h(G.EmptyState,{icon:'shield',title:'No flagged projects',body:'Every submission passed the deadline and registration checks.'})));
+})();
+</script>
+</body>
+</html>

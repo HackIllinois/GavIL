@@ -1,0 +1,14 @@
+<!-- @dsCard group="Inputs" height=260 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Switch — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-card gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.Switch,{label:'Table talk (voice notes)',description:'Off until counsel signs off. Teams must agree at each table; audio is never kept.'}),h(G.Switch,{label:'Freeze new sign-ins',defaultChecked:true,disabled:true,lockedReason:'Admins only'})));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+<!-- @dsCard group="Judging" height=1900 -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TableTalk — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var hl=G.talk.extract(G.talk.FIXTURES.p01), items=G.talk.toItems(hl), no=function(){};
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},
+    h(G.TableTalk,{state:'idle',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'starting',project:'NeuralMesh',onCancelStart:no}),
+    h(G.TableTalk,{state:'recording',project:'NeuralMesh',elapsed:72,level:.72,marks:[64],onMark:no,onPause:no,onStop:no,onStopDelete:no}),
+    h(G.TableTalk,{state:'paused',project:'NeuralMesh',elapsed:72,pausedReason:'screen',onResume:no,onStop:no}),
+    h(G.TableTalk,{state:'ready',project:'NeuralMesh',meta:'1:52 · 241 words',demo:true,highlights:{defaultItems:items},onDiscard:no}),
+    h(G.TableTalk,{state:'declined',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'denied',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'too-noisy',project:'NeuralMesh',attemptsUsed:1,onRetry:no}),
+    h(G.TableTalk,{state:'offline-queued',project:'NeuralMesh'}),
+    h(G.TableTalk,{state:'memo',mode:'memo',project:'EcoLens',onStart:no})));
+  return;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+<!-- @dsCard group="Admin" height=560 -->
+<!doctype html>
+<html lang="en" data-theme="sunset">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AdmissionsTable — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var rows=[{id:1,name:'Avery Lee',school:'UIUC',assignee:'Jacob E.',score:4,status:'Scored'},{id:2,name:'Bao Kim',school:'Purdue',assignee:null,score:null,status:'In Review'},{id:3,name:'Chidi Okafor',school:'UMich',assignee:'Aritro B.',score:5,status:'Admitted + Reimbursements'},{id:4,name:'Dana Ruiz',school:'Northwestern',assignee:'Jacob E.',score:2,status:'Waitlisted'}];
+  root.render(h('div',{className:'gv-stack'},h(G.AdmissionsTable,{role:'admin',rows:rows,reviewers:['Jacob E.','Aritro B.','Shreenija D.'],total:1284,onAssign:function(){}}),h(G.AdmissionsTable,{role:'staff',me:'Aritro B.',rows:rows,total:1284}),h(G.AdmissionsTable,{role:'admin',rows:[],total:0})));
+  return;
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+HTTP/1.1 200 OK
+content-security-policy: default-src 'self'; script-src 'self' 'nonce-xqX8TAtqrIV0QKW4zy2rGA==' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self' https://adonix.hackillinois.org; object-src 'none'
+cross-origin-opener-policy: same-origin
+permissions-policy: camera=(self), microphone=(self), geolocation=(), payment=(), usb=()
+referrer-policy: no-referrer
+strict-transport-security: max-age=63072000; includeSubDomains
+x-content-type-options: nosniff
+x-frame-options: DENY
+Vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept-Encoding
+link: </_next/static/media/213479518fe6a737-s.p.woff2>; rel=preload; as="font"; crossorigin=""; nonce="xqX8TAtqrIV0QKW4zy2rGA=="; type="font/woff2", </_next/static/media/4c9affa5bc8f420e-s.p.woff2>; rel=preload; as="font"; crossorigin=""; nonce="xqX8TAtqrIV0QKW4zy2rGA=="; type="font/woff2", </_next/static/media/7f06be3f780a819a-s.p.woff2>; rel=preload; as="font"; crossorigin=""; nonce="xqX8TAtqrIV0QKW4zy2rGA=="; type="font/woff2", </_next/static/media/d8950eaee33ba742-s.p.woff2>; rel=preload; as="font"; crossorigin=""; nonce="xqX8TAtqrIV0QKW4zy2rGA=="; type="font/woff2"
+Cache-Control: private, no-cache, no-store, max-age=0, must-revalidate
+Content-Type: text/html; charset=utf-8
+Date: Thu, 22 Oct 2026 10:19:37 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+

@@ -1,0 +1,28 @@
+<!-- @dsCard group="Judging" height=1180 -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TableCheck — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var P={name:'NeuralMesh',table:'A12',team:'Ana Ruiz, Dev Patel, Kim Lee'}, M=G.mockServer;
+  // The simulated server answers (G.mockServer): try A12 and the demo placard's 2 characters (K7), or A14 for another table.
+  M.lease('doc','A12');
+  function verify(q){ return M.arrive({visitId:'doc',judgeId:'j1',code:q.code,method:q.method==='qr'?'scan':'typed',check:q.check,k:q.k,clientId:'doc-'+Math.random()}).then(function(r){ return r.status==='mismatch'?{status:'mismatch',code:r.code,name:r.name,direction:'two tables to your right'}:r; }); }
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},
+    h(G.TableCheck,{project:P,room:'4217',verify:verify,onName:function(){},onMap:function(){}}),
+    h(G.TableCheck,{project:P,room:'4217',state:'mismatch',defaultValue:'A14',result:{code:'A14',name:'LedgerLite',direction:'two tables to your right'},onMap:function(){}}),
+    h(G.TableCheck,{project:P,room:'4217',state:'matched',via:'scan'}),
+    h(G.TableCheck,{project:P,room:'4217',state:'name'})));
+  return;
+})();
+</script>
+</body>
+</html>

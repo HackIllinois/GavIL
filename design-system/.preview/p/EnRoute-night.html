@@ -1,0 +1,19 @@
+<!-- @dsCard group="Judging" height=880 -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>EnRoute — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:'Next table · 1 of 4'}),h(G.EnRoute,{table:'A12',room:'4217',label:'Room 4217 · Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:'NeuralMesh',team:'Ana Ruiz, Dev Patel, Kim Lee'},onMap:function(){},lost:true,onAskStaff:function(){}})));
+})();
+</script>
+</body>
+</html>

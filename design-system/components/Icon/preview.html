@@ -1,0 +1,14 @@
+<!-- @dsCard group="Foundations" height=64 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Icon — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-row',style:{gap:'var(--space-4)',color:'var(--on-ground)'}},['clock','pin','table','map','notes','star','trophy','flag','alert','check','skip','users','code','git','doc','lock','shield','arrow','external','inbox','up','chevron','mic','mic-off','pause','play','square','bookmark','quote','qr-code','scan-line','printer','rotate-ccw','trash','hourglass','pencil','zap'].map(function(n){return h('span',{key:n,title:n},h(G.Icon,{name:n,size:'md'}))})));
+})();
+</script>
+</body>
+</html>

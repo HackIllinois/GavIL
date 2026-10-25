@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=160 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>TimerBar — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h(G.TimerBar,{secondsLeft:4488,totalSeconds:7200,live:true,haptics:false}),h(G.TimerBar,{secondsLeft:412,totalSeconds:7200,haptics:false}),h(G.TimerBar,{secondsLeft:74,totalSeconds:7200,haptics:false}),h(G.TimerBar,{secondsLeft:0,totalSeconds:7200,haptics:false})));
+})();
+</script>
+</body>
+</html>

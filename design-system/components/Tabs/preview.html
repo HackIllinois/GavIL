@@ -1,0 +1,19 @@
+<!-- @dsCard group="Admin" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Tabs — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  var items=[{id:'overview',label:'Overview'},{id:'flagged',label:'Flagged',count:2,tone:'danger'},{id:'judges',label:'Judges'},{id:'assign',label:'Assignments'},{id:'delib',label:'Deliberations'},{id:'prizes',label:'Prizes & paths'},{id:'adm',label:'Admissions'},{id:'reimb',label:'Reimbursements'},{id:'settings',label:'Settings',locked:true}];
+  function Demo(){ var s=React.useState('overview'), cur=items.filter(function(i){return i.id===s[0];})[0];
+    return h('div',null,h('div',{className:'gv-wood',style:{padding:'0 var(--space-4)'}},h(G.Tabs,{value:s[0],onChange:s[1],items:items})),
+      h('div',{role:'tabpanel',id:'gv-panel-'+s[0],'aria-labelledby':'gv-tab-'+s[0],tabIndex:0,className:'gv-card',style:{marginTop:'var(--space-3)'}},h('p',{style:{margin:0}},'The ',cur.label,' panel. Each tab’s aria-controls points here.'))); }
+  root.render(h(Demo));
+  return;
+})();
+</script>
+</body>
+</html>

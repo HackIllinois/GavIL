@@ -1,0 +1,6 @@
+.next
+.open-next
+node_modules
+app/styles/tokens.css
+app/styles/gavil.css
+package-lock.json

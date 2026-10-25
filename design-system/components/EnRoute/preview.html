@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=880 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>EnRoute — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:'Next table · 1 of 4'}),h(G.EnRoute,{table:'A12',room:'4217',label:'Room 4217 · Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:'NeuralMesh',team:'Ana Ruiz, Dev Patel, Kim Lee'},onMap:function(){},lost:true,onAskStaff:function(){}})));
+})();
+</script>
+</body>
+</html>

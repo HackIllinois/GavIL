@@ -1,0 +1,7 @@
+{
+  "name": "gavil-demo",
+  "private": true,
+  "type": "module",
+  "scripts": { "record": "node record.mjs && sh encode.sh" },
+  "devDependencies": { "playwright": "1.58.2" }
+}

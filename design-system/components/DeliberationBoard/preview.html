@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=520 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>DeliberationBoard — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{maxWidth:'calc(var(--space-12) * 11)'}},h(G.DeliberationBoard,{top:3,nominees:[{id:'p02',name:'EcoLens',path:'pro',table:'A17',nominations:9,href:'https://devpost.com/software/ecolens'},{id:'p01',name:'NeuralMesh',path:'pro',table:'A12',nominations:7,href:'https://devpost.com/software/neuralmesh'},{id:'p17',name:'CrisisMap',path:'general',table:'C05',nominations:6},{id:'p10',name:'Lumen',path:'pro',table:'B07',nominations:4},{id:'p22',name:'Canopy',path:'general',table:'C21',nominations:3}]})));
+})();
+</script>
+</body>
+</html>

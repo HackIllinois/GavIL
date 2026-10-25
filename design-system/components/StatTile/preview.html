@@ -1,0 +1,14 @@
+<!-- @dsCard group="Admin" height=110 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>StatTile — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-row',style:{alignItems:'stretch'}},h('div',{style:{flex:1}},h(G.StatTile,{label:'Judges active',value:'6 / 8',sub:'2 not checked in'})),h('div',{style:{flex:1}},h(G.StatTile,{label:'Comparisons',value:'58',sub:'≈ 10 per active judge'})),h('div',{style:{flex:1}},h(G.StatTile,{label:'In queue',value:'27',sub:'2 held for review'}))));
+})();
+</script>
+</body>
+</html>

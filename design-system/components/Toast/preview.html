@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=120 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Toast — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{position:'relative',height:'calc(var(--space-12) * 2)',maxWidth:'calc(var(--space-12) * 9)'}},h('div',{className:'gv-dock gv-dock--bare',style:{position:'absolute',left:0,right:0,bottom:0}},h(G.Toast,{message:'Staff pinged. It moves to the end of your queue.'}))));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+<!-- @dsCard group="Judging" height=700 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ConsentSheet — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{position:'relative',height:'calc(var(--space-12) * 14)',maxWidth:'calc(var(--space-12) * 9)',overflow:'hidden',borderRadius:'var(--radius-lg)',transform:'translateZ(0)'}},h(G.ConsentSheet,{onConsent:function(){},onDecline:function(){},onCancel:function(){}})));
+})();
+</script>
+</body>
+</html>

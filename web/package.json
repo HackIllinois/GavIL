@@ -1,0 +1,48 @@
+{
+    "name": "gavil-web",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Gav-IL: HackIllinois 2027 judging + admin platform (Next.js 15 on Cloudflare via OpenNext)",
+    "scripts": {
+        "sync": "node scripts/sync-design-system.mjs",
+        "predev": "npm run sync",
+        "dev": "next dev --turbopack",
+        "prebuild": "npm run sync",
+        "build": "next build",
+        "start": "next start",
+        "lint": "next lint",
+        "typecheck": "tsc --noEmit",
+        "test": "vitest run",
+        "format": "prettier --write '**/*.{ts,tsx,js,mjs,json,css}'",
+        "format:check": "prettier --check '**/*.{ts,tsx,js,mjs,json,css}'",
+        "build:worker": "npm run sync && env GAVIL_MOCK=0 GAVIL_MOCK_DEMO=0 GAVIL_MOCK_TALK=0 opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion",
+        "preview": "npm run build:worker && opennextjs-cloudflare preview",
+        "deploy": "npm run build:worker && opennextjs-cloudflare deploy",
+        "headers:file": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON lib/security/write-headers-file.mjs",
+        "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    },
+    "dependencies": {
+        "@anthropic-ai/sdk": "^0.129.0",
+        "@opennextjs/cloudflare": "^1.20.10",
+        "jsqr": "^1.4.0",
+        "next": "^15.5.27",
+        "qrcode-generator": "^2.0.4",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0",
+        "server-only": "^0.0.1"
+    },
+    "devDependencies": {
+        "@eslint/eslintrc": "^3.3.1",
+        "@eslint/js": "^9.20.0",
+        "@types/node": "^22",
+        "@types/react": "^19",
+        "@types/react-dom": "^19",
+        "eslint": "^9.20.1",
+        "eslint-config-next": "15.5.27",
+        "jsdom": "^26.1.0",
+        "prettier": "3.6.2",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4",
+        "wrangler": "^4.149.0"
+    }
+}

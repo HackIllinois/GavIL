@@ -1,0 +1,402 @@
+<!-- @dsCard group="Screens" height=1100 width=1280 page subtitle="Admin console, every tab working: overview (rooms right now: presence map, judge states, staff tasks for absent teams, print placards with blank name slots), flags, judges (unusually fast judging, void votes with a written reason), room assignments, deliberations, prizes, admissions (paged, editable), reimbursements, settings (freeze sign-ins, Table talk and the words judges and teams read, AI summaries with an acknowledgement that records who and when, opted-out teams, audit log). Switch role to see staff permissions. Works at 390px too." -->
+<!doctype html>
+<html lang="en" data-theme="night">
+<head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
+<meta name="theme-color" content="#6a3f22"><link rel="stylesheet" href="/.preview/tokens.css"><link rel="stylesheet" href="/components/bundle.css">
+<script src="https://cdn.jsdelivr.net/npm/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" onerror="window.__gvNoQR=true"></script>
+<script src="/components/bundle.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Admin console</title>
+<style>
+  .ac__in{max-width:var(--admin-max);margin-inline:auto;padding-inline:var(--space-6)}
+  @media (max-width:600px){.ac__in{padding-inline:var(--space-3)}}
+  .ac__head{position:relative;z-index:2}
+  .ac__head::after{content:"";display:block;height:var(--space-1);background:linear-gradient(90deg,var(--sky-1) 0 25%,var(--sky-2) 25% 50%,var(--sky-3) 50% 75%,var(--sky-4) 75%)}
+  .ac__bar{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2) var(--space-4);min-height:calc(var(--tap-min) + var(--space-2));padding-block:var(--space-2);flex-wrap:wrap}
+  .ac__crumb{margin-inline-start:var(--space-3);padding-inline-start:var(--space-3);border-inline-start:var(--stroke) solid var(--on-wood-soft);font:var(--type-title);letter-spacing:var(--tracking-title);text-transform:uppercase;color:var(--on-wood-soft);text-shadow:none}
+  .ac__who{display:flex;align-items:center;gap:var(--space-2) var(--space-3);font:var(--type-body-sm);font-weight:500;color:var(--on-wood-soft);flex-wrap:wrap}
+  .ac__live{display:inline-flex;align-items:center;gap:var(--space-2);color:var(--on-wood);font:var(--type-caps);letter-spacing:var(--tracking-caps);text-transform:uppercase}
+  .ac__live::before{content:"";width:var(--space-2);height:var(--space-2);border-radius:50%;background:var(--gold-on-ground)}
+  .ac__role{display:inline-flex;padding:var(--space-1);gap:var(--space-1);border-radius:var(--radius-md);background:var(--wood-deep)}
+  .ac__role button{appearance:none;border:0;background:transparent;min-height:calc(var(--tap-min) - var(--space-3));padding:0 var(--space-3);border-radius:var(--radius-sm);font:var(--type-label);color:var(--on-wood);cursor:pointer;touch-action:manipulation}
+  .ac__role button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-ledge)}
+  .ac__role button{transition:transform var(--dur-release) var(--ease-out),background-color var(--dur-release) var(--ease-out)}
+  .ac__role button:active{transform:scale(var(--press-scale));background:var(--hover-tint-on-wood);transition-duration:var(--dur-press)}
+  .ac__role button[aria-pressed="true"]:active{background:var(--surface-sunken)}
+  .ac__role button:focus-visible{outline:var(--stroke-focus) solid var(--gold-on-ground);outline-offset:var(--stroke)}
+  .ac{padding-bottom:calc(var(--space-12) + var(--space-8))}
+  .ac__panel{padding-top:var(--space-5);display:flex;flex-direction:column;gap:var(--space-4)}
+  .ac__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-4)}
+  .ac__two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+  @media (max-width:860px){.ac__two{grid-template-columns:1fr}}
+  @media (max-width:420px){.ac__grid{grid-template-columns:1fr}}
+  .ac h2{font:var(--type-h2);margin:var(--space-2) 0 0;color:var(--on-ground);text-shadow:var(--shadow-title);text-wrap:balance}
+  .ac__sec{display:flex;align-items:baseline;justify-content:space-between;gap:var(--space-1) var(--space-3);flex-wrap:wrap}
+  .ac__sec>span{font:var(--type-numeral);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--on-ground-soft)}
+  .ac__detail{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:var(--space-4);align-items:start}
+  @media (max-width:860px){.ac__detail{grid-template-columns:1fr}}
+  .dl{display:grid;grid-template-columns:calc(var(--space-12) * 3) minmax(0,1fr);gap:var(--space-3) var(--space-4);margin:0;font:var(--type-body-sm);font-weight:400}
+  @media (max-width:420px){.dl{grid-template-columns:1fr;gap:var(--space-1)}.dl dd{margin-bottom:var(--space-2)}}
+  .dl dt{color:var(--ink-muted)} .dl dd{margin:0}
+  .ac__row-actions{display:flex;gap:var(--space-2);flex-wrap:wrap}
+  .ac__flaggrp{display:flex;flex-direction:column;gap:var(--space-2)}
+  .ac__flaggrp-k{font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--on-ground-soft)}
+  .ac__add{display:flex;gap:var(--space-2);flex-wrap:wrap;align-items:flex-start;padding:var(--space-3);box-shadow:inset 0 calc(-1 * var(--stroke-hair)) 0 var(--line)}
+  .ac__add input{flex:1;min-width:calc(var(--space-12) * 4);min-height:calc(var(--tap-min) - var(--space-3));padding:0 var(--space-3);border:0;border-radius:var(--radius-sm);background:var(--surface-sunken);box-shadow:inset 0 0 0 var(--stroke-hair) var(--line-strong);color:var(--ink);font:var(--type-body)}
+  .ac__add input[aria-invalid="true"]{box-shadow:inset 0 0 0 var(--stroke) var(--danger)}
+  .ac__add input:focus-visible{outline:none;box-shadow:inset 0 0 0 var(--stroke-focus) var(--focus)}
+  .ac__err{flex-basis:100%;color:var(--danger);font:var(--type-body-sm);font-weight:600}
+  .ac__saved{display:flex;align-items:center;gap:var(--space-2);min-height:var(--tap-min);font:var(--type-body-sm);font-weight:600;color:var(--success)}
+  .ac__saved--idle{color:var(--ink-muted);font-weight:500}
+  /* Presence map: each room's tables as a grid; the state is a fill plus a word in the legend (never colour alone). */
+  .pm{display:grid;grid-template-columns:repeat(auto-fill,minmax(calc(var(--space-12) * 5),1fr));gap:var(--space-5) var(--space-4)}
+  .pm__room{display:flex;flex-direction:column;gap:var(--space-2);min-width:0}
+  .pm__name{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);font:var(--type-body-sm);font-weight:700;color:var(--ink)}
+  .pm__name span{font:var(--type-caps);letter-spacing:var(--tracking-caps);text-transform:uppercase;color:var(--ink-soft);font-weight:500}
+  .pm__grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:var(--space-1)}
+  .pm__grid--8{grid-template-columns:repeat(8,minmax(0,1fr))}
+  .pm__t{aspect-ratio:1;min-height:var(--space-6);display:grid;place-items:center;border-radius:var(--radius-sm);font:var(--type-eyebrow);letter-spacing:0;background:var(--surface-sunken);color:var(--ink-muted)}
+  .pm__t--present{background:linear-gradient(var(--success-tint),var(--success-tint)),var(--surface);color:var(--ink);box-shadow:inset 0 0 0 var(--stroke-hair) var(--success)}
+  /* Never colour alone: each state also has its own shape. Walking there is a dashed ring, at the table a solid fill,
+     held a corner notch, absent a struck-through number, not here yet a dotted ring. */
+  .pm__t--enroute{background:var(--surface);color:var(--select);box-shadow:none;outline:var(--stroke) dashed var(--select);outline-offset:calc(-1 * var(--stroke))}
+  .pm__t--table{background:var(--select);color:var(--on-select)}
+  .pm__t--held{position:relative;background:linear-gradient(var(--warn-tint),var(--warn-tint)),var(--surface);color:var(--warn);box-shadow:inset 0 0 0 var(--stroke-hair) var(--warn)}
+  .pm__t--held::after{content:"";position:absolute;top:0;right:0;width:var(--space-2);height:var(--space-2);background:var(--warn);clip-path:polygon(0 0,100% 0,100% 100%);border-top-right-radius:var(--radius-sm)}
+  .pm__t--absent{background:linear-gradient(var(--danger-tint),var(--danger-tint)),var(--surface);color:var(--danger);box-shadow:inset 0 0 0 var(--stroke) var(--danger);text-decoration:line-through;text-decoration-thickness:var(--stroke)}
+  .pm__t--notin{background:var(--surface);color:var(--ink-muted);box-shadow:none;outline:var(--stroke) dotted var(--line-strong);outline-offset:calc(-1 * var(--stroke))}
+  .pm__t--empty{background:transparent;box-shadow:inset 0 0 0 var(--stroke-hair) var(--line)}
+  .pm__legend{display:flex;flex-wrap:wrap;gap:var(--space-2) var(--space-4);margin:0 0 var(--space-4);padding:0;list-style:none;font:var(--type-label);font-weight:500;color:var(--ink-soft)}
+  .pm__legend li{display:inline-flex;align-items:center;gap:var(--space-2)}
+  .pm__legend .pm__t{width:var(--space-4);min-height:0;height:var(--space-4);aspect-ratio:auto}
+  .pn{display:inline-flex;align-items:center;gap:var(--space-2);min-height:var(--tap-min);padding:0 var(--space-2);color:var(--on-wood);font:var(--type-body-sm);font-weight:600;cursor:pointer;touch-action:manipulation}
+  .pn input{width:var(--space-5);height:var(--space-5);accent-color:var(--gold)}
+  .pn input:focus-visible{outline:var(--stroke-focus) solid var(--on-wood);outline-offset:var(--stroke)}
+  .pn--wait{color:var(--on-wood-soft);cursor:default}
+  .audit{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .audit li{display:flex;flex-direction:column;gap:var(--space-1);padding:var(--space-3) 0;box-shadow:inset 0 var(--stroke-hair) 0 var(--line);font:var(--type-body-sm);font-weight:400;color:var(--ink-soft)}
+  .audit li:first-child{box-shadow:none;padding-top:0}
+  .audit b{font:var(--type-body-strong);color:var(--ink)}
+  .js{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+  .js li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2) var(--space-3);flex-wrap:wrap;padding:var(--space-2) 0;box-shadow:inset 0 var(--stroke-hair) 0 var(--line)}
+  .js li:first-child{box-shadow:none;padding-top:0}
+  .js__who{display:flex;flex-direction:column;min-width:0}
+  .js__who b{font:var(--type-body-strong);color:var(--ink)}
+  .js__who span{font:var(--type-body-sm);font-weight:400;color:var(--ink-soft)}
+  .task{display:flex;flex-direction:column;gap:var(--space-3);padding:var(--space-4)}
+  .task+.task{box-shadow:inset 0 var(--stroke-hair) 0 var(--line)}
+  .task__t{font:var(--type-title-sm);letter-spacing:var(--tracking-title-sm);margin:0;color:var(--ink)}
+  .task__s{margin:0;font:var(--type-body-sm);font-weight:400;color:var(--ink-soft);text-wrap:pretty}
+  .set{display:flex;flex-direction:column;gap:var(--space-3)}
+  .set__nest{margin-inline-start:var(--space-6);padding-inline-start:var(--space-3);box-shadow:inset var(--stroke) 0 0 var(--line)}
+  .set__opt{display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center}
+  .set__k{font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--ink-soft);margin:var(--space-2) 0 0}
+  .ac__mock{font:var(--type-label);font-weight:500}
+  .set__retention{margin:var(--space-2) 0 0}
+  .set__legal{margin:0;padding:var(--space-3) var(--space-4);border-radius:var(--radius-sm);background:var(--surface-sunken);font:var(--type-body-sm);font-weight:400;color:var(--ink-soft);text-wrap:pretty}
+  .gv-table td .gv-select{min-width:calc(var(--space-12) * 2 + var(--space-6))}
+  /* Laptop-first density; on a phone every control is a thumb target again (role switch, add-staff field). */
+  @media (max-width:600px){.ac__add input{min-width:0;flex-basis:100%;min-height:var(--tap-min)}.ac__role button{min-height:var(--tap-min)}}
+</style></head>
+<body class="gv-root">
+<div id="root"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, useState = React.useState, useEffect = React.useEffect;
+  var REVIEWERS=['Jacob E.','Aritro B.','Shreenija D.'];
+  var ROWS=[{id:1,name:'Avery Lee',school:'UIUC',assignee:'Jacob E.',score:4,status:'Scored'},{id:2,name:'Bao Kim',school:'Purdue',assignee:null,score:null,status:'In Review'},{id:3,name:'Chidi Okafor',school:'UMich',assignee:'Aritro B.',score:5,status:'Admitted + Reimbursements'},{id:4,name:'Dana Ruiz',school:'Northwestern',assignee:'Jacob E.',score:2,status:'Waitlisted'},
+    {id:5,name:'Eli Novak',school:'UW–Madison',assignee:null,score:null,status:'In Review'},{id:6,name:'Fatima Zaidi',school:'UIUC',assignee:'Shreenija D.',score:3,status:'Scored'},{id:7,name:'Gabe Ortiz',school:'Iowa State',assignee:'Aritro B.',score:null,status:'In Review'},{id:8,name:'Hana Sato',school:'UChicago',assignee:null,score:4,status:'Scored'}];
+  var PAGE=4;
+  var STATUSES=['In Review','Scored','Admitted','Admitted + Reimbursements','Waitlisted','Rejected'];
+  // Canonical dataset (hackillinois-2027). Rooms: A = 4217, B = 4218 (Pro); C = 4219, D = 1404 (General).
+  // Every open or escalated flag in the canonical dataset (web/lib/api/fixtures.ts), by level. A project is HELD out of judging while
+  // it has a 'hold' flag or has been escalated; a 'review' flag is listed but never blocks judging. Paths are the project's own
+  // (its room's): SoundScape, HealthBridge and SixPack are Pro (Rooms 4217/4218), Replay and Quill General.
+  var FLAGS=[
+    {id:'p05',name:'SoundScape',path:'pro',table:'A09',room:'4217',level:'hold',flags:[{kind:'late',detail:'3 commits 40 min after the 9:00 AM deadline (README, 2 source files).'},{kind:'unregistered',detail:'“devin_k” on Devpost has no registration. May be a typo of a registered name.'}]},
+    {id:'p09',name:'HealthBridge',path:'pro',table:'B03',room:'4218',level:'hold',flags:[{kind:'path',detail:'Submitted as Pro; registration shows 2 of 4 members on General.'}]},
+    {id:'p16',name:'SixPack',path:'pro',table:'B24',room:'4218',level:'hold',flags:[{kind:'size',detail:'5 members on Devpost; the limit is 4.'}]},
+    {id:'p27',name:'Replay',path:'general',table:'D15',room:'1404',level:'escalated',flags:[{kind:'duplicate',detail:'Same repo and demo as a 2026 project at another hackathon. Escalated: the organizers are contacting the team.'}]},
+    {id:'p10',name:'Lumen',path:'pro',table:'B07',room:'4218',level:'review',flags:[{kind:'duplicate',detail:'Repo created 3 weeks before the hackathon (first commit Feb 6).'}]},
+    {id:'p21',name:'Quill',path:'general',table:'C18',room:'4219',level:'review',flags:[{kind:'unregistered',detail:'“max-h” on Devpost has no registration. May be a typo of a registered name.'}]}];
+  var FLAG_GROUPS=[['hold','Held out of judging'],['escalated','Escalated · with the organizers'],['review','Review only · still being judged']];
+  function heldLevel(f){ return f.level!=='review'; }
+  var ROOMS=[['4217','Room 4217 · A (Pro)'],['4218','Room 4218 · B (Pro)'],['4219','Room 4219 · C (General)'],['1404','Room 1404 · D (General)']];
+  var JUDGES=[{id:'j1',name:'Sarah Kim',org:'Stripe',path:'pro',room:'4217',r2:'Best UI/UX',checkedIn:true,seen:9},{id:'j2',name:'Marcus Hall',org:'Volunteer',path:'general',room:'4219',r2:'Most Creative',checkedIn:true,seen:12},{id:'j3',name:'Priya Shah',org:'Modal',path:'pro',room:'4217',r2:'Modal',checkedIn:false,seen:0},{id:'j4',name:'Tom Becker',org:'Caterpillar',path:'general',room:'1404',r2:'Caterpillar',checkedIn:true,seen:7},
+    {id:'j5',name:'Lena Ortiz',org:'Volunteer',path:'general',room:'4219',r2:'Best Social Impact',checkedIn:false,seen:0},{id:'j6',name:'Diego Ruiz',org:'Volunteer',path:'pro',room:'4218',r2:'Best UI/UX',checkedIn:true,seen:8},{id:'j7',name:'Ama Owusu',org:'Volunteer',path:'general',room:'1404',r2:'General overall',checkedIn:true,seen:10},{id:'j8',name:'Ken Ito',org:'Volunteer',path:'pro',room:'4218',r2:'Pro overall',checkedIn:true,seen:6}];
+  var PRIZES=[{id:'ux',name:'Best UI/UX',kind:'HackIllinois',paths:'Pro + General',room:'Room 2405',noms:29},{id:'cre',name:'Most Creative',kind:'HackIllinois',paths:'Pro + General',room:'Room 2407',noms:22},{id:'imp',name:'Best Social Impact',kind:'HackIllinois',paths:'Pro + General',room:'Room 2409',noms:17},{id:'use',name:'Most Useless',kind:'HackIllinois',paths:'General',room:'Room 2411',noms:9},
+    {id:'pop',name:'Most Popular',kind:'HackIllinois',paths:'Pro + General',room:'Room 2413',noms:14},{id:'stripe',name:'Stripe',kind:'Company (opt-in)',paths:'Pro + General',room:'Sponsor booth',noms:11},{id:'modal',name:'Modal',kind:'Company (opt-in)',paths:'Pro',room:'Sponsor booth',noms:6},{id:'cat',name:'Caterpillar',kind:'Company (opt-in)',paths:'General',room:'Sponsor booth',noms:4},{id:'mlh',name:'Best Use of MongoDB',kind:'MLH (opt-in)',paths:'Pro + General',room:'MLH table',noms:2},
+    {id:'pro',name:'Pro overall',kind:'Overall · Round 2 only',paths:'Pro',room:'Room 2401',noms:null},{id:'gen',name:'General overall',kind:'Overall · Round 2 only',paths:'General',room:'Room 2403',noms:null}];
+  var FINALISTS=[{id:'p02',name:'EcoLens',path:'pro',table:'A17',nominations:9},{id:'p01',name:'NeuralMesh',path:'pro',table:'A12',nominations:7},{id:'p17',name:'CrisisMap',path:'general',table:'C05',nominations:6},{id:'p10',name:'Lumen',path:'pro',table:'B07',nominations:4},{id:'p22',name:'Canopy',path:'general',table:'C21',nominations:3}];
+  var REIMB=[{id:'r1',name:'Chidi Okafor',from:'Ann Arbor, MI',mode:'Bus',amount:84,status:'Pending'},{id:'r2',name:'Hana Sato',from:'Chicago, IL',mode:'Train',amount:46,status:'Pending'},{id:'r3',name:'Eli Novak',from:'Madison, WI',mode:'Car',amount:120,status:'Approved'}];
+  var STAFF=[{email:'aritro@hackillinois.org',role:'Admin'},{email:'jacob@hackillinois.org',role:'Admin'},{email:'shreenija@hackillinois.org',role:'Staff'}];
+  // ---- MOCK DATA. The console's server is adonix; nothing below is real, and none of it reaches a judge's bundle.
+  // Rooms by letter: [room number, tables, floor]. Tables by code (canonical dataset): [code, project id, project]. Every other
+  // code is an empty table that still has a placard.
+  var M=G.mockServer;
+  var RINFO={A:['4217',28,'Siebel Center, 4th floor'],B:['4218',28,'Siebel Center, 4th floor'],C:['4219',28,'Siebel Center, 4th floor'],D:['1404',32,'Siebel Center, 1st floor']};
+  var TABLES=[['A03','p04','Tidal'],['A09','p05','SoundScape'],['A12','p01','NeuralMesh'],['A14','p06','LedgerLite'],['A15','p07','Mirror'],['A17','p02','EcoLens'],['A20','p03','PocketLab'],['A22','p08','Atlas'],
+    ['B03','p09','HealthBridge'],['B07','p10','Lumen'],['B08','p11','Lumen.ai'],['B12','p12','Vault'],['B16','p13','InferKit'],['B19','p14','Orbit'],['B22','p15','Kiln'],['B24','p16','SixPack'],
+    ['C05','p17','CrisisMap'],['C07','p18','StudyBuddy'],['C14','p19','FarmSense'],['C16','p20','LateBloom'],['C18','p21','Quill'],['C21','p22','Canopy'],['C24','p23','Relay'],['C27','p24','Glean'],
+    ['D04','p25','QuickCart'],['D13','p26','ParkPal'],['D15','p27','Replay'],['D17','p29','Harbor'],['D20','p30','Sprout'],['D24','p31','Bento'],['D28','p32','Loop']];
+  var PROJ={}, PID={}; TABLES.forEach(function(t){ PROJ[t[0]]=t[2]; PID[t[0]]=t[1]; });
+  function codes(L){ var o=[]; for(var i=1;i<=RINFO[L][1];i++) o.push(L+(i<10?'0':'')+i); return o; }
+  // The placard list (adonix: STAFF and ADMIN only). The checks are made up: four fixed ones the judge prototype's simulated
+  // server also knows (type A12 · K7 there) and a fixed pseudo-check for every other table, from the same 23 letters and digits.
+  var DEMO_CHECKS={A12:'K7',A17:'M3',A20:'T9',A22:'R4'}, CHECK_CHARS='ACDEFHJKMNPRTUVWXY23479';
+  function mockCheck(code){ if(DEMO_CHECKS[code]) return DEMO_CHECKS[code]; var n=0; for(var i=0;i<code.length;i++) n=(n*31+code.charCodeAt(i))%(CHECK_CHARS.length*CHECK_CHARS.length); return CHECK_CHARS.charAt(Math.floor(n/CHECK_CHARS.length))+CHECK_CHARS.charAt(n%CHECK_CHARS.length); }
+  // What a real console gets from adonix's placards route: the label as printed ("A12 · K7") and the QR's full 43-character token (a made-up sample here, no secret).
+  function placardsFor(L){ return codes(L).map(function(c){ var k=G.mockServer.demoToken(c), ck=mockCheck(c); return {code:c,letter:L,check:ck,label:c+' · '+ck,room:RINFO[L][0],color:G.ROOM_COLORS[L],where:RINFO[L][2],k:k,url:G.placardUrl(c,k),project:PROJ[c]||''}; }); }
+  // Who is signed in and what time it is come from the page that hosts the console, read each time they are needed:
+  //   window.__GAVIL_ADMIN_CONTEXT = { user: { email, name }, serverNow: function(){ return epochMilliseconds; } }
+  // (adonix's session and clock). Without it, this preview falls back to a MOCK identity (aritro@hackillinois.org) and the
+  // browser's clock, and says so in the header. The audit log and the AI acknowledgement record whatever it gives.
+  function ctx(){ return window.__GAVIL_ADMIN_CONTEXT||{}; }
+  function mockId(){ var u=ctx().user; return !(u&&u.email); }
+  function meNow(){ var u=ctx().user; return mockId()?{email:'aritro@hackillinois.org',name:'Aritro B.'}:{email:String(u.email),name:String(u.name||u.email)}; }
+  function serverNow(){ try{ var t=typeof ctx().serverNow==='function'?+ctx().serverNow():NaN; if(isFinite(t)) return t; }catch(e){} return Date.now(); }
+  function stamp(){ return new Intl.DateTimeFormat([], {hour:'numeric',minute:'2-digit'}).format(new Date(serverNow())); }
+  // The Table talk policy has one row, which the judge app reads (G.mockServer.policy()): this console writes it on every
+  // change. A row that is already there (set earlier in this browser) is what the switches start from; otherwise a new event
+  // starts with Table talk off, the production default.
+  function savedPolicy(){ try{ if(localStorage.getItem(M.POLICY_KEY)==null) return null; }catch(e){ return null; } return M.policy(); }
+  function publish(talk,opt){ try{ localStorage.setItem(M.POLICY_KEY,JSON.stringify({eventEnabled:!!talk,optedOut:opt.map(function(c){return PID[c];}).filter(Boolean)})); }catch(e){} }
+  // Right now in each room: team checked in at the table, a judge walking there, a judge at the table, held for review,
+  // absent and held (2 reports from different judges), team not here yet. Empty tables have no project.
+  // 'Held for review' is not typed here: a table is held while its project has a hold or escalated flag (heldCodes), so the map, the tile and the Flagged tab can't disagree.
+  var PRESENCE={A12:'table',A17:'enroute',A03:'present',A09:'present',A14:'absent',A15:'present',A20:'present',A22:'present',B03:'present',B07:'present',B08:'present',B12:'present',B16:'present',B19:'present',B22:'present',B24:'present',C05:'table',C07:'present',C14:'present',C16:'notin',C18:'present',C21:'present',C24:'present',C27:'present',D04:'present',D13:'enroute',D15:'present',D17:'present',D20:'present',D24:'present',D28:'table'};
+  var PSTATE=[['present','Team here'],['enroute','Judge walking there'],['table','Judge at the table'],['held','Held for review'],['absent','Absent · held'],['notin','Team not here yet'],['empty','No project']];
+  var PNAME={}; PSTATE.forEach(function(x){ PNAME[x[0]]=x[1]; });
+  // Judges right now. En route over 4 min and idle over 3 min are called out.
+  var JSTATE=[{id:'j1',state:'At A12 · NeuralMesh',time:'2:10'},{id:'j6',state:'Walking to A17 · EcoLens',time:'4:40',flag:'Walking over 4 min'},{id:'j8',state:'Idle in Room 4218',time:'3:20',flag:'Idle over 3 min'},{id:'j2',state:'At C05 · CrisisMap',time:'1:05'},{id:'j4',state:'Walking to D13 · ParkPal',time:'1:30'},{id:'j7',state:'At D28 · Loop',time:'3:05'},{id:'j3',state:'Not checked in'},{id:'j5',state:'Not checked in'}];
+  // Visit signals per judge: unusually fast judging (time at the table) and tables confirmed by the team's name only.
+  var SIGNALS={j8:{fast:'38 s at the table',fastN:'3 of 6 visits under a minute',votes:6},j1:{names:1}};
+  var TASKS=[{id:'t1',code:'A14',name:'LedgerLite',room:'4217',detail:'Reported absent by Sarah Kim at 7:12 PM and Diego Ruiz at 7:24 PM. Held from judging until someone checks.'}];
+  var VOID_OTHER='Other (say why below)', VOID_REASONS=['Judged too fast to have seen the demos','A conflict of interest came out later','The judge asked to withdraw their votes',VOID_OTHER];
+
+  function lockNote(text){ return h('span',{className:'gv-lock'},h(G.Icon,{name:'lock',size:'xs'}),text); }
+  // A read-only note for a whole panel sits on the paper it explains (the table's foot), never on ground.
+  function lockFoot(text){ return text?h('div',{className:'gv-table__foot'},lockNote(text)):null; }
+  function confirmRow(cols,el){ return h('tr',{className:'gv-confirm-row',key:'confirm'},h('td',{colSpan:cols},el)); }
+
+  function App(){
+    var role=useState('admin'), tab=useState('overview'), rows=useState(ROWS), page=useState(0), open=useState(null), flags=useState(FLAGS), toast=useState(null), toastN=React.useRef(0);
+    var tasks=useState(TASKS), presence=useState(PRESENCE), cfg=useState(function(){ var p=savedPolicy(); return {talk:p?p.eventEnabled:false,ai:false,aiAck:null,freeze:false}; }), optOut=useState(function(){ var p=savedPolicy(); return p?TABLES.filter(function(t){ return p.optedOut.indexOf(t[1])>=0; }).map(function(t){ return t[0]; }):['D13']; }), optPick=useState(''), printRoom=useState(null), printNames=useState(false), voidWhy=useState(''), voidNote=useState(''), voided=useState({}), audit=useState([]), printBtn=React.useRef();
+    var ask=useState(null), judges=useState(JUDGES), reimb=useState(REIMB), staff=useState(STAFF), email=useState(''), emailErr=useState(''), form=useState(null), me=meNow().name;
+    var admin=role[0]==='admin';
+    function log(what,why){ var who=meNow().email, atMs=serverNow(), at=stamp(); audit[1](function(a){ return [{who:who,at:at,atMs:atMs,what:what,why:why||''}].concat(a); }); }
+    // The print sheet's placards come from the staff route (adonix, STAFF and ADMIN only): the code, its check, the QR's token.
+    var plist=printRoom[0]?placardsFor(printRoom[0]):[];
+    // A toast is {t, n}: the same words twice still show again and re-arm dur-toast.
+    function say(t){ toastN.current+=1; toast[1]({t:t,n:toastN.current}); }
+    useEffect(function(){ if(!toast[0]) return; var t=setTimeout(function(){toast[1](null);},G.tokenMs('dur-toast',2600)); return function(){clearTimeout(t);}; },[toast[0]&&toast[0].n]);
+    function assign(ids,who){rows[1](rows[0].map(function(r){return ids.indexOf(r.id)>=0?Object.assign({},r,{assignee:who}):r;}));}
+    // Held tables come from the flags alone (a table is held while its project has a hold or escalated flag), so clearing or
+    // escalating a card moves the map, the "held" tile and the Flagged tab together.
+    function heldCodes(){ return flags[0].filter(heldLevel).map(function(f){ return f.table; }); }
+    function stateOf(c){ return heldCodes().indexOf(c)>=0?'held':(presence[0][c]||'present'); }
+    function resolve(id,msg){flags[1](flags[0].filter(function(f){return f.id!==id;})); say(msg);}
+    function escalate(id,msg){flags[1](flags[0].map(function(f){return f.id===id?Object.assign({},f,{level:'escalated'}):f;})); say(msg);}
+    // Cards in the order they are drawn (the groups, top to bottom): focus after a clear lands on the card that took its place.
+    function ordered(){ return FLAG_GROUPS.reduce(function(a,g){ return a.concat(flags[0].filter(function(f){return f.level===g[0];})); },[]); }
+    // When a flag card goes, focus moves to the card that takes its place (its first action), else the panel: never <body>.
+    function flagAfter(i){ return function(){ var p=document.querySelector('[role=tabpanel]'), cards=p?p.querySelectorAll('.gv-flag'):[], c=cards[Math.min(i,cards.length-1)]; return (c&&(c.querySelector('button')||c))||p; }; }
+    function openRow(r){ open[1](r.id); form[1]({score:r.score,status:r.status,notes:r.notes||'',saved:false}); }
+    var openR=open[0]&&rows[0].filter(function(x){return x.id===open[0];})[0], f=form[0];
+    var dirty=!!(openR&&f&&(f.score!==openR.score||f.status!==openR.status||f.notes!==(openR.notes||'')));
+    // Leaving an applicant with unsaved edits asks first (back, any tab, or switching the preview role).
+    function leave(next){ if(dirty){ ask[1]({kind:'discard',next:next,name:openR.name}); return; } go(next); }
+    function go(next){ ask[1](null); open[1](null); if(next) tab[1](next); }
+    var items=[{id:'overview',label:'Overview'},{id:'flagged',label:'Flagged',count:flags[0].length,tone:'danger',locked:!admin},{id:'judges',label:'Judges',locked:!admin},{id:'assign',label:'Assignments',locked:!admin},{id:'delib',label:'Deliberations',locked:!admin},{id:'prizes',label:'Prizes & paths',locked:!admin},{id:'adm',label:'Admissions'},{id:'reimb',label:'Reimbursements',locked:!admin},{id:'settings',label:'Settings',locked:!admin}];
+    var readOnly=!admin&&'Read-only for staff. Ask an admin to change this.';
+    function flagList(){
+      if(!flags[0].length) return h('div',{className:'gv-card'},h(G.EmptyState,{as:'h3',prop:'cactus-round',title:'No flagged projects',body:'Every submission passed the deadline and registration checks. New Devpost syncs re-run them automatically.'}));
+      var order=ordered();
+      return FLAG_GROUPS.map(function(g){
+        var items=flags[0].filter(function(f){return f.level===g[0];}); if(!items.length) return null;
+        return h('div',{className:'ac__flaggrp',key:g[0]},h('div',{className:'ac__flaggrp-k'},g[1]+' ('+items.length+')'),
+          h('div',{className:'gv-table-wrap'},items.map(function(f){
+            var i=order.indexOf(f), esc=ask[0]&&ask[0].kind==='esc'&&ask[0].id===f.id, review=f.level==='review';
+            return h(React.Fragment,{key:f.id},
+              h(G.FlagCard,Object.assign({},f,admin?{settleKey:order.map(function(x){return x.id+':'+x.level;}).join(),clearLabel:review?'Clear flag':undefined,onClear:function(){resolve(f.id,review?f.name+'’s flag cleared.':f.name+' cleared and sent to judging.'); G.keepFocus(flagAfter(i));},onEscalate:f.level==='escalated'?undefined:function(){ask[1]({kind:'esc',id:f.id,name:f.name});}}:{readOnly:true})),
+              esc&&h('div',{className:'gv-flag-confirm'},h(G.InlineConfirm,{size:'sm',confirmLabel:'Escalate',returnFocus:flagAfter(i),onConfirm:function(){ask[1](null); escalate(f.id,f.name+' escalated to the organizers. It stays held.');},onCancel:function(){ask[1](null);}},h('b',null,'Escalate '+f.name+'?'),' It stays out of judging until the organizers decide.')));
+          })));
+      });
+    }
+    function sec(title,sub){ return h('div',{className:'ac__sec'},h('h2',null,title),h('span',null,sub)); }
+    var panel;
+
+    if(tab[0]==='overview') panel=h('div',{className:'ac__panel'},
+      h('div',{className:'gv-alert'},h(G.Icon,{name:'alert',size:'wide'}),h('div',null,'4 projects have not been seen by any judge',h('p',null,'PocketLab (4217 · A20) · Lumen.ai (4218 · B08) · CrisisMap (4219 · C05) · Harbor (1404 · D17). The queue now serves these first.'))),
+      sec('Needs review',flags[0].length+' flagged · '+heldCodes().length+' held · Devpost synced 2 min ago'),
+      flagList(),
+      tasks[0].length>0&&sec('Floor tasks',tasks[0].length+' open'),
+      tasks[0].length>0&&h('div',{className:'gv-table-wrap'},tasks[0].map(function(t){ var cf=ask[0]&&ask[0].kind==='absent'&&ask[0].id===t.id;
+        // Floor tasks (README → Admin rules): Restore (a team is back, or a staff check-in) is STAFF + ADMIN; Confirm absent is ADMIN only,
+        // exactly web/lib/permissions.ts taskActions. A staff member who can't confirm still sees that a table is held, and why they can't.
+        return h('div',{key:t.id,className:'task'},
+          h('div',{className:'gv-row'},t.confirmed?h(G.Badge,{tone:'danger',className:'gv-badge--stamp'},'Marked absent'):h(G.Badge,{tone:'danger',icon:'alert'},'Absent · held'),h('span',{className:'gv-flag__where'},'Table '+t.code+' · Room '+t.room)),
+          h('p',{className:'task__t'},t.confirmed?t.name+' is out of judging tonight':'Check on '+t.name+' at '+t.code),
+          h('p',{className:'task__s'},t.confirmed?'Marked absent by '+t.confirmed+'. No judge is sent to '+t.code+'. If the team turns up, restore it and the queue serves it first.':t.detail),
+          cf?h(G.InlineConfirm,{size:'sm',confirmLabel:'Confirm absent',onConfirm:function(){ ask[1](null); tasks[1](tasks[0].map(function(x){return x.id===t.id?Object.assign({},x,{confirmed:me+' at '+stamp()}):x;})); log('Marked '+t.name+' ('+t.code+') absent'); say(t.name+' marked absent. It stays out of judging.'); },onCancel:function(){ask[1](null);}},h('b',null,'Mark '+t.name+' absent?'),' No judge is sent to '+t.code+' again tonight. If the team turns up, Restore to judging stays right here.')
+            :h('div',{className:'ac__row-actions'},!t.confirmed&&(admin?h(G.Button,{size:'sm',variant:'secondary',onClick:function(){ask[1]({kind:'absent',id:t.id});}},'Confirm absent'):h('span',{className:'gv-lock'},h(G.Icon,{name:'lock',size:'compact'}),'Confirm absent: admins only')),h(G.Button,{size:'sm',variant:t.confirmed?'secondary':'primary',icon:'check',onClick:function(){ tasks[1](tasks[0].filter(function(x){return x.id!==t.id;})); presence[1](Object.assign({},presence[0],(function(){ var o={}; o[t.code]='present'; return o; })())); log('Restored '+t.name+' ('+t.code+') to judging'); say(t.name+' is back in judging.'); G.keepFocus(function(){ return document.querySelector('[role=tabpanel]'); }); }},'Restore to judging')));
+      })),
+      h('div',{className:'ac__sec'},h('h2',null,'Rooms right now'),h(G.Button,{size:'sm',variant:'secondary',icon:'printer',btnRef:printBtn,onClick:function(){printRoom[1]('A');}},'Print placards')),
+      h('div',{className:'ac__two'},
+        h(G.Card,{as:'h3',title:'Tables',icon:'table'},
+          h('ul',{className:'pm__legend'},PSTATE.map(function(x){ return h('li',{key:x[0]},h('span',{className:'pm__t pm__t--'+x[0],'aria-hidden':true}),x[1]); })),
+          h('div',{className:'pm'},'ABCD'.split('').map(function(L){ var cs=codes(L), n={}; cs.forEach(function(c){ var st=PROJ[c]?stateOf(c):'empty'; n[st]=(n[st]||0)+1; });
+            // Screen readers get the counts and, for every table not simply "team here", its code, project and state.
+            var odd=cs.filter(function(c){ return PROJ[c]&&stateOf(c)!=='present'; }).map(function(c){ return c+' '+PROJ[c]+': '+PNAME[stateOf(c)].toLowerCase(); });
+            var label='Room '+RINFO[L][0]+': '+PSTATE.filter(function(x){return n[x[0]];}).map(function(x){return n[x[0]]+' '+x[1].toLowerCase();}).join(', ')+(odd.length?'. '+odd.join('; ')+'.':'.');
+            return h('div',{key:L,className:'pm__room'},h('div',{className:'pm__name'},'Room '+RINFO[L][0],h('span',null,L+'01–'+L+RINFO[L][1])),
+              h('p',{className:'gv-sr'},label),
+              h('div',{className:'pm__grid'+(RINFO[L][1]>28?' pm__grid--8':''),role:'list','aria-label':'Room '+RINFO[L][0]+' tables'},cs.map(function(c){ var st=PROJ[c]?stateOf(c):'empty', say1=PROJ[c]?c+' '+PROJ[c]+', '+PNAME[st].toLowerCase():c+', no project'; return h('span',{key:c,role:'listitem','aria-label':say1,className:'pm__t pm__t--'+st,title:c+(PROJ[c]?' · '+PROJ[c]+' · '+PNAME[st]:' · no project')},st==='empty'?null:c.slice(1)); }))); }))),
+        h(G.Card,{as:'h3',title:'Judges right now',icon:'users'},h('ul',{className:'js'},JSTATE.map(function(x){ var j=judges[0].filter(function(y){return y.id===x.id;})[0]; if(!j) return null;
+          return h('li',{key:x.id},h('span',{className:'js__who'},h('b',null,j.name),h('span',null,(j.revoked?'Revoked':x.state)+(x.time&&!j.revoked?' · '+x.time:''))),x.flag&&!j.revoked&&h(G.Badge,{tone:'warn',icon:'clock'},x.flag)); })))),
+      h('div',{className:'ac__two'},
+        h(G.Card,{as:'h3',title:'Room coverage',icon:'pin'},h(G.CoverageMeter,{rooms:[{room:'4217',total:8,twice:3,once:4},{room:'4218',total:8,twice:2,once:5},{room:'4219',total:8,twice:4,once:3},{room:'1404',total:7,twice:5,once:1}]})),
+        h('div',{className:'ac__grid'},h(G.StatTile,{label:'Judges active',value:judges[0].filter(function(j){return j.checkedIn&&!j.revoked;}).length+' / '+judges[0].length,sub:judges[0].filter(function(j){return !j.checkedIn;}).length+' not checked in'}),h(G.StatTile,{label:'Comparisons',value:'58',sub:'≈ 10 per active judge'}),h(G.StatTile,{label:'In queue',value:'27',sub:heldCodes().length+' held for review'}),h(G.StatTile,{label:'Round 1 ends',value:'01:14:48',sub:'9:30 PM'}))));
+
+    else if(tab[0]==='flagged') panel=h('div',{className:'ac__panel'},sec('Flagged projects',admin?'Clear sends a project into judging':'Read-only: only admins can clear or escalate'),flagList());
+
+    else if(tab[0]==='judges') panel=h('div',{className:'ac__panel'},sec('Judges',judges[0].filter(function(j){return j.checkedIn;}).length+' of '+judges[0].length+' checked in'),
+      h('div',{className:'gv-table-wrap'},h('table',{className:'gv-table gv-table--stack'},
+        h('thead',null,h('tr',null,h('th',null,'Judge'),h('th',null,'Path'),h('th',null,'Room'),h('th',null,'Status'),h('th',{className:'gv-num'},'Seen'),h('th',null,'Signals'),h('th',null,'Actions'))),
+        h('tbody',null,judges[0].map(function(j){ var rv=ask[0]&&ask[0].kind==='revoke'&&ask[0].id===j.id;
+          return [h('tr',{key:j.id},
+            h('td',null,h('span',{className:'gv-table__name'},j.name),h('span',{className:'gv-table__sub'},j.org+' · Round 2: '+j.r2)),
+            h('td',{'data-label':'Path'},h(G.PathBadge,{path:j.path})),
+            h('td',{'data-label':'Room',className:'gv-mono'},j.room),
+            h('td',{'data-label':'Status'},j.checkedIn?h(G.Badge,{tone:'success',icon:'check'},'Checked in'):h(G.Badge,{tone:'warn'},'Not here yet')),
+            h('td',{'data-label':'Seen',className:'gv-mono gv-num'},j.seen),
+            h('td',{'data-label':'Signals',className:'gv-td--wide'},(function(){ var sg=SIGNALS[j.id], out=[];
+              if(sg&&sg.fast) out.push(voided[0][j.id]?h(G.Badge,{key:'v',tone:'danger',className:'gv-badge--stamp'},'Votes voided'):h('span',{key:'f',className:'gv-row',style:{gap:'var(--space-1)'}},h(G.Badge,{tone:'warn',icon:'zap'},'Unusually fast: '+sg.fast),h('span',{className:'gv-table__sub'},sg.fastN)));
+              if(sg&&sg.names) out.push(h(G.Badge,{key:'n',icon:'users'},sg.names+' table confirmed by name'));
+              return out.length?h('div',{className:'gv-stack',style:{gap:'var(--space-1)'}},out):h('span',{className:'gv-muted'},'None');})()),
+            h('td',{'data-label':'Actions',className:'gv-td--wide'},!admin?lockNote('Admins only'):j.revoked?h(G.Badge,{tone:'danger',className:'gv-badge--stamp'},'Revoked'):h('div',{className:'ac__row-actions'},h(G.Button,{size:'sm',variant:'secondary',onClick:function(){say('New sign-in link sent to '+j.name+'.');}},j.checkedIn?'Resend link':'Send link'),h(G.Button,{size:'sm',variant:'ghost-danger',onClick:function(){ask[1]({kind:'revoke',id:j.id,name:j.name});}},'Revoke'),SIGNALS[j.id]&&SIGNALS[j.id].fast&&!voided[0][j.id]&&h(G.Button,{size:'sm',variant:'ghost-danger',icon:'zap',onClick:function(){voidWhy[1](''); voidNote[1](''); ask[1]({kind:'void',id:j.id});}},'Void votes')))),
+            ask[0]&&ask[0].kind==='void'&&ask[0].id===j.id&&confirmRow(7,h(G.InlineConfirm,{size:'sm',confirmLabel:'Void '+SIGNALS[j.id].votes+' votes',confirmDisabled:!voidWhy[0]||(voidWhy[0]===VOID_OTHER&&!voidNote[0].trim()),
+                field:h(React.Fragment,null,h('label',{className:'gv-field__label',htmlFor:'void-why'},'Reason (goes in the audit log)'),h('select',{id:'void-why',className:'gv-select',value:voidWhy[0],onChange:function(e){voidWhy[1](e.target.value);}},h('option',{value:'',disabled:true},'Pick a reason…'),VOID_REASONS.map(function(r){return h('option',{key:r,value:r},r);})),
+                  voidWhy[0]===VOID_OTHER&&h(React.Fragment,null,h('label',{className:'gv-field__label',htmlFor:'void-note'},'Say why (required)'),h('textarea',{id:'void-note',className:'gv-notes__field','aria-required':true,rows:2,value:voidNote[0],onChange:function(e){voidNote[1](e.target.value);}}))),
+                onConfirm:function(){ var why=voidWhy[0]===VOID_OTHER?'Other: '+voidNote[0].trim():voidWhy[0]; ask[1](null); voided[1](Object.assign({},voided[0],(function(){var o={}; o[j.id]=why; return o;})())); log('Voided '+j.name+'’s '+SIGNALS[j.id].votes+' votes',why); say(j.name+'’s '+SIGNALS[j.id].votes+' votes voided. Rankings re-run without them.'); },onCancel:function(){ask[1](null);}},
+              h('b',null,'Void '+j.name+'’s '+SIGNALS[j.id].votes+' votes?'),' Their comparisons are removed and every room they judged is ranked again without them. Who did it, when and why go in the audit log.')),
+            rv&&confirmRow(7,h(G.InlineConfirm,{size:'sm',confirmLabel:'Revoke',onConfirm:function(){ ask[1](null); judges[1](judges[0].map(function(x){return x.id===j.id?Object.assign({},x,{revoked:true}):x;})); say(j.name+' revoked and signed out.'); },onCancel:function(){ask[1](null);}},h('b',null,'Revoke '+j.name+'?'),' They are signed out at once and their unsent work is kept for review.'))];})))));
+
+    else if(tab[0]==='assign') panel=h('div',{className:'ac__panel'},sec('Room assignments','Judges stay in one room for Round 1'),
+      h('div',{className:'gv-table-wrap'},h('table',{className:'gv-table gv-table--stack'},
+        h('thead',null,h('tr',null,h('th',null,'Judge'),h('th',null,'Path'),h('th',null,'Room'))),
+        h('tbody',null,judges[0].map(function(j){ return h('tr',{key:j.id},
+          h('td',null,h('span',{className:'gv-table__name'},j.name),h('span',{className:'gv-table__sub'},j.org)),
+          h('td',{'data-label':'Path'},h(G.PathBadge,{path:j.path})),
+          h('td',{'data-label':'Room',className:'gv-td--wide'},admin?h('select',{className:'gv-select',value:j.room,'aria-label':'Room for '+j.name,onChange:function(e){var v=e.target.value; judges[1](judges[0].map(function(x){return x.id===j.id?Object.assign({},x,{room:v}):x;})); say(j.name+' moved to room '+v+'.');}},ROOMS.map(function(r){return h('option',{key:r[0],value:r[0]},r[1]);})):h('span',null,'Room '+j.room)));}))),
+        lockFoot(readOnly)));
+
+    else if(tab[0]==='delib') panel=h('div',{className:'ac__panel'},sec('Best UI/UX','Room 2405 · 2 judges · combined ranking'),h('div',{style:{maxWidth:'calc(var(--space-12) * 13)'}},
+      admin?h(G.DeliberationBoard,{top:3,nominees:FINALISTS,onReorder:function(){say('Ranking saved.');}})
+        :h('div',{className:'gv-table-wrap'},h('table',{className:'gv-table'},h('tbody',null,FINALISTS.map(function(n,i){return h('tr',{key:n.id},h('td',{className:'gv-mono gv-num',style:{width:'var(--space-12)'}},i+1),h('td',null,h('span',{className:'gv-table__name'},n.name),h('span',{className:'gv-table__sub'},'Table '+n.table)),h('td',null,h(G.PathBadge,{path:n.path})));}))),lockFoot(readOnly))));
+
+    else if(tab[0]==='prizes') panel=h('div',{className:'ac__panel'},sec('Prizes & paths',PRIZES.length+' prizes · overall prizes are decided in Round 2'),
+      h('div',{className:'gv-table-wrap'},h('table',{className:'gv-table gv-table--stack'},
+        h('thead',null,h('tr',null,h('th',null,'Prize'),h('th',null,'Type'),h('th',null,'Eligible paths'),h('th',null,'Deliberation'),h('th',{className:'gv-num'},'Nominees'))),
+        h('tbody',null,PRIZES.map(function(p){ return h('tr',{key:p.id},h('td',null,h('span',{className:'gv-table__name'},p.name)),h('td',{'data-label':'Type'},h(G.Badge,null,p.kind)),h('td',{'data-label':'Eligible paths'},p.paths),h('td',{'data-label':'Deliberation'},p.room),h('td',{'data-label':'Nominees',className:'gv-mono gv-num'},p.noms==null?'Finalists':p.noms));}))),
+        lockFoot(readOnly)));
+
+    else if(tab[0]==='adm' && openR){
+      var r=openR, can=admin||!r.assignee||r.assignee===me, why=can?null:'Assigned to '+r.assignee+' — only they or an admin can change this.';
+      function setF(p){ form[1](Object.assign({},f,p,{saved:false})); }
+      panel=h('div',{className:'ac__panel'},
+        h('div',null,h(G.Button,{variant:'wood',shape:'back',size:'sm',onClick:function(){leave(null);}},'All applicants')),
+        ask[0]&&ask[0].kind==='discard'&&h(G.InlineConfirm,{size:'sm',confirmLabel:'Discard changes',cancelLabel:'Keep editing',onConfirm:function(){ var a=ask[0]; if(a.role){ role[1](a.role); go(null); } else go(a.next); },onCancel:function(){ask[1](null);}},h('b',null,'Discard your changes to '+r.name+'?'),' The score, status and notes go back to what was saved.'),
+        h('div',{className:'ac__sec'},h('h2',null,r.name),h(G.StatusBadge,{status:r.status})),
+        h('div',{className:'ac__detail'},
+          h(G.Card,{as:'h3',title:'Application',icon:'doc'},h('dl',{className:'dl'},h('dt',null,'School'),h('dd',null,r.school),h('dt',null,'Year'),h('dd',null,'Junior, Computer Engineering'),h('dt',null,'Hackathons'),h('dd',null,'3 previous'),h('dt',null,'Why HackIllinois?'),h('dd',null,'Wants to ship a hardware + ML project with friends from their robotics team.'),h('dt',null,'Travel'),h('dd',null,'Requests reimbursement'))),
+          h(G.Card,{as:'h3',title:'Review',icon:'check',className:'ac__review',aside:r.assignee?h(G.Badge,null,r.assignee):h(G.Badge,null,'Unassigned')},h('div',{className:'gv-stack',style:{gap:'var(--space-4)'}},
+            why&&lockNote(why),
+            h(G.ScoreBar,{label:'Score',value:f.score,onChange:function(n){setF({score:n});},disabled:!can}),
+            h('div',null,h('div',{className:'gv-field__label',id:'adm-status'},'Status'),h(G.ChoiceChips,{labelledBy:'adm-status',options:STATUSES,value:f.status,disabled:!can,onChange:function(s){setF({status:s});}})),
+            h('div',null,h('label',{className:'gv-field__label',htmlFor:'adm-notes'},'Internal notes'),h('textarea',{id:'adm-notes',className:'gv-notes__field',disabled:!can,value:f.notes,onChange:function(e){setF({notes:e.target.value});},placeholder:'Visible to staff and admins only'})),
+            can&&(dirty?h(G.Button,{block:true,onClick:function(){ rows[1](rows[0].map(function(x){return x.id===r.id?Object.assign({},x,{score:f.score,status:f.status,notes:f.notes}):x;})); form[1](Object.assign({},f,{saved:true})); say('Saved '+r.name+'.'); G.keepFocus(function(){ return document.querySelector('.ac__saved'); }); }},'Save changes')
+              :h('div',{className:'ac__saved'+(f.saved?'':' ac__saved--idle'),role:'status'},f.saved?h(G.Icon,{name:'check'}):null,f.saved?'Saved':'No unsaved changes'))))));
+    }
+    else if(tab[0]==='adm'){ var pages=Math.ceil(rows[0].length/PAGE), pg=Math.min(page[0],pages-1), slice=rows[0].slice(pg*PAGE,pg*PAGE+PAGE);
+      panel=h('div',{className:'ac__panel'},sec('Admissions',rows[0].length+' applicants · '+rows[0].filter(function(x){return !x.assignee;}).length+' unassigned'),
+        h(G.AdmissionsTable,{role:role[0],me:me,rows:slice,reviewers:REVIEWERS,total:rows[0].length,range:(pg*PAGE+1)+'–'+(pg*PAGE+slice.length)+' of '+rows[0].length,onAssign:assign,onOpen:openRow,
+          onPrev:pg>0?function(){page[1](pg-1);}:undefined,onNext:pg<pages-1?function(){page[1](pg+1);}:undefined})); }
+
+    else if(tab[0]==='reimb') panel=h('div',{className:'ac__panel'},sec('Reimbursements','$'+reimb[0].filter(function(x){return x.status==='Approved';}).reduce(function(a,x){return a+x.amount;},0)+' approved'),
+      h('div',{className:'gv-table-wrap'},h('table',{className:'gv-table gv-table--stack'},
+        h('thead',null,h('tr',null,h('th',null,'Attendee'),h('th',null,'Travel'),h('th',{className:'gv-num'},'Amount'),h('th',null,'Status'),h('th',null,h('span',{className:'gv-sr'},'Actions')))),
+        h('tbody',null,reimb[0].map(function(x){ function set(s){ reimb[1](reimb[0].map(function(y){return y.id===x.id?Object.assign({},y,{status:s}):y;})); log((s==='Pending'?'Reopened':s)+' '+x.name+'’s $'+x.amount+' reimbursement'); say(x.name+': '+s.toLowerCase()+'.'); }
+          var dn=ask[0]&&ask[0].kind==='deny'&&ask[0].id===x.id;
+          return [h('tr',{key:x.id},h('td',null,h('span',{className:'gv-table__name'},x.name),h('span',{className:'gv-table__sub'},x.from)),h('td',{'data-label':'Travel'},x.mode),h('td',{'data-label':'Amount',className:'gv-mono gv-num'},'$'+x.amount),
+            h('td',{'data-label':'Status'},h(G.Badge,{tone:x.status==='Approved'?'success':x.status==='Denied'?'danger':'neutral'},x.status)),
+            h('td',{className:'gv-td--wide'},!admin?lockNote('Admins only'):x.status==='Pending'?h('div',{className:'ac__row-actions'},h(G.Button,{size:'sm',variant:'secondary',icon:'check',onClick:function(){set('Approved');}},'Approve'),h(G.Button,{size:'sm',variant:'ghost-danger',onClick:function(){ask[1]({kind:'deny',id:x.id});}},'Deny')):h(G.Button,{size:'sm',variant:'ghost',onClick:function(){set('Pending');}},'Undo'))),
+            dn&&confirmRow(5,h(G.InlineConfirm,{size:'sm',confirmLabel:'Deny',onConfirm:function(){ask[1](null); set('Denied');},onCancel:function(){ask[1](null);}},h('b',null,'Deny '+x.name+'’s reimbursement?'),' It is marked Denied and logged with your name. Undo puts it back to Pending.'))];})))));
+
+    if(tab[0]==='settings'){ var C0=cfg[0], lockR=admin?null:'Admins only', setC=function(ch){ cfg[1](Object.assign({},C0,ch)); };
+      var opted=optOut[0].map(function(c){ return {id:c,code:c,name:PROJ[c]}; });
+      var judging=h('div',{className:'ac__panel',style:{paddingTop:0}},sec('Judging','Event hackillinois-2027'),
+        h(G.Card,null,h('div',{className:'set'},
+          h(G.Switch,{label:'Freeze new sign-ins',checked:C0.freeze,disabled:!admin,lockedReason:lockR,onChange:function(v){ setC({freeze:v}); say(v?'New judge sign-ins are frozen. The desk QR still works.':'Judges can sign in again.'); },
+            description:'Stops new judge sign-ins by link or code (after a code is guessed at, or once judging starts). Staff at the desk can still sign judges in with a QR code.'}),
+          h(G.Switch,{label:'Table talk (voice notes)',checked:C0.talk,disabled:!admin,lockedReason:lockR,onChange:function(v){ setC(v?{talk:true}:{talk:false,ai:false}); publish(v,optOut[0]); say(v?'Table talk is on. Judges still ask every team first.':'Table talk is off.'); },
+            description:'Off until HackIllinois and UIUC counsel sign off (Illinois Eavesdropping Act, BIPA). Judges read a consent script and record only if everyone at the table agrees. No voice ID.'}),
+          h('p',{className:'set__legal'},'Retention: audio is never saved. It goes to Cloudflare only to be transcribed and is deleted once it is (offline, it waits on the judge’s phone for up to 15 minutes, then it is deleted unheard). With AI summaries on, Anthropic drafts highlights from the transcript. Transcripts are deleted 7 days after the event. Only highlights a judge keeps are saved, with their private notes. Highlights never score, rank or nominate.'),
+          C0.talk&&h('div',{className:'set__nest set'},
+            h(G.Disclosure,{icon:'quote',title:'What judges read aloud'},G.talk.copy({ai:C0.ai}).script),
+            h(G.Disclosure,{icon:'doc',title:'What teams read (printed on every placard)'},G.talk.copy({ai:C0.ai}).notice,h('p',{className:'set__retention'},G.talk.RETENTION)),
+            ask[0]&&ask[0].kind==='ai'
+              ?h(G.InlineConfirm,{size:'sm',tone:'neutral',confirmLabel:'I acknowledge · turn on',onConfirm:function(){ ask[1](null); setC({ai:true,aiAck:meNow().email+' · '+stamp()}); log('Turned on AI summaries','Acknowledged Anthropic’s retention (30 days, up to 2 years if a safety review flags it)'); say('AI summaries are on. Your acknowledgement is logged.'); },onCancel:function(){ask[1](null);}},h('b',null,'Turn on AI summaries?'),' Transcripts go to Anthropic to draft highlights. Anthropic deletes API inputs and outputs within 30 days, or keeps them up to 2 years if a safety review flags them. Your name and the time are recorded.')
+              :h(G.Switch,{label:'AI summaries (Anthropic)',checked:C0.ai,disabled:!admin,lockedReason:lockR,onChange:function(v){ if(v){ ask[1]({kind:'ai'}); return; } setC({ai:false}); say('AI summaries are off. Judges get the on-phone highlights only.'); },
+                description:C0.ai?'On · acknowledged by '+C0.aiAck+'. Turning it off keeps the on-phone highlights.':'Off: highlights come from rules on the judge’s phone. Turning it on asks you to acknowledge Anthropic’s retention first.'}),
+            h('div',{className:'set__k'},'Teams that opted out of recording'),
+            h('div',{className:'set__opt'},opted.map(function(o){ return admin?h(G.Button,{key:o.id,size:'sm',variant:'secondary',icon:'mic-off','aria-label':'Allow recording again for '+o.name,onClick:function(){ var n=optOut[0].filter(function(x){return x!==o.id;}); optOut[1](n); publish(C0.talk,n); say(o.name+' can be recorded again (with consent).'); }},o.name+' · '+o.code):h(G.Badge,{key:o.id,icon:'mic-off'},o.name+' · '+o.code); }),
+              opted.length===0&&h('span',{className:'gv-muted'},'None yet.'),
+              admin&&h('select',{className:'gv-select','aria-label':'Mark a team as opted out of recording',value:optPick[0],onChange:function(e){ var c=e.target.value; optPick[1](''); if(!c||optOut[0].indexOf(c)>=0) return; var n=optOut[0].concat([c]); optOut[1](n); publish(C0.talk,n); say(PROJ[c]+' marked: team opted out of recording.'); }},h('option',{value:''},'Team opted out…'),Object.keys(PROJ).filter(function(c){ return optOut[0].indexOf(c)<0; }).map(function(c){ return h('option',{key:c,value:c},PROJ[c]+' · '+c); }))),
+            h('p',{className:'gv-switch__desc'},'Judges at these tables see “This team opted out of recording” and can dictate a memo after they leave.')))));
+    }
+    if(tab[0]==='settings') panel=h('div',{className:'ac__panel'},judging,sec('Staff & admins','Google sign-in, @hackillinois.org only'),
+      h('div',{className:'gv-table-wrap'},
+        admin&&h('form',{className:'ac__add',noValidate:true,onSubmit:function(e){ e.preventDefault(); var v=email[0].trim().toLowerCase();
+            if(!/^[^@\s]+@hackillinois\.org$/.test(v)){ emailErr[1]('Use a @hackillinois.org address.'); return; }
+            if(staff[0].some(function(s){return s.email===v;})){ emailErr[1](v+' already has access.'); return; }
+            staff[1](staff[0].concat([{email:v,role:'Staff'}])); email[1](''); emailErr[1](''); say(v+' added as staff.'); }},
+          h('input',{type:'email','aria-label':'Email to add',placeholder:'name@hackillinois.org',autoComplete:'off',spellCheck:false,value:email[0],'aria-invalid':!!emailErr[0],'aria-describedby':emailErr[0]?'ac-email-err':undefined,onChange:function(e){email[1](e.target.value); emailErr[1]('');}}),
+          h(G.Button,{type:'submit',size:'sm',icon:'plus'},'Add staff'),
+          emailErr[0]&&h('div',{className:'ac__err',id:'ac-email-err',role:'alert'},emailErr[0])),
+        h('table',{className:'gv-table gv-table--stack'},
+          h('thead',null,h('tr',null,h('th',null,'Email'),h('th',null,'Role'),h('th',null,h('span',{className:'gv-sr'},'Actions')))),
+          h('tbody',null,staff[0].map(function(s){ var self=s.email===meNow().email, rm=ask[0]&&ask[0].kind==='rm'&&ask[0].email===s.email;
+            return [h('tr',{key:s.email},h('td',null,h('span',{className:'gv-table__name'},s.email)),h('td',{'data-label':'Role'},admin&&!self?h('select',{className:'gv-select',value:s.role,'aria-label':'Role for '+s.email,onChange:function(e){var v=e.target.value; staff[1](staff[0].map(function(y){return y.email===s.email?Object.assign({},y,{role:v}):y;}));}},h('option',null,'Staff'),h('option',null,'Admin')):h(G.Badge,null,s.role)),
+              h('td',{className:'gv-td--wide'},!admin?lockNote('Admins only'):self?h('span',{className:'gv-muted'},'You'):h(G.Button,{size:'sm',variant:'ghost-danger',onClick:function(){ask[1]({kind:'rm',email:s.email});}},'Remove'))),
+              rm&&confirmRow(3,h(G.InlineConfirm,{size:'sm',confirmLabel:'Remove',onConfirm:function(){ ask[1](null); staff[1](staff[0].filter(function(y){return y.email!==s.email;})); say(s.email+' removed.'); },onCancel:function(){ask[1](null);}},h('b',null,'Remove '+s.email+'?'),' They lose access to the admin console right away.'))];})))),
+      sec('Audit log','Who did what, and when'),
+      h(G.Card,null,!admin?lockNote('Admins only')
+        :audit[0].length?h('ul',{className:'audit','aria-label':'Audit log'},audit[0].map(function(a,i){ return h('li',{key:i},h('b',null,a.what),h('span',null,a.who+' · '+a.at),a.why&&h('span',null,'Reason: '+a.why)); }))
+        :h('span',{className:'gv-muted'},'Nothing yet. Voiding votes, marking a team absent, turning on AI summaries and reimbursement decisions are logged here.')));
+
+    return h('div',null,
+      h('header',{className:'ac__head gv-wood'},h('div',{className:'ac__in'},
+        h('div',{className:'ac__bar'},h('h1',{className:'gv-sr'},'Admin console'),h('span',{className:'gv-wordmark'},h(G.Brand,{name:'lockup'}),h('span',{className:'ac__crumb'},'Admin')),
+          h('div',{className:'ac__who'},h('span',{className:'ac__live'},'Round 1 live'),
+            h('div',{className:'ac__role',role:'group','aria-label':'Preview as'},['admin','staff'].map(function(x){return h('button',{key:x,type:'button','aria-pressed':role[0]===x,onClick:function(){ if(role[0]===x) return; if(dirty){ ask[1]({kind:'discard',role:x,name:openR.name}); return; } role[1](x); go(null); }},'View as '+x);})),
+            h('span',null,meNow().email,mockId()&&h('span',{className:'ac__mock'},' (mock identity)')))),
+        h(G.Tabs,{key:role[0],items:items,value:tab[0],label:'Admin sections',panelPrefix:'ac-panel-',onChange:function(id){ leave(id); }}))),
+      // APG tabs: a panel is a tab stop (tabIndex 0) when its first meaningful content is not focusable (a heading, an
+      // alert), so Tab from the tabs lands on the panel and reading starts at its top. The applicant detail opens with a
+      // button (All applicants), so there Tab goes straight to it; the panel stays focusable (-1) as a focus fallback.
+      h('main',{className:'ac ac__in'},h('div',{role:'tabpanel',id:'ac-panel-'+tab[0],'aria-labelledby':'gv-tab-'+tab[0],tabIndex:(tab[0]==='adm'&&openR)?-1:0},panel)),
+      h('div',{className:'gv-dock gv-dock--fixed'},h(G.Toast,{message:toast[0]?toast[0].t:'',id:toast[0]?toast[0].n:undefined})),
+      // The placard print sheet: one placard per page, the QR encodes the table (moving a team needs no reprint), so the
+      // project's name slot stays blank unless names are asked for. With Table talk on, each placard also prints the
+      // notice teams read (the same words the judge's consent sheet shows).
+      printRoom[0]&&h(G.PlacardSheet,{title:'Placards · Room '+RINFO[printRoom[0]][0],onClose:function(){printRoom[1](null);},printNames:printNames[0],
+        controls:h(React.Fragment,null,h('select',{className:'gv-select','aria-label':'Room to print',value:printRoom[0],onChange:function(e){printRoom[1](e.target.value);}},'ABCD'.split('').map(function(L){ return h('option',{key:L,value:L},'Room '+RINFO[L][0]+' · '+L); })),
+          h('label',{className:'pn'},h('input',{type:'checkbox',checked:printNames[0],onChange:function(e){printNames[1](e.target.checked);}}),'Print project names (a moved team needs a reprint)')),
+        tables:plist.map(function(t){ return Object.assign({},t,{notice:cfg[0].talk?G.talk.copy({ai:cfg[0].ai}).notice:undefined}); })}));
+  }
+  ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+})();
+</script>
+</body>
+</html>

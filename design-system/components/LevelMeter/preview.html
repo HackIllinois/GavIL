@@ -1,0 +1,14 @@
+<!-- @dsCard group="Feedback" height=90 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>LevelMeter — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-card gv-row',style:{maxWidth:'calc(var(--space-12) * 9)',gap:'var(--space-6)'}},h(G.LevelMeter,{level:.8}),h(G.LevelMeter,{level:.35}),h(G.LevelMeter,{level:.04}),h(G.LevelMeter,{level:.6,still:true})));
+})();
+</script>
+</body>
+</html>

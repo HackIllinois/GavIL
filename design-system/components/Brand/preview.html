@@ -1,0 +1,14 @@
+<!-- @dsCard group="Foundations" height=330 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Brand — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 9)'}},h('div',{className:'gv-wood',style:{padding:'var(--space-3) var(--space-4)'}},h(G.Brand,{name:'lockup'})),h('div',{style:{background:'var(--ground-deep)',padding:'var(--space-3) var(--space-4)'}},h(G.Brand,{name:'h-mark'})),h(G.Card,null,h('div',{className:'gv-row',style:{gap:'var(--space-6)'}},h('span',{className:'gv-seal'},h(G.Brand,{name:'longhorn'})),h(G.Brand,{name:'longhorn-alt'})))));
+})();
+</script>
+</body>
+</html>

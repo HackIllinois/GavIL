@@ -1,0 +1,14 @@
+<!-- @dsCard group="Layout" height=420 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sheet — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{style:{position:'relative',height:'calc(var(--space-12) * 11)',maxWidth:'calc(var(--space-12) * 9)',overflow:'hidden',borderRadius:'var(--radius-lg)',transform:'translateZ(0)'}},h(G.Sheet,{title:'Room 4217 floor plan',lede:'Your table, A12, is highlighted.',onClose:function(){},actions:h(G.Button,{variant:'secondary',size:'lg',block:true},'Close map')},h('p',{style:{margin:0}},'Sheet content goes here.'))));
+})();
+</script>
+</body>
+</html>
