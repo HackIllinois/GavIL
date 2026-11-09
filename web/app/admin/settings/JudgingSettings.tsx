@@ -126,8 +126,8 @@ export function JudgingSettings({
                     is deleted unheard). With Claude highlights on, Anthropic
                     drafts highlights from the transcript. {RETENTION} Only
                     highlights a judge keeps are saved, with their private
-                    notes. Highlights describe: they never score, rank or pick a
-                    winner.
+                    notes. Highlights describe: they never compare, nominate or
+                    pick a winner.
                 </p>
                 <div className="ad-set__nest ad-set">
                     {s.recordingEnabled && (
@@ -249,7 +249,7 @@ export function JudgingSettings({
                                     size="sm"
                                     variant="secondary"
                                     icon="mic-off"
-                                    disabled={pending}
+                                    pending={pending}
                                     aria-label={`${t.name} · ${t.code}: allow recording again`}
                                     onClick={() => setOptOut(t, false)}
                                 >

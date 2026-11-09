@@ -6,4 +6,4 @@ A 24-grid, 2px-stroke line icon set that inherits `currentColor`. Inline SVG, no
 - Decorative by default (`aria-hidden`). An icon-only button needs an `aria-label`.
 - `star` (nominate) is a clean 5-point star that reads at 16px. The 6-point sheriff star is only the 96px `.gv-star`.
 - Hand-drawn stand-ins, not a licensed set; swap to Lucide in code (same names) if the team prefers.
-- Table talk and the table check add `mic`, `mic-off`, `pause`, `play`, `square` (stop), `bookmark` (Mark this; `flag` belongs to tracks and anti-cheat, `star` to nominations), `quote`, `qr-code`, `scan-line`, `printer`, `rotate-ccw` (try again), `trash`, `hourglass` (waiting), `pencil` and `zap` (unusually fast judging).
+- Table talk and the table check add `mic`, `mic-off`, `pause`, `play`, `square` (stop), `bookmark` (Mark this; `flag` belongs to tracks and anti-cheat, `star` to nominations), `quote`, `qr-code`, `scan-line`, `printer`, `rotate-ccw` (try again), `trash`, `hourglass` (waiting), `pencil` and `zap` (unusually fast judging). The theme control adds `sun` (day) and `moon` (night).

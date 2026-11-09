@@ -69,9 +69,57 @@ export function isArtName(name: unknown): name is ArtName {
     )
 }
 
-/** The picture's url and own pixel size, or null for a name that is not art. */
-export function art(name: ArtName | string): Art | null {
+/**
+ * Art a theme leaves out (its tokens.json value is "none" in that theme). The plain theme has
+ * none: the white wordmark would vanish on its white bars and is never recoloured, so it becomes
+ * the name "HackIllinois" in plain type. Every component already steps aside when its art is
+ * missing (a garland or prop leaves, the seal goes, the stars become dots).
+ * lib/__tests__/cweb-art.test.ts keeps this equal to tokens.json.
+ */
+export const ART_OFF: Readonly<Record<string, readonly ArtName[]>> = {
+    plain: [
+        "lockup",
+        "h-mark",
+        "longhorn",
+        "longhorn-alt",
+        "signpost",
+        "star-filled",
+        "star-half",
+        "star-outline",
+        "garland-ground",
+        "garland-paper",
+        "wagon",
+        "horseshoe",
+        "cactus-tall",
+        "cactus-round",
+        "cactus-bushes",
+        "neon-board",
+        "neon-arrow",
+        "character-teal",
+        "character-orange",
+    ],
+}
+
+/**
+ * The page's theme: `data-theme` on <html> in the browser; on the server, plain when the event
+ * is (GAVIL_THEME=plain), which is exactly what the root layout put on <html>, so the server
+ * render and the first client render agree.
+ */
+function pageThemeNow(): string {
+    if (typeof document !== "undefined")
+        return document.documentElement.getAttribute("data-theme") ?? ""
+    return process.env.GAVIL_THEME?.trim().toLowerCase() === "plain"
+        ? "plain"
+        : ""
+}
+
+/** The picture's url and own pixel size, or null for a name that is not art (or that the theme leaves out). */
+export function art(
+    name: ArtName | string,
+    theme: string = pageThemeNow(),
+): Art | null {
     if (!isArtName(name)) return null
+    if (ART_OFF[theme]?.includes(name)) return null
     const [file, width, height] = ART[name]
     return { src: ART_ROOT + file, width, height }
 }

@@ -541,6 +541,37 @@ describe("from Stop to highlights", () => {
         })
         expect(s.draft!.receiptExpiresAt).toBeDefined()
     })
+    it("receipt expiry clears the transcript and quotes from memory but leaves typed notes safe", async () => {
+        const r = rig()
+        record(r)
+        await settleStop(r)
+        r.s.keepAll()
+        expect(r.s.getSnapshot().draft!.talkProof.segments).toEqual(fx.segments)
+        expect(r.s.getSnapshot().items.some((i) => i.quote)).toBe(true)
+
+        r.clock.v = T0 + 30 * 60_000
+        await vi.advanceTimersByTimeAsync(30 * 60_000)
+
+        const s = r.s.getSnapshot()
+        expect(s.draft).toBeUndefined()
+        expect(s.items.every((i) => i.quote === null)).toBe(true)
+        expect(s.prize).toBeNull()
+        expect(r.notes.v).toBe("water bottle worked")
+    })
+
+    it("checks receipt expiry on page return even when the expiry timer was throttled", async () => {
+        const r = rig()
+        record(r)
+        await settleStop(r)
+        r.s.keepAll()
+        r.clock.v = T0 + 30 * 60_000
+        r.s.retryHeld() // pageshow / visibilitychange path
+        expect(r.s.getSnapshot().draft).toBeUndefined()
+        expect(r.s.getSnapshot().items.every((i) => i.quote === null)).toBe(
+            true,
+        )
+        expect(r.notes.v).toBe("water bottle worked")
+    })
     it("keep, edit, remove, restore and keep-all change what the draft carries (and only that)", async () => {
         const r = rig()
         record(r)
@@ -769,6 +800,38 @@ describe("the network", () => {
         expect(r.upload).toHaveBeenCalledTimes(1)
         expect(r.highlights.mock.calls[1][0].attemptId).toBe(first)
     })
+    it("online, pageshow and visibility retries cannot start a second upload while one is processing", async () => {
+        const r = rig()
+        let release!: (t: TranscriptResult) => void
+        r.upload.mockImplementationOnce(
+            () => new Promise((resolve) => (release = resolve)),
+        )
+        record(r)
+        r.s.stop()
+        eng(r).ended(100)
+        expect(states(r)).toBe("processing")
+        r.s.retryHeld()
+        r.s.retryHeld()
+        expect(r.upload).toHaveBeenCalledTimes(1)
+        release(transcript())
+        await vi.advanceTimersByTimeAsync(0)
+        expect(r.upload).toHaveBeenCalledTimes(1)
+        expect(r.highlights).toHaveBeenCalledTimes(1)
+    })
+    it("releases single-flight after an unexpected highlights result so the queued step can retry", async () => {
+        const r = rig()
+        r.highlights
+            .mockResolvedValueOnce({} as HighlightsResponse)
+            .mockResolvedValueOnce(highlightsOf())
+        record(r)
+        await settleStop(r)
+        expect(states(r)).toBe("offline-queued")
+        r.s.retryHeld()
+        await vi.advanceTimersByTimeAsync(0)
+        expect(states(r)).toBe("ready")
+        expect(r.upload).toHaveBeenCalledTimes(1)
+        expect(r.highlights).toHaveBeenCalledTimes(2)
+    })
     it("held audio is dropped after 15 minutes: by the timer, and also on reconnect and page return when the timer never fired", async () => {
         const r = rig()
         r.online.v = false
@@ -885,7 +948,7 @@ describe("what the server can answer", () => {
             "Couldn’t transcribe.",
             {
                 receipt: "v1.fail.r",
-                receiptExpiresAt: "2027-02-28T19:30:00Z",
+                receiptExpiresAt: new Date(T0 + 30 * 60_000).toISOString(),
                 durationSec: 61,
             },
         )

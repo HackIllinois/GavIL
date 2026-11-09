@@ -3,12 +3,19 @@
 /**
  * The last resort: the root layout (or a boundary above every other error.tsx) threw. It replaces
  * the whole document, so it brings its own <html> and <body>, its own styles and nothing that can
- * fail in turn: no session, no adonix, no cookies, no raw error text or stack. The
- * words are the same as app/error.tsx. Try again calls reset() and reloads (there is no router
- * above this boundary to refresh) once the network answers. The sign-in link is a plain <a>: a full navigation, which
+ * fail in turn: no session, no adonix, no raw error text or stack. The only thing it reads from
+ * the phone is the theme cookie, from the page itself (document.cookie, guarded: a phone that
+ * blocks cookies gets sunset), so a judge in the dim room's Night theme is not thrown back into
+ * the bright one by a crash. The server has no cookie here and draws sunset; a page rendered in
+ * the browser, and the page after it has loaded, draw the chosen theme. The words are the same as
+ * app/error.tsx. Try again calls reset() and reloads (there is no router above this boundary to
+ * refresh) once the network answers. The sign-in link is a plain <a>: a full navigation, which
  * also drops whatever state broke.
+ *
+ * (The browser's own colour for its address bar, viewport.themeColor and the manifest's
+ * theme_color, is the surface token: poster-paper cream in both themes, so it needs no switch.)
  */
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { Manrope, Oswald, Rye, Ultra } from "next/font/google"
 import "./styles/tokens.css"
 import "./styles/gavil.css"
@@ -18,6 +25,7 @@ import { buttonClass } from "@/components/Button"
 import { EmptyState } from "@/components/EmptyState"
 import { errorCopy } from "@/lib/security/error-copy"
 import { reachable } from "@/lib/security/reachable"
+import { themeFromCookieString, type Theme } from "@/lib/theme"
 
 // The same four fonts as app/layout.tsx (identical options, so next/font serves the same files):
 // the layout is gone, and with it the classes that point the --font-* tokens at them.
@@ -44,6 +52,17 @@ const rye = Rye({
     display: "swap",
 })
 
+/** The theme the cookie names; sunset for no cookie, a cookie that is not a theme, or a page that won't give cookies. */
+function chosenTheme(): Theme {
+    try {
+        return themeFromCookieString(document.cookie)
+    } catch {
+        return "sunset"
+    }
+}
+/** Nothing changes the cookie while this page is up, so there is nothing to subscribe to. */
+const noChanges = () => () => {}
+
 export default function GlobalError({
     reset,
 }: {
@@ -55,6 +74,9 @@ export default function GlobalError({
     // already loaded), and the page it replaces is the one whose server render failed.
     const [silent, setSilent] = useState(false)
     const copy = errorCopy("app", !silent)
+    // The server renders sunset (it cannot see the cookie from here); the browser draws the chosen
+    // theme, with no mismatch to repair (getServerSnapshot is what hydration starts from).
+    const theme = useSyncExternalStore(noChanges, chosenTheme, () => "sunset")
     // reset() alone re-renders what the failed render left, so a server error would show again,
     // and it is undefined when the server rendered this page. No router here (this boundary sits
     // above it): a reload fetches the page anew. But a reload with no connection replaces this
@@ -72,7 +94,7 @@ export default function GlobalError({
     return (
         <html
             lang="en"
-            data-theme="sunset"
+            data-theme={theme}
             className={[
                 ultra.variable,
                 oswald.variable,

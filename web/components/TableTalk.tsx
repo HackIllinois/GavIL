@@ -76,6 +76,11 @@ export interface TableTalkProps {
     failedAt?: "start" | null
     /** AI summaries on (default): the consent script names Anthropic. */
     ai?: boolean
+    /**
+     * The whole team agreed on the submission form (Project.recordingConsent): no consent sheet.
+     * One tap records, and the card tells the judge to say it out loud first.
+     */
+    preConsented?: boolean
     onAsk?: () => void
     onConsent?: () => void
     onDecline?: () => void
@@ -363,6 +368,34 @@ export function TableTalk(p: TableTalkProps) {
             null,
             "This browser can’t take voice notes.",
             "Type notes instead.",
+        )
+    else if (p.preConsented && (s === "idle" || s === "consent"))
+        body = (
+            <Fragment>
+                <p className="gv-tt__lede">
+                    The team agreed to voice notes when they submitted. Say
+                    you’re recording, and tap only once everyone at the table is
+                    okay with it. The audio isn’t kept.
+                </p>
+                <Button
+                    variant="secondary"
+                    size="lg"
+                    block
+                    icon="mic"
+                    onClick={() => {
+                        // Locks, a disabled card and an unsupported browser were all handled above.
+                        // Inside the tap: the consent time is the tap's, and the microphone is asked at once.
+                        p.onAsk?.()
+                        p.onConsent?.()
+                    }}
+                >
+                    Everyone’s okay · record
+                </Button>
+                <p className="gv-tt__fine">
+                    Anyone at the table can still say no: tap Stop and delete.
+                    One recording and one retry per table.
+                </p>
+            </Fragment>
         )
     else if (s === "idle" || s === "consent" || (s === "starting" && leaving))
         body = (

@@ -82,11 +82,14 @@ describe("presenceMap: every table of every room, one state each", () => {
         expect(rooms[0].counts.held).toBeGreaterThanOrEqual(1)
     })
 
-    it("an escalated project is held on the map too: its flag is no longer open, so only the placard says it is out of the queue", async () => {
-        // Replay (D15) is escalated in the canonical dataset: held out of judging, in none of the overview's lists.
+    it("an escalated project is held on the map too: its flag is not an open one, so the placard says it is out of the queue (and the Flagged tab lists it as escalated)", async () => {
+        // Replay (D15) is escalated in the canonical dataset: held out of judging, and listed on the
+        // Flagged tab in its own group (escalated: an admin clears it when the organizers decide).
         const api = admin().admin
         const o = await api.overview()
-        expect(o.flagged.some((f) => f.project.tableCode === "D15")).toBe(false)
+        expect(
+            o.flagged.find((f) => f.project.tableCode === "D15"),
+        ).toMatchObject({ held: true, escalated: true })
         const placard = (await api.placards()).find(
             (p) => p.tableCode === "D15",
         )!

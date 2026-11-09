@@ -183,6 +183,9 @@
     var role=useState('admin'), tab=useState('overview'), rows=useState(ROWS), page=useState(0), open=useState(null), flags=useState(FLAGS), toast=useState(null), toastN=React.useRef(0);
     var tasks=useState(TASKS), presence=useState(PRESENCE), cfg=useState(function(){ var p=savedPolicy(); return {talk:p?p.eventEnabled:false,ai:false,aiAck:null,freeze:false}; }), optOut=useState(function(){ var p=savedPolicy(); return p?TABLES.filter(function(t){ return p.optedOut.indexOf(t[1])>=0; }).map(function(t){ return t[0]; }):['D13']; }), optPick=useState(''), printRoom=useState(null), printNames=useState(false), voidWhy=useState(''), voidNote=useState(''), voided=useState({}), audit=useState([]), printBtn=React.useRef();
     var ask=useState(null), judges=useState(JUDGES), reimb=useState(REIMB), staff=useState(STAFF), email=useState(''), emailErr=useState(''), form=useState(null), me=meNow().name;
+    // Day or night is the page's own data-theme (the web app keeps the choice in a cookie; these previews are one page per theme, so they do not).
+    var theme=useState(function(){ return document.documentElement.getAttribute('data-theme')==='night'?'night':'sunset'; });
+    function setTheme(next){ document.documentElement.setAttribute('data-theme',next); theme[1](next); }
     var admin=role[0]==='admin';
     function log(what,why){ var who=meNow().email, atMs=serverNow(), at=stamp(); audit[1](function(a){ return [{who:who,at:at,atMs:atMs,what:what,why:why||''}].concat(a); }); }
     // The print sheet's placards come from the staff route (adonix, STAFF and ADMIN only): the code, its check, the QR's token.
@@ -341,7 +344,7 @@
             description:'Stops new judge sign-ins by link or code (after a code is guessed at, or once judging starts). Staff at the desk can still sign judges in with a QR code.'}),
           h(G.Switch,{label:'Table talk (voice notes)',checked:C0.talk,disabled:!admin,lockedReason:lockR,onChange:function(v){ setC(v?{talk:true}:{talk:false,ai:false}); publish(v,optOut[0]); say(v?'Table talk is on. Judges still ask every team first.':'Table talk is off.'); },
             description:'Off until HackIllinois and UIUC counsel sign off (Illinois Eavesdropping Act, BIPA). Judges read a consent script and record only if everyone at the table agrees. No voice ID.'}),
-          h('p',{className:'set__legal'},'Retention: audio is never saved. It goes to Cloudflare only to be transcribed and is deleted once it is (offline, it waits on the judge’s phone for up to 15 minutes, then it is deleted unheard). With AI summaries on, Anthropic drafts highlights from the transcript. Transcripts are deleted 7 days after the event. Only highlights a judge keeps are saved, with their private notes. Highlights never score, rank or nominate.'),
+          h('p',{className:'set__legal'},'Retention: audio is never saved. It goes to Cloudflare only to be transcribed and is deleted once it is (offline, it waits on the judge’s phone for up to 15 minutes, then it is deleted unheard). With AI summaries on, Anthropic drafts highlights from the transcript. Transcripts are deleted 7 days after the event. Only highlights a judge keeps are saved, with their private notes. Highlights describe: they never compare, nominate or pick a winner.'),
           C0.talk&&h('div',{className:'set__nest set'},
             h(G.Disclosure,{icon:'quote',title:'What judges read aloud'},G.talk.copy({ai:C0.ai}).script),
             h(G.Disclosure,{icon:'doc',title:'What teams read (printed on every placard)'},G.talk.copy({ai:C0.ai}).notice,h('p',{className:'set__retention'},G.talk.RETENTION)),
@@ -380,7 +383,8 @@
         h('div',{className:'ac__bar'},h('h1',{className:'gv-sr'},'Admin console'),h('span',{className:'gv-wordmark'},h(G.Brand,{name:'lockup'}),h('span',{className:'ac__crumb'},'Admin')),
           h('div',{className:'ac__who'},h('span',{className:'ac__live'},'Round 1 live'),
             h('div',{className:'ac__role',role:'group','aria-label':'Preview as'},['admin','staff'].map(function(x){return h('button',{key:x,type:'button','aria-pressed':role[0]===x,onClick:function(){ if(role[0]===x) return; if(dirty){ ask[1]({kind:'discard',role:x,name:openR.name}); return; } role[1](x); go(null); }},'View as '+x);})),
-            h('span',null,meNow().email,mockId()&&h('span',{className:'ac__mock'},' (mock identity)')))),
+            h('span',null,meNow().email,mockId()&&h('span',{className:'ac__mock'},' (mock identity)')),
+            document.documentElement.getAttribute('data-theme')!=='plain'&&h(G.ThemeSwitch,{theme:theme[0],onChange:setTheme}))),
         h(G.Tabs,{key:role[0],items:items,value:tab[0],label:'Admin sections',panelPrefix:'ac-panel-',onChange:function(id){ leave(id); }}))),
       // APG tabs: a panel is a tab stop (tabIndex 0) when its first meaningful content is not focusable (a heading, an
       // alert), so Tab from the tabs lands on the panel and reading starts at its top. The applicant detail opens with a

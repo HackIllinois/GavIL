@@ -61,7 +61,8 @@ export function CheckInBar() {
                 iconRight="arrow"
                 settle
                 settleKey="checkin"
-                disabled={pending || !me}
+                pending={pending}
+                disabled={!me}
                 onClick={() =>
                     start(async () => {
                         if (!me) return

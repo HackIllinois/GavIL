@@ -11,6 +11,7 @@ import { ApiError, type GavilApi } from "../api/client"
 import type { SessionPayload, TranscriptResult } from "../api/types"
 import { MOCK_USERS } from "../auth/session"
 import { ECOLENS } from "../talk/fixtures"
+import { SCRUBBED_MESSAGE } from "../talk/http"
 import {
     admin,
     cid,
@@ -500,6 +501,27 @@ describe("POST /api/talk/highlights and the talkHighlights action", () => {
             status: 413,
             error: "TooLarge",
         })
+    })
+
+    it("rejects an oversized text field before scrubbing it in the route and action", async () => {
+        for (const notes of [
+            "x".repeat(70 * 1024),
+            "🧪".repeat(17_000), // fewer than 64K UTF-16 units, over 64 KB in UTF-8
+        ]) {
+            expect(await body(await postJson(ask({ notes })))).toEqual({
+                status: 413,
+                error: "TooLarge",
+                message: SCRUBBED_MESSAGE,
+            })
+            expect(await talkHighlights(ask({ notes }) as never)).toMatchObject(
+                {
+                    ok: false,
+                    status: 413,
+                    code: "TooLarge",
+                    error: SCRUBBED_MESSAGE,
+                },
+            )
+        }
     })
 
     it("the server action: same receipt rules, its own origin check, the size cap and the saved judge", async () => {

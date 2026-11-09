@@ -33,7 +33,7 @@ export const VOTE_RATE_FACTOR = 2
 export const VOTE_RATE_MIN_VOTES = 4
 /** Faster than any real table visit allows (one vote every 2 min), whatever the room does. */
 export const VOTE_RATE_CEILING_PER_HOUR = 30
-/** Rates are measured over at least this long, so a judge's first minutes don't spike. */
+/** Vote rates are measured over at least this long, so a judge's first minutes don't spike. */
 export const RATE_MIN_HOURS = 0.25
 /** Idle (a table is free, the phone hasn't asked) for this long raises an alert. */
 export const IDLE_ALERT_SECONDS = 3 * 60
@@ -196,7 +196,7 @@ export interface SpeedInput {
     }[]
     /** Counted (not voided) votes. */
     votes: number
-    /** When this judge started judging (first lease, or check-in). Missing = no rate yet. */
+    /** When this judge started judging (first lease, or check-in). Missing = no vote rate yet. */
     startedAt?: string
     /**
      * Every placard proof (scan or typed check) the server received from this judge, for the

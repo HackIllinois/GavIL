@@ -20,6 +20,9 @@ export interface CompareProject {
     name: string
     path: Path
     table: number | string
+    /** The Devpost one-liner: always shown under the name, so the judge knows what each project was at a glance. */
+    tagline?: string
+    /** The long Devpost description: stands in for the tagline (two lines, cut) when there is none. */
     description?: string
     notes?: string
     /** Prize names. */
@@ -74,10 +77,10 @@ export function CompareCard({
     const bare = !!rec && RECALL.every(([k]) => !rec[k])
     const rows = bare && pr.notes ? null : rec
     const hasMine = !!(pr.notes || noms.length > 0 || rows)
+    const summary = pr.tagline || pr.description
     const describedBy =
-        [pr.description && !rec ? did : "", hasMine ? mid : ""]
-            .filter(Boolean)
-            .join(" ") || undefined
+        [summary ? did : "", hasMine ? mid : ""].filter(Boolean).join(" ") ||
+        undefined
     return (
         <div
             role="radio"
@@ -131,9 +134,9 @@ export function CompareCard({
             <div className="gv-compare__name" aria-hidden>
                 {pr.name}
             </div>
-            {pr.description && !rec && (
+            {summary && (
                 <p className="gv-compare__desc" id={did}>
-                    {pr.description}
+                    {summary}
                 </p>
             )}
             {hasMine ? (

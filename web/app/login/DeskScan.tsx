@@ -18,7 +18,7 @@ const NO_CAMERA =
  * QR, a table placard included, is refused in words and nothing is opened. The link still needs
  * the one more tap on the next screen before anyone is signed in.
  */
-export function DeskScan() {
+export function DeskScan({ disabled }: { disabled?: boolean }) {
     const [problem, setProblem] = useState<string | null>(null)
     const scan = useQrScanner({
         onCode: (text) => {
@@ -75,6 +75,7 @@ export function DeskScan() {
                     variant="wood"
                     block
                     icon="qr-code"
+                    disabled={disabled}
                     onClick={() => {
                         setProblem(null)
                         scan.start()

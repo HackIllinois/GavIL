@@ -20,6 +20,9 @@ describe("/api/health", () => {
     it("a production deployment with GAVIL_ORIGIN: 200 { ok: true }, no-store", async () => {
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("GAVIL_GRANT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         const { res, body } = await call()
         expect(res.status).toBe(200)
         expect(body).toEqual({ ok: true })
@@ -28,6 +31,8 @@ describe("/api/health", () => {
 
     it("production without a usable GAVIL_ORIGIN: 503, only { ok: false, problem: config }", async () => {
         vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         for (const origin of [undefined, "", "not a url", "ftp://x.example"]) {
             vi.stubEnv("GAVIL_ORIGIN", origin as string)
             const { res, body } = await call()
@@ -37,9 +42,32 @@ describe("/api/health", () => {
         }
     })
 
+    it("production without required auth, grant or safe adonix config is 503", async () => {
+        vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
+        vi.stubEnv("GAVIL_GRANT_SECRET", "g".repeat(32))
+        vi.stubEnv("GAVIL_JWT_SECRET", "j".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
+
+        for (const [name, value] of [
+            ["GAVIL_JWT_SECRET", ""],
+            ["GAVIL_GRANT_SECRET", "short"],
+            ["ADONIX_URL", "http://adonix.hackillinois.org"],
+            ["ADONIX_URL", "https://evil.example"],
+        ]) {
+            vi.stubEnv(name, value)
+            expect(await call()).toMatchObject({
+                res: { status: 503 },
+                body: { ok: false, problem: "config" },
+            })
+        }
+    })
+
     it("mock mode on a deployment is a config problem too", async () => {
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         for (const name of ["GAVIL_MOCK", "GAVIL_MOCK_DEMO"]) {
             vi.stubEnv(name, "1")
             const { res, body } = await call()
@@ -53,6 +81,8 @@ describe("/api/health", () => {
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "")
         vi.stubEnv("GAVIL_MOCK", "1")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         const text = JSON.stringify((await call()).body)
         expect(text).not.toMatch(/GAVIL|ORIGIN|MOCK|adonix|NODE_ENV/i)
     })
@@ -68,6 +98,8 @@ describe("/api/health", () => {
         vi.stubGlobal("fetch", fetchSpy)
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         await call()
         expect(fetchSpy).not.toHaveBeenCalled()
     })

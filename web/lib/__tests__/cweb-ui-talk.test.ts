@@ -263,9 +263,13 @@ describe("TableCheck: the right-table check (code + the placard's check)", () =>
         const onCheck = vi.fn()
         mount(h(Host, { state: "checking", value: "A12K7", onCheck }))
         const b = byText(/Checking/) as HTMLButtonElement
-        expect(b.disabled).toBe(true)
+        // (aria-disabled and a read-only field, not `disabled`: whoever pressed Enter keeps focus)
+        expect(b.getAttribute("aria-disabled")).toBe("true")
         expect(b.getAttribute("aria-busy")).toBe("true")
-        expect(field().disabled).toBe(true)
+        expect(field().readOnly).toBe(true)
+        expect(field().disabled).toBe(false)
+        press(b)
+        expect(onCheck).not.toHaveBeenCalled()
     })
     it("matched is a stamped strip that says how it was checked; focus moves to it; the live region says the table", async () => {
         const m = mount(h(Host, { state: "idle" }))
@@ -826,7 +830,7 @@ describe("TableTalk: every state is designed", () => {
     })
 })
 
-describe("HighlightList: describes, never scores", () => {
+describe("HighlightList: describes, never judges", () => {
     const row = (o: Partial<Highlight>): Highlight =>
         ({
             id: "a",

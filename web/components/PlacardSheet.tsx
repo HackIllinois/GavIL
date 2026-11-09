@@ -108,7 +108,13 @@ export function PlacardSheet({
                     </Button>
                 </div>
             </div>
-            <div className="gv-print__pages">
+            {/* The pages scroll, so the scroller is a tab stop (arrow keys, PageDown) and has a name. */}
+            <div
+                className="gv-print__pages"
+                tabIndex={0}
+                role="group"
+                aria-label="Placards, one per page"
+            >
                 {tables.map((t) => (
                     <div key={t.code} className="gv-print__page">
                         <TablePlacard

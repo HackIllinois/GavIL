@@ -204,10 +204,16 @@ describe("every state-changing action names the judge the screen was rendered fo
         })
         expect(await renewVisit(visit.id, "j1")).toMatchObject({ ok: true })
         expect(lastCall("renewVisit")?.args[1]).toEqual({ judgeId: "j1" })
-        expect(await saveDraft(p.id, "great demo", [], "j1")).toMatchObject({
-            ok: true,
-        })
+        const saved = await saveDraft(
+            p.id,
+            "great demo",
+            [],
+            "j1",
+            next.projectRevision,
+        )
+        expect(saved).toMatchObject({ ok: true, data: { revision: 1 } })
         expect(lastCall("saveDraft")?.args[3]).toEqual({ judgeId: "j1" })
+        expect(lastCall("saveDraft")?.args[4]).toBe(0)
         expect(await requestHelp("table", "Lost", "j1")).toMatchObject({
             ok: true,
         })
@@ -218,10 +224,14 @@ describe("every state-changing action names the judge the screen was rendered fo
                 projectId: p.id,
                 notes: "great demo",
                 nominations: [],
+                revision: saved.ok ? saved.data.revision : undefined,
             },
             "j1",
         )
-        expect(r).toMatchObject({ ok: true })
+        expect(r).toMatchObject({
+            ok: true,
+            data: { evaluation: { revision: 2 } },
+        })
         expect(lastCall("submitEvaluation")?.args[0]).toMatchObject({
             judgeId: "j1",
             clientId: "c-e1",

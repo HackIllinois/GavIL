@@ -12,6 +12,7 @@ import { base64UrlFromBytes, utf8 } from "../auth/hmac"
 import { MOCK_USERS, mockSecret, mockToken, signHs256 } from "../auth/session"
 import {
     clearVerifyCache,
+    VERIFY_NEGATIVE_CACHE_MS,
     verifyJudgeToken,
     verifySessionCached,
     verifySessionToken,
@@ -82,7 +83,14 @@ describe("S6: one fail-closed mock gate", () => {
     })
 
     it("boot assertion: a deployed build with GAVIL_MOCK=1 or GAVIL_MOCK_DEMO=1 refuses to start", async () => {
-        expect(serverEnvProblem({ NODE_ENV: "production" })).toBeNull()
+        expect(
+            serverEnvProblem({
+                NODE_ENV: "production",
+                GAVIL_JWT_SECRET: "a".repeat(32),
+                GAVIL_GRANT_SECRET: "a".repeat(32),
+                ADONIX_URL: "https://adonix.hackillinois.org",
+            }),
+        ).toBeNull()
         expect(
             serverEnvProblem({ GAVIL_MOCK: "1", NODE_ENV: "development" }),
         ).toBeNull()
@@ -98,6 +106,7 @@ describe("S6: one fail-closed mock gate", () => {
         // The Next.js instrumentation hook runs the same check at boot.
         vi.stubEnv("GAVIL_MOCK", "1")
         vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
         const { register } = await import("../../instrumentation")
         await expect(register()).rejects.toThrow(/GAVIL_MOCK=1/)
         // …and so does every request's getApi().
@@ -105,13 +114,23 @@ describe("S6: one fail-closed mock gate", () => {
         await expect(getApi()).rejects.toThrow(/GAVIL_MOCK=1/)
     })
 
+    it("bad production secrets leave the Worker up so /api/health can answer 503 config", async () => {
+        vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_MOCK", "")
+        vi.stubEnv("GAVIL_MOCK_DEMO", "")
+        vi.stubEnv("GAVIL_JWT_SECRET", "")
+        const { register } = await import("../../instrumentation")
+        await expect(register()).resolves.toBeUndefined()
+    })
+
     it("in a production build GAVIL_MOCK=1 never makes a mock-signed token a session", async () => {
         vi.stubEnv("GAVIL_MOCK", "1")
         vi.stubEnv("NODE_ENV", "production")
         const roundTrip = vi.fn(async () => null)
         const v = await verifySessionToken(mockToken("admin"), { roundTrip })
-        expect(v).toEqual({ ok: false, reason: "rejected" })
-        expect(roundTrip).toHaveBeenCalledOnce()
+        // (a server with no shared secret is a setup problem: `config`, cfin-gate.test.ts)
+        expect(v).toEqual({ ok: false, reason: "unreachable", config: true })
+        expect(roundTrip).not.toHaveBeenCalled()
     })
 })
 
@@ -158,6 +177,72 @@ describe("S7: every request's session is verified", () => {
         })
         await verifySessionCached(t2)
         expect(down).toHaveBeenCalledTimes(2)
+    })
+
+    it("production without the required shared secret never forwards a cookie to adonix", async () => {
+        vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_JWT_SECRET", "")
+        const roundTrip = vi.fn(async () => ({
+            id: MOCK_USERS.admin.id,
+            roles: ["USER", "STAFF", "ADMIN"],
+        }))
+        const token = unsigned({ ...MOCK_USERS.admin, exp: now() + 3600 })
+        expect(
+            await verifySessionToken(token, {
+                mock: false,
+                secret: "",
+                roundTrip,
+            }),
+        ).toEqual({ ok: false, reason: "unreachable", config: true })
+        expect(roundTrip).not.toHaveBeenCalled()
+    })
+
+    it("coalesces concurrent checks and bounds cached negative verdicts", async () => {
+        const nowMs = Date.now()
+        const t = unsigned({ ...MOCK_USERS.admin, exp: now() + 3600 })
+        let finish!: (value: { id: string; roles: string[] } | null) => void
+        const slow = vi.fn(
+            () =>
+                new Promise<{ id: string; roles: string[] } | null>(
+                    (resolve) => (finish = resolve),
+                ),
+        )
+        const opts = { mock: false, secret: "", roundTrip: slow, nowMs }
+        const first = verifySessionCached(t, opts)
+        const second = verifySessionCached(t, opts)
+        expect(slow).toHaveBeenCalledTimes(1)
+        finish({ id: MOCK_USERS.admin.id, roles: ["USER", "STAFF", "ADMIN"] })
+        expect((await Promise.all([first, second])).every((x) => x.ok)).toBe(
+            true,
+        )
+
+        clearVerifyCache()
+        const calls = new Map<string, number>()
+        const refused = async (token: string) => {
+            calls.set(token, (calls.get(token) ?? 0) + 1)
+            return null
+        }
+        const negativeTokens = Array.from({ length: 1001 }, (_, i) =>
+            unsigned({
+                ...MOCK_USERS.admin,
+                id: `negative-${i}`,
+                exp: now() + 3600,
+            }),
+        )
+        for (const token of negativeTokens)
+            await verifySessionCached(token, {
+                mock: false,
+                secret: "",
+                roundTrip: refused,
+                nowMs,
+            })
+        await verifySessionCached(negativeTokens[0], {
+            mock: false,
+            secret: "",
+            roundTrip: refused,
+            nowMs: nowMs + VERIFY_NEGATIVE_CACHE_MS + 1,
+        })
+        expect(calls.get(negativeTokens[0])).toBe(2)
     })
 
     it("middleware: a forged shell cookie gets /login and is cleared; a verified one opens the shell", async () => {

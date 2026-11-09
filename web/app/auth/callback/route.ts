@@ -40,7 +40,14 @@ export async function GET(req: NextRequest) {
     const token = sp.get("token") ?? req.cookies.get("jwt")?.value
     if (!token) return fail("callback")
     const v = await verifySessionToken(token)
-    if (!v.ok) return fail(v.reason === "unreachable" ? "network" : "token")
+    if (!v.ok)
+        return fail(
+            v.reason === "unreachable"
+                ? v.config
+                    ? "config"
+                    : "network"
+                : "token",
+        )
     const res = signIn(req, token, v.payload, next)
     res.cookies.delete({ name: OAUTH_STATE_COOKIE, path: "/auth" })
     return res

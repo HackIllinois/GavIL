@@ -64,6 +64,8 @@ import type {
     TokenResponse,
     Visit,
     Vote,
+    SponsorRunInput,
+    SponsorRunSummary,
 } from "./types"
 import { forJudge } from "../judging"
 
@@ -75,6 +77,46 @@ const judgeNext = (n: NextProject): NextProject =>
     n.project ? { ...n, project: forJudge(n.project) } : n
 
 export const DEFAULT_ADONIX_URL = "https://adonix.hackillinois.org"
+
+/** Fail closed before any request could put the session JWT in an unsafe URL. */
+export function adonixUrlProblem(
+    env: Record<string, string | undefined> = process.env,
+): string | null {
+    const value =
+        env.ADONIX_URL?.trim() ||
+        env.NEXT_PUBLIC_ADONIX_URL?.trim() ||
+        DEFAULT_ADONIX_URL
+    let url: URL
+    try {
+        url = new URL(value)
+    } catch {
+        return "ADONIX_URL must be an absolute http(s) URL."
+    }
+    if (url.username || url.password)
+        return "ADONIX_URL must not contain credentials."
+    if (url.protocol !== "https:" && url.protocol !== "http:")
+        return "ADONIX_URL must use HTTPS."
+    const dev = env.NODE_ENV === "development" || env.NODE_ENV === "test"
+    const localhost = ["localhost", "127.0.0.1", "[::1]"].includes(
+        url.hostname.toLowerCase(),
+    )
+    if (url.protocol === "http:" && (!dev || !localhost))
+        return dev
+            ? "ADONIX_URL may use HTTP only for localhost outside production."
+            : "ADONIX_URL must use HTTPS in production."
+    if (dev) return null
+
+    const allowed = (env.GAVIL_ADONIX_HOSTS ?? "")
+        .split(",")
+        .map((host) => host.trim().toLowerCase())
+        .filter(Boolean)
+    const hosts = allowed.length
+        ? allowed
+        : [new URL(DEFAULT_ADONIX_URL).host.toLowerCase()]
+    if (!hosts.includes(url.host.toLowerCase()))
+        return `ADONIX_URL host ${url.host} is not on the allow list (GAVIL_ADONIX_HOSTS).`
+    return null
+}
 
 /**
  * adonix's base URL, read from the environment WHEN IT IS NEEDED (every request on the server),
@@ -88,7 +130,10 @@ export const DEFAULT_ADONIX_URL = "https://adonix.hackillinois.org"
 export function adonixUrl(
     env: Record<string, string | undefined> = process.env,
 ): string {
-    const url = (env.ADONIX_URL || env.NEXT_PUBLIC_ADONIX_URL || "").trim()
+    const url =
+        env.ADONIX_URL?.trim() || env.NEXT_PUBLIC_ADONIX_URL?.trim() || ""
+    const problem = adonixUrlProblem(env)
+    if (problem) throw new Error(problem)
     return url || DEFAULT_ADONIX_URL
 }
 
@@ -172,6 +217,8 @@ export interface EvaluationInput extends ClientWrite {
     projectId: string
     notes: string
     nominations: string[]
+    /** Expected project revision; stale saves are refused with 409 StaleWrite. */
+    revision?: number
     /** Phone clock at Submit. Required on outbox replays; an online submit may omit it. */
     createdAt?: string
     /**
@@ -196,9 +243,16 @@ export interface EvaluationResult {
      * What the server left out instead of refusing the evaluation: highlights that failed
      * validation, and recording metadata it can't keep (event switch off, team opted out, no
      * receipt that counts for this visit: none, a stale one, another visit's, one already used
-     * by another write). The evaluation itself is always saved.
+     * by another write), and `nominations`: how many nominations of a FIRST evaluation that
+     * reached the server after Round 2 opened were not counted (nominations close with the
+     * finalists; the tap time was honoured, so the evaluation counts, its nominations cannot).
+     * The evaluation itself is always saved.
      */
-    dropped?: { highlights: number; recording: boolean }
+    dropped?: {
+        highlights: number
+        recording: boolean
+        nominations?: number
+    }
     /**
      * Where the judge goes next: compare with the previous project, the next table, wait for a
      * table to free up, or done (nothing left, or time is up).
@@ -226,7 +280,7 @@ export interface VoteInput extends ClientWrite {
 
 export interface Round2Input extends ClientWrite {
     order: string[]
-    /** Phone clock at Submit. Required on outbox replays; an online submit may omit it. */
+    /** Legacy outbox fields; Round 2 close decisions ignore phone timestamps. */
     createdAt?: string
 }
 
@@ -306,7 +360,8 @@ export interface GavilApi {
             notes: string,
             nominations: string[],
             scope?: JudgeScoped,
-        ): Promise<void>
+            revision?: number,
+        ): Promise<{ revision: number }>
         submitEvaluation(input: EvaluationInput): Promise<EvaluationResult>
         skip(input: SkipInput): Promise<NextProject>
         compare(): Promise<CompareTask | null>
@@ -381,6 +436,13 @@ export interface GavilApi {
         setAssignment(judgeId: string, room: string): Promise<Assignment>
         rooms(): Promise<string[]>
         prizes(): Promise<PrizeSummary[]>
+        /** Sponsor runs with their judges, coverage and ranking (STAFF). */
+        sponsorRuns(): Promise<SponsorRunSummary[]>
+        /**
+         * ADMIN. Start a sponsor's own Round 1 for one company prize: the given emails become (or
+         * join as) that sponsor's judges, and they judge only the projects opted into the prize.
+         */
+        createSponsorRun(input: SponsorRunInput): Promise<SponsorRunSummary>
         deliberations(): Promise<Deliberation[]>
         setDeliberationOrder(
             prizeId: string,
@@ -432,6 +494,11 @@ export class AdonixClient implements GavilApi {
         body?: unknown,
         query?: Record<string, string | number>,
     ): Promise<T> {
+        const targetProblem = adonixUrlProblem({
+            ...process.env,
+            ADONIX_URL: this.baseUrl,
+        })
+        if (targetProblem) throw new Error(targetProblem)
         const url = new URL(path, this.baseUrl)
         for (const [k, v] of Object.entries(query ?? {}))
             url.searchParams.set(k, String(v))
@@ -525,10 +592,15 @@ export class AdonixClient implements GavilApi {
                     scope ?? {},
                 ),
             ),
-        saveDraft: (projectId, notes, nominations, scope) =>
+        saveDraft: (projectId, notes, nominations, scope, revision) =>
             this.put(
                 `/judging/evaluations/${encodeURIComponent(projectId)}/draft/`,
-                { ...scope, notes, nominations },
+                {
+                    ...scope,
+                    notes,
+                    nominations,
+                    ...(revision != null ? { revision } : {}),
+                },
             ),
         submitEvaluation: (input) => this.post("/judging/evaluations/", input),
         skip: async (input) =>
@@ -626,6 +698,9 @@ export class AdonixClient implements GavilApi {
             ),
         rooms: () => this.get("/judging/admin/rooms/"),
         prizes: () => this.get("/judging/admin/prizes/"),
+        sponsorRuns: () => this.get("/judging/admin/sponsor-runs/"),
+        createSponsorRun: (input) =>
+            this.post("/judging/admin/sponsor-runs/", input),
         deliberations: () => this.get("/judging/admin/deliberations/"),
         setDeliberationOrder: (prizeId, order) =>
             this.put(

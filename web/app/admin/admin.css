@@ -682,3 +682,45 @@
         display: none;
     }
 }
+
+/* ── Sponsor runs (Prizes page) ───────────────────────────────────────────────────────────────── */
+.ad-run__form {
+    align-items: flex-start;
+}
+/* Start run lines up with the fields, under their labels (body-sm label + its space-2 gap). */
+.ad-run__form > .gv-btn {
+    margin-top: calc(var(--space-6) + var(--space-1));
+}
+.ad-run__field {
+    display: flex;
+    flex-direction: column;
+    min-width: calc(var(--space-12) * 4);
+}
+.ad-run__field--wide {
+    flex: 1;
+}
+.ad-run__empty {
+    margin: 0;
+    padding: var(--space-4);
+    font: var(--type-body-sm);
+    color: var(--ink-soft);
+}
+.ad-run__order {
+    margin: 0;
+    padding-left: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font: var(--type-body-sm);
+}
+@media (max-width: 600px) {
+    .ad-run__field {
+        min-width: 0;
+        flex-basis: 100%;
+    }
+}
+
+/* A plain event has no night variant: the Day/Night switch is gone from the first paint (no flash). */
+:root[data-theme="plain"] .gj-themeswitch {
+    display: none;
+}

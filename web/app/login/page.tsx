@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { Brand, ButtonLink, Card, Icon, JudgeShell } from "@/components"
-import { SIGNIN_FROZEN } from "@/lib/copy"
+import { SERVER_NOT_SET_UP, SIGNIN_FROZEN } from "@/lib/copy"
+import { own } from "@/lib/format"
 import { mockDemoEnabled } from "@/lib/env"
 import { clearKeepsDrafts } from "@/lib/judge-ui"
 import { parseTableCode } from "@/lib/judging"
@@ -14,6 +15,7 @@ import {
 import "../judge/judge.css"
 import { ClearPhone } from "./ClearPhone"
 import { JudgeLogin } from "./JudgeLogin"
+import { ReleaseRecorders } from "./ReleaseRecorders"
 
 export const metadata: Metadata = { title: "Sign in", referrer: "no-referrer" }
 
@@ -24,7 +26,7 @@ const ERRORS: Record<string, string> = {
         "Your session ended. Sign in again. Anything saved on this phone sends once you do.",
     callback: "Google sign-in didn’t finish. Try again.",
     token: "Sign-in failed. Try again.",
-    config: "Staff sign-in isn’t set up on this server yet. Tell an organizer.",
+    config: SERVER_NOT_SET_UP,
     network:
         "Couldn’t reach HackIllinois servers. Check your connection and try again.",
     revoked:
@@ -45,12 +47,14 @@ export default async function LoginPage({
     // sends the browser to adonix (one OAuth round trip, not two).
     const google = `/auth/google?${new URLSearchParams({ next: next ?? "/admin" })}`
     const demo = mockDemoEnabled()
-    const error = sp.error ? (ERRORS[sp.error] ?? ERRORS.token) : null
+    // ?error= is a word from the link: only the table's own words are messages, else the general one.
+    const error = sp.error ? (own(ERRORS, sp.error) ?? ERRORS.token) : null
     // Set by /auth/logout or middleware only after the server saw the session was dead.
     const clear = parseClearCookie((await cookies()).get(CLEAR_COOKIE)?.value)
 
     return (
         <JudgeShell screenKey="signin">
+            <ReleaseRecorders />
             <div className="gv-seal gj-seal">
                 <Brand name="longhorn" />
             </div>

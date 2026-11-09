@@ -54,7 +54,9 @@ import {
 } from "@/lib/judging"
 import {
     assertCapped,
+    hasOversizedField,
     safeDetails,
+    SCRUBBED_MESSAGE,
     scrubDetails,
     scrubText,
     sensitiveOf,
@@ -136,6 +138,13 @@ async function run<T>(
                 error: "This phone is signed in as someone else now. Not sent: it waits on this phone for its judge.",
             }
     }
+    if (request !== undefined && hasOversizedField(request))
+        return {
+            ok: false,
+            status: 413,
+            code: "TooLarge",
+            error: SCRUBBED_MESSAGE,
+        }
     try {
         return { ok: true, data: await fn() }
     } catch (e) {
@@ -389,6 +398,7 @@ export async function talkHighlights(
     judgeId?: string,
 ): Promise<ActionResult<HighlightsResponse>> {
     const r = await talkHighlightsRun(input, judgeId)
+    if (!r.ok && r.code === "TooLarge") return { ...r, error: SCRUBBED_MESSAGE }
     if (r.ok) return r
     const sensitive = sensitiveOf(input)
     return {
@@ -418,10 +428,17 @@ async function talkHighlightsRun(
             code: "Unauthorized",
             error: "Sign in as a judge first.",
         }
+    if (hasOversizedField(input))
+        return {
+            ok: false,
+            status: 413,
+            code: "TooLarge",
+            error: SCRUBBED_MESSAGE,
+        }
     return run(async () => {
         assertCapped(input, MAX_HIGHLIGHTS_BYTES, {
             code: "TooLarge",
-            message: "That transcript is too long.",
+            message: SCRUBBED_MESSAGE,
         })
         return highlightsForJudge(await getApi(), input, { env: talkEnv() })
     }, judgeId)
@@ -459,16 +476,17 @@ export async function saveDraft(
     notes: string,
     nominations: string[],
     judgeId: string,
-): Promise<ActionResult<null>> {
+    revision?: number,
+): Promise<ActionResult<{ revision: number }>> {
     return run(
-        async () => {
-            await (
-                await getApi()
-            ).judging.saveDraft(projectId, notes, nominations, {
-                judgeId,
-            })
-            return null
-        },
+        async () =>
+            (await getApi()).judging.saveDraft(
+                projectId,
+                notes,
+                nominations,
+                { judgeId },
+                revision,
+            ),
         judgeId,
         { notes },
         "answer",
@@ -584,8 +602,8 @@ export async function evaluationOf(
 }
 
 /**
- * A Round 2 ranking. An outbox replay carries `timing` (createdAt at the tap, sentAt now), so a
- * ranking made before deliberation closed still counts when it is sent later.
+ * A Round 2 ranking. Legacy outbox timestamps are forwarded for wire compatibility, but the
+ * server judges close time from receipt; offline rankings cannot be backdated.
  */
 export async function submitRound2(
     prizeId: string,

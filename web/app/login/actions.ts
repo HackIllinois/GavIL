@@ -10,10 +10,17 @@ import {
     sessionCookieOptions,
 } from "@/lib/auth/session"
 import { verifyJudgeToken } from "@/lib/auth/verify"
-import { CODE_COPY, SIGNIN_FROZEN } from "@/lib/copy"
+import {
+    CODE_COPY,
+    SERVER_NOT_SET_UP,
+    SIGNIN_FAILED,
+    SIGNIN_FROZEN,
+} from "@/lib/copy"
+import { originProblem, serverEnvProblem } from "@/lib/env"
 
 export type LoginState =
-    | { step: "email"; email?: string; error?: string }
+    /** `failed`: the request could not reach the server (no try or code was used): the screen offers "Try again". */
+    | { step: "email"; email?: string; error?: string; failed?: "send" }
     /**
      * Signed in, and `next` is a route handler (a placard scan waiting at /t/<CODE>): the phone
      * opens it with a full navigation, so its cookies (the pending scan, the grant it mints) go
@@ -24,6 +31,8 @@ export type LoginState =
           step: "code"
           email: string
           error?: string
+          /** The code check could not reach the server: no try was spent. */
+          failed?: "verify"
           triesLeft: number
           locked?: boolean
       }
@@ -74,6 +83,10 @@ export async function judgeAuth(
                 email,
                 error: "Enter the email you registered to judge with.",
             }
+        // A server with settings missing can send nothing: an organizer's problem, not the
+        // phone's connection (the same checks getApi() throws on, and /api/health reports).
+        if (serverEnvProblem() !== null || originProblem() !== null)
+            return { step: "email", email, error: SERVER_NOT_SET_UP }
         try {
             await (await getApi()).auth.judgeVerify(email)
         } catch (e) {
@@ -104,7 +117,8 @@ export async function judgeAuth(
             return {
                 step: "email",
                 email,
-                error: "Couldn’t send the link. Check your connection and try again.",
+                error: SIGNIN_FAILED.send,
+                failed: "send",
             }
         }
         // adonix always reports success, so nobody can probe which emails are judges.
@@ -117,6 +131,10 @@ export async function judgeAuth(
     const next = safeNext(String(form.get("next") ?? "")) ?? "/judge"
     if (prev.locked) return { ...prev, error: CODE_COPY.locked }
     if (code.length !== 6) return { ...prev, error: CODE_COPY.format }
+    // (before the code is spent: a server that can't verify the session it would hand back must
+    // not use up one of the judge's five tries)
+    if (serverEnvProblem() !== null || originProblem() !== null)
+        return { ...prev, error: SERVER_NOT_SET_UP }
     let jwt: string
     try {
         jwt = (await (await getApi()).auth.judgeLogin(prev.email, code)).jwt
@@ -152,10 +170,8 @@ export async function judgeAuth(
                 ...prev,
                 error: "Your judging access was removed. See the check-in desk.",
             }
-        return {
-            ...prev,
-            error: "Couldn’t sign in. Check your connection and try again.",
-        }
+        // The check never ran, or its answer never came back: nothing was counted against the code.
+        return { ...prev, error: SIGNIN_FAILED.verify, failed: "verify" }
     }
     // Verified before it becomes the session (S8): signature or an adonix round trip, `exp`
     // capped, and a JUDGE token with its event and assignment. Decoding alone installs nothing.
@@ -165,7 +181,9 @@ export async function judgeAuth(
             ...prev,
             error:
                 v.reason === "unreachable"
-                    ? "Couldn’t sign in. Check your connection and try again."
+                    ? v.config
+                        ? SERVER_NOT_SET_UP
+                        : "Couldn’t sign in. Check your connection and try again."
                     : "Couldn’t sign in. Try again.",
         }
     ;(await cookies()).set(SESSION_COOKIE, jwt, sessionCookieOptions(v.payload))

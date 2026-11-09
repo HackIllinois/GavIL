@@ -190,7 +190,7 @@ describe("the board says when deliberation is over", () => {
         expect(open.closed).toBeUndefined()
         await rank(ids(open))
 
-        toMinutesAfterEnd(31)
+        toMinutesAfterEnd(32) // two minutes after the 30-minute deliberation close
         const over = await board()
         expect(over.open).toBe(false)
         expect(over.closed).toBe(true)
@@ -219,6 +219,6 @@ describe("the board says when deliberation is over", () => {
             }),
         ).toBe("saved-on-phone")
         const e = await rejection(rank(ids(open)))
-        expect(e.code).toBe("RoundOver")
+        expect(e.code).toBe("Round2Closed")
     })
 })

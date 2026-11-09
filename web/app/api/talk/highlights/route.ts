@@ -4,8 +4,10 @@ import { sameOrigin } from "@/lib/auth/origin"
 import {
     errorResponse,
     fail,
+    hasOversizedField,
     json,
     readCapped,
+    SCRUBBED_MESSAGE,
     sensitiveOf,
 } from "@/lib/talk/http"
 import { MAX_HIGHLIGHTS_BYTES } from "@/lib/talk/policy"
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
     try {
         const bytes = await readCapped(req, MAX_HIGHLIGHTS_BYTES, {
             code: "TooLarge",
-            message: "That transcript is too long.",
+            message: SCRUBBED_MESSAGE,
         })
         let body: unknown
         try {
@@ -40,6 +42,8 @@ export async function POST(req: NextRequest) {
         } catch {
             return fail(400, "BadTalkRequest", "Send JSON.")
         }
+        if (hasOversizedField(body))
+            return fail(413, "TooLarge", SCRUBBED_MESSAGE)
         sensitive = sensitiveOf(body)
         return json(
             200,

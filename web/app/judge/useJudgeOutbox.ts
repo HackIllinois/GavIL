@@ -3,7 +3,9 @@
 import { useCallback, useMemo } from "react"
 import {
     dropLocalDraft,
+    rememberProjectRevision,
     rememberSentVote,
+    restampLocalDraft,
     useOutbox,
     type OutboxItem,
     type OutboxState,
@@ -27,12 +29,42 @@ import { useJudge } from "./JudgeContext"
 
 // A server action that navigated away (a redirect to a route handler) resolves to undefined:
 // treat it as unreachable, so the item stays queued.
-const outcome = (r: ActionResult<unknown> | undefined): ActionOutcome =>
-    !r
-        ? { ok: false }
-        : r.ok
-          ? { ok: true }
-          : { ok: false, status: r.status, code: r.code, error: r.error }
+function replyRevision(data: unknown): number | undefined {
+    if (!data || typeof data !== "object") return undefined
+    const value = data as {
+        revision?: unknown
+        evaluation?: { revision?: unknown }
+    }
+    const revision = value.revision ?? value.evaluation?.revision
+    return typeof revision === "number" &&
+        Number.isSafeInteger(revision) &&
+        revision >= 0
+        ? revision
+        : undefined
+}
+
+const outcome = (r: ActionResult<unknown> | undefined): ActionOutcome => {
+    if (!r) return { ok: false }
+    if (r.ok) {
+        const revision = replyRevision(r.data)
+        return { ok: true, ...(revision != null ? { revision } : {}) }
+    }
+    const revision =
+        r.code === "StaleWrite" &&
+        typeof r.details?.revision === "number" &&
+        Number.isSafeInteger(r.details.revision) &&
+        r.details.revision >= 0
+            ? r.details.revision
+            : undefined
+    return {
+        ok: false,
+        status: r.status,
+        code: r.code,
+        error: r.error,
+        ...(r.details ? { details: r.details } : {}),
+        ...(revision != null ? { revision } : {}),
+    }
+}
 
 /** The server actions a replay uses (tests pass the same ones against the mock store). */
 const ACTIONS = {
@@ -60,6 +92,36 @@ export async function replayItem(
     item: OutboxItem,
     scope: OutboxScope | null,
     actions: typeof ACTIONS = ACTIONS,
+): Promise<ActionOutcome> {
+    const out = await sendItem(item, scope, actions)
+    // What the server answered about this project's revision reaches the notes screen even though
+    // it was not the screen that sent it: a save queued behind another goes out from here, and
+    // the next edit must start from the revision it made (never the older one: StaleWrite).
+    if (item.kind === "draft" || item.kind === "evaluation") {
+        if (out.ok) {
+            rememberProjectRevision(item.judgeId, item.projectId, out.revision)
+            // This phone's own write: the draft it kept is based on that revision now.
+            if (
+                item.kind === "draft" &&
+                scope &&
+                item.judgeId === scope.judgeId
+            )
+                restampLocalDraft(scope, item.projectId, out.revision)
+        } else if (out.code === "StaleWrite")
+            rememberProjectRevision(
+                item.judgeId,
+                item.projectId,
+                out.revision,
+                true,
+            )
+    }
+    return out
+}
+
+async function sendItem(
+    item: OutboxItem,
+    scope: OutboxScope | null,
+    actions: typeof ACTIONS,
 ): Promise<ActionOutcome> {
     const sentAt = new Date().toISOString()
     const mine = scope && item.judgeId === scope.judgeId ? scope : null
@@ -151,6 +213,7 @@ export async function replayItem(
                     item.notes,
                     item.nominations,
                     item.judgeId,
+                    item.revision,
                 ),
             )
     }

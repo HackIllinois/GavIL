@@ -11,8 +11,9 @@
  *   down for 10 min and auto-holds it after 2 reports (staff task).
  * - Votes: only the judge's current pair (their last two evaluated projects in this room), never
  *   a self-vote, one vote per pair (the first wins), createdAt after both evaluations.
- * - Write times: phone stamps are moved onto the server clock with `sentAt`; a reused clientId
- *   with different content is refused (409 ClientIdReused).
+ * - Write times: phone stamps are moved onto the server clock with `sentAt` for Round 1; Round 2
+ *   rankings use server receipt time because the phone cannot prove an offline tap time. A reused
+ *   clientId with different content is refused (409 ClientIdReused).
  * - next(): check-in, phase and time gates before any lease; an owed comparison comes before
  *   anything else (even a live lease); "wait" when every remaining table is leased, cooling or
  *   just deferred by this judge; a lapsed lease nobody else took comes back to its judge (also
@@ -51,7 +52,8 @@
  * Fixtures: 4 rooms, 31 projects (+1 invalid seed row), 8 judges, 11 prizes, 7 flags,
  * 8 applicants, 3 reimbursements, 3 staff.
  */
-import { mulberry32, roomRanking, type Rng } from "../gavel"
+import { mulberry32, replay, roomRanking, type Rng } from "../gavel"
+import { PROJECT_WRITE_STALE, ROUND2_CLOSED } from "../copy"
 import {
     absentCoolingUntil,
     absentHoldDue,
@@ -77,6 +79,7 @@ import {
     placardLabel,
     placardToken,
     placards,
+    round2WriteTime,
     roomPlan,
 } from "../judging"
 import { randomDigits, randomToken, safeEqual } from "../auth/hmac"
@@ -123,7 +126,6 @@ import {
     MEMO_WINDOW_SECONDS,
     QUEUED_UPLOAD_SECONDS,
     SPEND_ATTEMPT_SECONDS,
-    SPEND_REPLAYS_MAX,
     SPEND_TTL_SECONDS,
     TALK_LLM_EVENT_BUDGET,
     TALK_LLM_QUOTA,
@@ -153,6 +155,8 @@ import {
 } from "./fixtures"
 import { APPLICANT_STATUSES } from "./types"
 import type {
+    SponsorRun,
+    SponsorRunSummary,
     AdminJudge,
     Applicant,
     ArrivalEarlier,
@@ -330,7 +334,12 @@ export const STAFF: StaffMember[] = [
 interface JudgeState {
     /** projectId -> evaluation, or the skip that ended the visit. */
     evaluations: Map<string, Evaluation>
-    drafts: Map<string, { notes: string; nominations: string[] }>
+    drafts: Map<
+        string,
+        { notes: string; nominations: string[]; revision: number }
+    >
+    /** Per-project compare-and-set revision, retained after a draft becomes an evaluation. */
+    revisions: Map<string, number>
     /** Project ids in the order finished (evaluated or skipped for good). */
     order: string[]
     /** Evaluated project ids in the current room since the last move: compare pairs come from here. */
@@ -412,6 +421,8 @@ export interface MockStore {
     reimbursements: Reimbursement[]
     staff: StaffMember[]
     deliberationOrder: Map<string, string[]>
+    /** Sponsor runs (SponsorRun): their judges' votes form their own graphs. */
+    runs: SponsorRun[]
     /**
      * Round 2's finalists, fixed once when it opens (round2OpensAt): prizeId -> the nominees as the
      * board showed them at that moment. Everything after (a flag escalated or cleared, a judge's
@@ -439,15 +450,13 @@ export interface MockStore {
     /** Spend-proof nonces already used (nonce -> when it can be forgotten, ms). */
     talkSpendNonces: Map<string, number>
     /**
-     * Intended spends already counted (judge|project|kind|mode|visit|attemptId): the original
-     * result, how many times it was answered again, and when it is forgotten (ms). A retry of
-     * the same attempt with a new nonce gets the original result and counts nothing.
+     * Vendor attempts already reserved (judge|project|kind|mode|visit|attemptId): the original
+     * result and when the reservation is forgotten (ms). An attempt id can reserve one call only.
      */
     talkAttempts: Map<
         string,
         {
             result: TalkSpend
-            replays: number
             until: number
             /** The vendor call ran (the server's `settle`): never answered again. */
             consumed?: true
@@ -693,6 +702,7 @@ function createStore(opts: MockStoreOptions = {}): MockStore {
         reimbursements: clone(REIMBURSEMENTS),
         staff: clone(STAFF),
         deliberationOrder: new Map(),
+        runs: [],
         round2Frozen: new Map(),
         idempotencyMax: opts.idempotencyMax ?? MOCK_MEMORY_MAX,
         finalists: 8,
@@ -866,7 +876,7 @@ function badArrivalInput(raw: unknown): void {
  */
 function expectShape(
     input: unknown,
-    shape: Record<string, "string" | "string?" | "strings">,
+    shape: Record<string, "string" | "string?" | "strings" | "number?">,
 ) {
     const r =
         input && typeof input === "object"
@@ -879,7 +889,10 @@ function expectShape(
                 ? typeof v === "string"
                 : t === "string?"
                   ? v == null || typeof v === "string"
-                  : Array.isArray(v) && v.every((x) => typeof x === "string")
+                  : t === "number?"
+                    ? v == null ||
+                      (Number.isSafeInteger(v) && (v as number) >= 0)
+                    : Array.isArray(v) && v.every((x) => typeof x === "string")
         if (!ok)
             throw new ApiError(
                 400,
@@ -896,6 +909,7 @@ function judgeState(s: MockStore, judgeId: string): JudgeState {
         st = {
             evaluations: new Map(),
             drafts: new Map(),
+            revisions: new Map(),
             order: [],
             chain: [],
             deferrals: [],
@@ -908,7 +922,34 @@ function judgeState(s: MockStore, judgeId: string): JudgeState {
         }
         s.perJudge.set(judgeId, st)
     }
+    st.revisions ??= new Map()
+    for (const [projectId, draft] of st.drafts)
+        st.revisions.set(
+            projectId,
+            Math.max(st.revisions.get(projectId) ?? 0, draft.revision ?? 0),
+        )
+    for (const [projectId, evaluation] of st.evaluations)
+        st.revisions.set(
+            projectId,
+            Math.max(
+                st.revisions.get(projectId) ?? 0,
+                evaluation.revision ?? 0,
+            ),
+        )
     return st
+}
+
+function checkProjectRevision(
+    st: JudgeState,
+    projectId: string,
+    revision?: number,
+): number {
+    const current = st.revisions.get(projectId) ?? 0
+    if (revision != null && revision !== current)
+        throw new ApiError(409, "StaleWrite", PROJECT_WRITE_STALE, {
+            revision: current,
+        })
+    return current
 }
 
 function projectOf(s: MockStore, id: string): Project {
@@ -1130,19 +1171,26 @@ function seenIds(s: MockStore, st: JudgeState): string[] {
 }
 
 function queueJudge(s: MockStore, j: Judge, st: JudgeState): QueueJudge {
+    const run = runOf(s, j)
     return {
         id: j.id,
         room: j.room,
         path: j.path,
+        ...(run ? { scope: runProjectIds(s, run) } : {}),
         seen: seenIds(s, st),
-        conflicts: conflictIds(s, j, 1),
+        // In a sponsor run the company judges its own prize, so its own track is not a conflict
+        // (the Round 2 rule); declared and team-member conflicts still are.
+        conflicts: conflictIds(s, j, roundOf(j)),
         deferred: st.deferrals,
         previousId: st.chain[st.chain.length - 1],
     }
 }
 
-function queueProjects(s: MockStore): QueueProject[] {
+function queueProjects(s: MockStore, j?: Judge): QueueProject[] {
     const now = Date.now()
+    // A sponsor run's coverage is its own: views by its judges only.
+    const run = j ? runOf(s, j) : null
+    const runViews = run ? runViewCounts(s, run) : null
     const leases = new Map(
         s.visits
             .filter(
@@ -1163,7 +1211,7 @@ function queueProjects(s: MockStore): QueueProject[] {
             room: p.room,
             path: p.path,
             table: p.table,
-            views: p.views,
+            views: runViews ? (runViews.get(p.id) ?? 0) : p.views,
             held: p.held,
             leasedBy: v?.judgeId ?? null,
             cooling: coolUntil != null,
@@ -1181,11 +1229,90 @@ function countedVotes(s: MockStore): Vote[] {
     return s.votes.filter((v) => !v.voidedAt && !voided.has(v.judgeId))
 }
 
+/** Votes that count toward the room rankings: a sponsor run's votes are its own graph. */
+function roomVotes(s: MockStore): Vote[] {
+    const inRun = new Set(s.judges.filter((j) => j.run).map((j) => j.id))
+    return countedVotes(s).filter((v) => !inRun.has(v.judgeId))
+}
+
 /** Crowd-BT beliefs for one room only: mu is never compared across rooms. */
 function roomItems(s: MockStore, room: string) {
     return new Map(
-        roomRanking(room, s.projects, countedVotes(s)).map((i) => [i.id, i]),
+        roomRanking(room, s.projects, roomVotes(s)).map((i) => [i.id, i]),
     )
+}
+
+// ── Sponsor runs ─────────────────────────────────────────────────────────────────────────────────
+
+function runOf(s: MockStore, j: Pick<Judge, "run">): SponsorRun | null {
+    return (j.run && s.runs.find((r) => r.id === j.run)) || null
+}
+
+/** The run's projects: every project opted into its prize, in any room. */
+function runProjectIds(s: MockStore, run: SponsorRun): string[] {
+    return s.projects
+        .filter((p) => p.optIns.includes(run.prizeId))
+        .map((p) => p.id)
+}
+
+function runJudgeIds(s: MockStore, run: SponsorRun): Set<string> {
+    return new Set(s.judges.filter((j) => j.run === run.id).map((j) => j.id))
+}
+
+/** Evaluations by the run's judges, per project (not voided, not skips). */
+function runViewCounts(s: MockStore, run: SponsorRun): Map<string, number> {
+    const counts = new Map<string, number>()
+    for (const id of runJudgeIds(s, run))
+        for (const ev of judgeState(s, id).evaluations.values())
+            if (!ev.skipped && !ev.voidedAt)
+                counts.set(ev.projectId, (counts.get(ev.projectId) ?? 0) + 1)
+    return counts
+}
+
+/** The run's beliefs: its judges' counted votes over its projects only. */
+function runItems(s: MockStore, run: SponsorRun) {
+    const ids = runProjectIds(s, run)
+    const inRun = new Set(ids)
+    const judges = runJudgeIds(s, run)
+    const votes = countedVotes(s).filter(
+        (v) =>
+            judges.has(v.judgeId) &&
+            inRun.has(v.winnerId) &&
+            inRun.has(v.loserId),
+    )
+    return replay(ids, votes)
+}
+
+/** The judge's beliefs for picking the next table: their run's, or their room's. */
+function itemsFor(s: MockStore, j: Judge) {
+    const run = runOf(s, j)
+    return run ? runItems(s, run) : roomItems(s, j.room)
+}
+
+/**
+ * Which conflict rule applies: a sponsor run judges its own company's prize, so its own track is
+ * not a conflict there (the Round 2 rule). Everyone else is in Round 1.
+ */
+function roundOf(j: Pick<Judge, "run">): 1 | 2 {
+    return j.run ? 2 : 1
+}
+
+/** Why a project outside the judge's scope was refused, in the judge's words. */
+function scopeMessage(s: MockStore, j: Judge, p: Project): string {
+    const run = runOf(s, j)
+    if (run) {
+        const prize = s.prizes.find((x) => x.id === run.prizeId)
+        return `${p.name} didn't opt into ${prize?.name ?? "your prize"}. You judge only the projects that did.`
+    }
+    return `${p.name} isn't in your room. You judge ${pathLabel(j.path)} projects in Room ${j.room}.`
+}
+
+/** Whether this project is one the judge may be sent to and check in at. */
+function inScope(s: MockStore, j: Judge, p: Project): boolean {
+    const run = runOf(s, j)
+    return run
+        ? p.optIns.includes(run.prizeId)
+        : p.room === j.room && p.path === j.path
 }
 
 function votedPair(
@@ -1209,7 +1336,8 @@ function pendingPair(
     if (st.chain.length < 2) return null
     const [a, b] = st.chain.slice(-2)
     if (votedPair(s, j.id, a, b)) return null
-    if (projectOf(s, a).room !== projectOf(s, b).room) return null
+    // Room graphs never mix; a sponsor run is one graph across rooms.
+    if (!j.run && projectOf(s, a).room !== projectOf(s, b).room) return null
     return [a, b]
 }
 
@@ -1296,7 +1424,7 @@ function finalists(s: MockStore, prize: Prize): Round2Nominee[] {
             .filter((p) => p.optIns.includes(prize.id))
             .map(nominee)
             .sort(byNoms)
-    const votes = countedVotes(s)
+    const votes = roomVotes(s)
     return s.rooms
         .filter((r) => prize.paths.includes(r.path))
         .flatMap((r) =>
@@ -1333,13 +1461,21 @@ function pulledLast<T extends { withdrawn?: boolean }>(list: T[]): T[] {
 }
 
 function flagged(s: MockStore): FlaggedProject[] {
+    // Open flags, and the flags of an escalated project (evidence the organizers are still
+    // weighing): an escalated project is out of judging until an admin clears it.
     const byProject = new Map<string, Flag[]>()
-    for (const f of s.flags.filter((x) => x.status === "open")) {
+    for (const f of s.flags.filter(
+        (x) =>
+            x.status === "open" ||
+            (x.status === "escalated" && s.escalated.has(x.projectId)),
+    )) {
         byProject.set(f.projectId, [...(byProject.get(f.projectId) ?? []), f])
     }
+    const rank = (f: FlaggedProject) => (f.escalated ? 1 : f.held ? 0 : 2)
     return [...byProject.entries()]
         .map(([projectId, flags]) => {
             const p = projectOf(s, projectId)
+            const escalated = s.escalated.has(projectId)
             return {
                 project: {
                     id: p.id,
@@ -1350,10 +1486,11 @@ function flagged(s: MockStore): FlaggedProject[] {
                     tableCode: p.tableCode,
                 },
                 flags,
-                held: flags.some((f) => f.confidence === "hold"),
+                held: escalated || flags.some((f) => f.confidence === "hold"),
+                ...(escalated ? { escalated: true as const } : {}),
             }
         })
-        .sort((a, b) => Number(b.held) - Number(a.held))
+        .sort((a, b) => rank(a) - rank(b))
 }
 
 function resolveFlags(
@@ -1362,8 +1499,12 @@ function resolveFlags(
     status: "cleared" | "escalated",
     reason?: string,
 ) {
+    // Clearing also answers an escalation: the organizers decided, so the escalated flags clear.
     const open = s.flags.filter(
-        (f) => f.projectId === projectId && f.status === "open",
+        (f) =>
+            f.projectId === projectId &&
+            (f.status === "open" ||
+                (status === "cleared" && f.status === "escalated")),
     )
     if (!open.length) notFound("open flags for project")
     for (const f of open) {
@@ -1744,12 +1885,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
 
     /** Still eligible for this judge (room, path, not held, no conflict): what a lease needs. */
     function stillTheirs(j: Judge, p: Project): boolean {
-        return (
-            p.room === j.room &&
-            p.path === j.path &&
-            !p.held &&
-            !conflictReason(j, p, 1)
-        )
+        return inScope(s, j, p) && !p.held && !conflictReason(j, p, roundOf(j))
     }
 
     /**
@@ -3091,7 +3227,8 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 )
                 return {
                     judgeId: j.id,
-                    room: j.room,
+                    // Peers for the vote-rate signal: the room, or a sponsor run's own judges.
+                    room: j.run ? `run:${j.run}` : j.room,
                     path: j.path,
                     // The server's measure for a submit sent straight away (dwellOf).
                     dwells: evs
@@ -3207,11 +3344,63 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
             ...base(st),
             estimatedTotal:
                 st.order.length +
-                Math.max(1, remaining(queueJudge(s, j, st), queueProjects(s))),
+                Math.max(
+                    1,
+                    remaining(queueJudge(s, j, st), queueProjects(s, j)),
+                ),
             reason,
             visit,
             prizes: eligiblePrizes(p, s.prizes),
             draft: st.drafts.get(p.id),
+            projectRevision: st.revisions.get(p.id) ?? 0,
+            // A sponsor run's table can be in another room: say which, with its plan.
+            ...(p.room !== j.room
+                ? {
+                      room:
+                          s.rooms.find((r) => r.id === p.room) ??
+                          notFound("room"),
+                      plan: roomPlan(s.rooms, s.projects, p.room),
+                  }
+                : {}),
+        }
+    }
+
+    function runSummary(run: SponsorRun): SponsorRunSummary {
+        const prize = s.prizes.find((p) => p.id === run.prizeId)
+        const ids = runProjectIds(s, run)
+        const counts = runViewCounts(s, run)
+        const judges = s.judges.filter((j) => j.run === run.id)
+        const inRun = new Set(judges.map((j) => j.id))
+        const live = ids.filter((id) => !projectOf(s, id).held)
+        const v = live.map((id) => counts.get(id) ?? 0)
+        const items = runItems(s, run)
+        return {
+            ...run,
+            prizeName: prize?.name ?? run.prizeId,
+            projects: ids.length,
+            judges: judges.map((j) => ({
+                id: j.id,
+                name: j.name,
+                email: j.email,
+                checkedIn: j.checkedIn,
+            })),
+            views: {
+                min: v.length ? Math.min(...v) : 0,
+                mean: v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0,
+            },
+            votes: countedVotes(s).filter((x) => inRun.has(x.judgeId)).length,
+            ranking: live
+                .map((id) => ({ id, mu: items.get(id)?.mu ?? 0 }))
+                .sort((a, b) => b.mu - a.mu)
+                .map(({ id }) => {
+                    const p = projectOf(s, id)
+                    return {
+                        id,
+                        name: p.name,
+                        tableCode: p.tableCode,
+                        views: counts.get(id) ?? 0,
+                    }
+                }),
         }
     }
 
@@ -3234,15 +3423,15 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
         for (const v of s.visits)
             if (v.judgeId === j.id && v.status === "active") {
                 const p = projectOf(s, v.projectId)
-                v.status = p.room !== j.room ? "reassigned" : "expired"
+                v.status = !inScope(s, j, p) ? "reassigned" : "expired"
             }
         // A lapsed lease nobody else took: the judge is still standing at that table.
         const lapsed = lapsedVisit(j)
         if (lapsed && revive(j, lapsed))
             return served(j, st, projectOf(s, lapsed.projectId), lapsed)
         if (timeUp(s)) return { status: "time-up", project: null, ...done }
-        const r = nextProject(queueJudge(s, j, st), queueProjects(s), {
-            items: roomItems(s, j.room),
+        const r = nextProject(queueJudge(s, j, st), queueProjects(s, j), {
+            items: itemsFor(s, j),
             rng: s.rng,
             now: Date.now(),
         })
@@ -3254,7 +3443,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 ...base(st),
                 estimatedTotal:
                     st.order.length +
-                    remaining(queueJudge(s, j, st), queueProjects(s)),
+                    remaining(queueJudge(s, j, st), queueProjects(s, j)),
                 waitSeconds: waitSeconds(r.retryAt),
                 waiting: {
                     leased: r.leased,
@@ -3651,9 +3840,9 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                         (p) => p.nominatable && p.paths.includes(j.path),
                     ),
                     conflicts: s.projects
-                        .filter((p) => p.room === j.room && p.path === j.path)
+                        .filter((p) => inScope(s, j, p))
                         .flatMap((p) => {
-                            const reason = conflictReason(j, p, 1)
+                            const reason = conflictReason(j, p, roundOf(j))
                             return reason
                                 ? [
                                       {
@@ -3788,7 +3977,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 if (v.status === "active") {
                     const p = projectOf(s, v.projectId)
                     if (!stillTheirs(j, p)) {
-                        v.status = p.room !== j.room ? "reassigned" : "expired"
+                        v.status = !inScope(s, j, p) ? "reassigned" : "expired"
                         throw new ApiError(
                             409,
                             "LeaseEnded",
@@ -3883,32 +4072,30 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 notes,
                 nominations,
                 scope?: JudgeScoped,
+                revision?: number,
             ) {
                 const j = me()
                 assertJudge(j, scope)
                 expectShape(
-                    { projectId, notes, nominations },
+                    { projectId, notes, nominations, revision },
                     {
                         projectId: "string",
                         notes: "string",
                         nominations: "strings",
+                        revision: "number?",
                     },
                 )
                 const st = judgeState(s, j.id)
                 const p = projectOf(s, projectId)
-                if (p.room !== j.room || p.path !== j.path)
-                    throw new ApiError(
-                        400,
-                        "WrongRoom",
-                        `${p.name} isn't in your room. You judge ${pathLabel(j.path)} projects in Room ${j.room}.`,
-                    )
+                if (!inScope(s, j, p))
+                    throw new ApiError(400, "WrongRoom", scopeMessage(s, j, p))
                 if (p.held)
                     throw new ApiError(
                         409,
                         "Held",
                         `${p.name} is on hold. Staff will sort it out; nothing to do here.`,
                     )
-                if (conflictReason(j, p, 1))
+                if (conflictReason(j, p, roundOf(j)))
                     throw new ApiError(
                         409,
                         "Conflict",
@@ -3959,10 +4146,19 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                         `${p.name} can't be nominated for ${bad.map((id) => prizeName(s, id)).join(", ") || "the same prize twice"}.`,
                         { prizeIds: bad },
                     )
+                const currentRevision = checkProjectRevision(
+                    st,
+                    projectId,
+                    revision,
+                )
+                const nextRevision = currentRevision + 1
                 st.drafts.set(projectId, {
                     notes,
                     nominations: [...nominations],
+                    revision: nextRevision,
                 })
+                st.revisions.set(projectId, nextRevision)
+                return { revision: nextRevision }
             },
             async submitEvaluation(input) {
                 const j = me()
@@ -3975,6 +4171,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     createdAt: "string?",
                     sentAt: "string?",
                     demoStatus: "string?",
+                    revision: "number?",
                 })
                 const st = judgeState(s, j.id)
                 if (input.notes.length > NOTES_MAX)
@@ -3991,6 +4188,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     input.highlights ?? null,
                     input.recording ?? null,
                     input.demoStatus ?? null,
+                    input.revision ?? null,
                     // The receipt is content too: the same clientId with another proof is
                     // another write (409 ClientIdReused), never the first one's stored answer.
                     typeof input.talkProof?.receipt === "string"
@@ -4008,11 +4206,16 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 const check = () => {
                     me()
                     const p = projectOf(s, input.projectId)
-                    if (p.room !== j.room || p.path !== j.path)
+                    const revision = checkProjectRevision(
+                        st,
+                        p.id,
+                        input.revision,
+                    )
+                    if (!inScope(s, j, p))
                         throw new ApiError(
                             400,
                             "WrongRoom",
-                            `${p.name} isn't in your room. You judge ${pathLabel(j.path)} projects in Room ${j.room}.`,
+                            scopeMessage(s, j, p),
                         )
                     if (p.held)
                         throw new ApiError(
@@ -4020,7 +4223,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                             "Held",
                             `${p.name} is on hold. Staff will sort it out; nothing to do here.`,
                         )
-                    if (conflictReason(j, p, 1))
+                    if (conflictReason(j, p, roundOf(j)))
                         throw new ApiError(
                             409,
                             "Conflict",
@@ -4069,7 +4272,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                             : Date.parse(visit!.arrivedAt!),
                         deadline: edit ? "end" : "grace",
                     })
-                    return { p, prev, edit, visit, at }
+                    return { p, prev, edit, visit, at, revision }
                 }
                 /**
                  * The judge's stored evaluation of this project when this request would change
@@ -4112,7 +4315,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     // ── From here to the return: one synchronous block (re-check, then commit). ──
                     const landed = unchanged()
                     if (landed) return landed
-                    const { p, prev, edit, visit, at } = check()
+                    const { p, prev, edit, visit, at, revision } = check()
                     // The receipt's visit, placard proof, consent and single use, against the
                     // state as it is now (lib/talk/receipt.ts; CONTRACT §2).
                     const talk = keepTalk(j, p, input, proof, visit, at)
@@ -4131,12 +4334,27 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                         : !!visit &&
                           !hasPlacardProof(visit) &&
                           !placardConfirmed(j, p, visit)
+                    // Nominations close when Round 2 opens, and the finalists are taken then (CONTRACT
+                    // §2). A first evaluation whose tap time was honoured inside the grace window can
+                    // still reach the server after it (a phone that was offline): the table and the
+                    // notes count, its nominations cannot. Decided on the server's receipt clock, said
+                    // in `dropped.nominations`, and left off the evaluation, so My notes, the admin's
+                    // tally and the frozen board all agree.
+                    const lateNominations =
+                        !edit &&
+                        input.nominations.length > 0 &&
+                        Date.now() >= round2OpensAt(s)
+                            ? input.nominations.length
+                            : 0
                     const ev: Evaluation = {
                         projectId: p.id,
                         judgeId: j.id,
                         notes: input.notes,
-                        nominations: [...input.nominations],
+                        nominations: lateNominations
+                            ? []
+                            : [...input.nominations],
                         clientId: input.clientId,
+                        revision: revision + 1,
                         createdAt: iso(at),
                         submittedAt: iso(Date.now()),
                         ...(late ? { lateAfterLease: true } : {}),
@@ -4166,6 +4384,7 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                         admit(s.talkReceipts, talk.usedKey, {
                             max: s.idempotencyMax,
                         })
+                    st.revisions.set(p.id, revision + 1)
                     st.evaluations.set(p.id, ev)
                     st.drafts.delete(p.id)
                     if (talk.usedKey)
@@ -4176,7 +4395,8 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                         if (!st.order.includes(p.id)) st.order.push(p.id)
                         st.chain.push(p.id)
                         st.evaluatedAt.set(p.id, at)
-                        p.views += 1
+                        // A sponsor run's evaluations are its own coverage (runViewCounts).
+                        if (!j.run) p.views += 1
                         j.seen += 1
                         visit!.status = "done"
                         bumpDeferrals(st, p.id)
@@ -4184,8 +4404,17 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     return {
                         evaluation: ev,
                         next: routeAfterWrite(j, st),
-                        ...(kept.dropped.highlights || kept.dropped.recording
-                            ? { dropped: kept.dropped }
+                        ...(kept.dropped.highlights ||
+                        kept.dropped.recording ||
+                        lateNominations
+                            ? {
+                                  dropped: {
+                                      ...kept.dropped,
+                                      ...(lateNominations
+                                          ? { nominations: lateNominations }
+                                          : {}),
+                                  },
+                              }
                             : {}),
                     }
                 })
@@ -4499,10 +4728,8 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
             },
             /**
              * Round 2 ranking. Only the judge's own prize, one they may deliberate (403
-             * NotYourPrize); 409 RoundNotOpen before Round 1 ends. Timing is bounded like every
-             * write: an offline ranking's createdAt (sentAt-corrected) is honoured within 2 min,
-             * or 20 min for a replay, so a ranking made before deliberation closed still counts
-             * when it arrives after (409 RoundOver otherwise), and none predates Round 2.
+             * NotYourPrize); 409 RoundNotOpen before Round 2 opens. The server receipt time decides
+             * close; phone timestamps are ignored because they cannot prove an offline tap time.
              */
             async submitRound2(prizeId, input) {
                 const j = me()
@@ -4542,29 +4769,19 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                                 "RoundNotOpen",
                                 "Round 2 opens when nominations close, 15 minutes after Round 1 ends.",
                             )
-                        const timing = input as {
-                            createdAt?: string
-                            sentAt?: string
-                        }
-                        const t = clientTime(timing, now, {
-                            opensAt: opens,
-                            closesAt: s.round.deliberationEndsAt
+                        // The server cannot prove when an offline ranking was made. Ignore the
+                        // phone's createdAt/sentAt and judge the close by server receipt time.
+                        const t = round2WriteTime(
+                            now,
+                            s.round.deliberationEndsAt
                                 ? Date.parse(s.round.deliberationEndsAt)
-                                : Infinity,
-                        })
-                        if (t === "bad")
-                            throw new ApiError(
-                                400,
-                                "BadTime",
-                                "The phone's clock looks wrong for this ranking.",
-                            )
-                        // "late": the honoured time is past deliberationEndsAt (a ranking made
-                        // before the close still counts when it arrives after).
+                                : undefined,
+                        )
                         if (t === "late")
                             throw new ApiError(
                                 409,
-                                "RoundOver",
-                                "Round 2 deliberation is closed.",
+                                "Round2Closed",
+                                ROUND2_CLOSED,
                             )
                         // The finalists as Round 2 opened with them (round2Nominees): a flag
                         // escalated or a judge's votes voided since changes nobody's ranking. A
@@ -4644,13 +4861,10 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     if (until < now) s.talkSpendNonces.delete(n)
                 for (const [a, e] of s.talkAttempts)
                     if (e.until < now) s.talkAttempts.delete(a)
-                // The intended spend this proof belongs to. A retry after an answer that never
-                // arrived (the first call committed, its response was lost) carries a NEW nonce
-                // and the same attempt id: it gets the original result and counts nothing more,
-                // up to SPEND_REPLAYS_MAX times, and not at all once the server has `settle`d it
-                // (the vendor call ran: one counted slot buys one vendor call); then it is refused
-                // like a used-up quota. A proof (nonce) is still single use: the same one twice
-                // is a replayed proof (403).
+                // One attempt id reserves at most one active vendor call. A retry with a fresh
+                // proof can reserve only if the first request never reached this atomic block.
+                // Once reserved, duplicate requests cannot receive another grant; `settle` marks
+                // the vendor call consumed. Every proof nonce remains single use.
                 const attemptKey = [
                     j.id,
                     projectId,
@@ -4679,24 +4893,28 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                     spendNonce()
                     return delay({ ...prior.result, replayed: true as const })
                 }
-                if (prior) {
-                    if (prior.consumed || prior.replays >= SPEND_REPLAYS_MAX) {
-                        if (kind === "stt")
-                            throw new ApiError(
-                                429,
-                                "TranscriptionQuota",
-                                "That recording was already sent. Record it again, or type notes.",
-                            )
-                        return delay({
-                            ...prior.result,
-                            granted: false,
-                            llmBlocked: "quota" as const,
-                            replayed: true as const,
-                        })
-                    }
-                    prior.replays += 1
+                if (prior?.consumed) {
                     spendNonce()
-                    return delay({ ...prior.result, replayed: true as const })
+                    if (kind === "stt")
+                        throw new ApiError(
+                            429,
+                            "TranscriptionQuota",
+                            "That recording was already sent. Record it again, or type notes.",
+                        )
+                    return delay({
+                        ...prior.result,
+                        granted: false,
+                        llmBlocked: "quota" as const,
+                        replayed: true as const,
+                    })
+                }
+                if (prior) {
+                    spendNonce()
+                    throw new ApiError(
+                        409,
+                        "AttemptInProgress",
+                        "This vendor call is already reserved for that attempt.",
+                    )
                 }
                 const { ctx, key } = talkCheck(
                     projectId,
@@ -4723,7 +4941,6 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 const remember = (result: TalkSpend) => {
                     s.talkAttempts.set(attemptKey, {
                         result: clone(result),
-                        replays: 0,
                         until: now + SPEND_ATTEMPT_SECONDS * 1000,
                     })
                     return delay(result)
@@ -4756,15 +4973,20 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
                 const j = me()
                 assertJudge(j, scope)
                 const prize = prizeName(s, j.round2PrizeId)
+                // Where the judge is: their live table's room (a sponsor run spans rooms), else theirs.
+                const at = s.visits.find(
+                    (v) => v.judgeId === j.id && v.status === "active",
+                )
+                const here = at ? projectOf(s, at.projectId).room : j.room
                 addTask(s, {
                     kind: "help",
-                    room: j.room,
+                    room: here,
                     judgeId: j.id,
                     judgeName: j.name,
                     detail:
                         kind === "checkin"
                             ? `${j.name} says their check-in is wrong (${pathLabel(j.path)}, Room ${j.room}, Round 2: ${prize}). Meet them at the desk.`
-                            : `${j.name} needs help in Room ${j.room}.` +
+                            : `${j.name} needs help in Room ${here}.` +
                               (note ? ` “${note}”` : ""),
                 })
             },
@@ -5312,6 +5534,102 @@ export function createMockApi(session: SessionPayload | null): GavilApi {
             async rooms() {
                 requireStaff()
                 return delay(s.rooms.map((r) => r.id))
+            },
+            async sponsorRuns() {
+                requireStaff()
+                return delay(s.runs.map((r) => runSummary(r)))
+            },
+            async createSponsorRun(input) {
+                requireAdmin()
+                const prize =
+                    s.prizes.find((p) => p.id === input.prizeId) ??
+                    notFound("prize")
+                if (prize.kind !== "company" || !prize.sponsor)
+                    throw new ApiError(
+                        400,
+                        "NotCompanyPrize",
+                        `${prize.name} isn't a company prize. Only a sponsor's prize gets its own run.`,
+                    )
+                if (s.runs.some((r) => r.prizeId === prize.id))
+                    throw new ApiError(
+                        409,
+                        "RunExists",
+                        `${prize.name} already has its own run. Add judges to it instead.`,
+                    )
+                const projects = s.projects.filter(
+                    (p) => p.optIns.includes(prize.id) && !p.held,
+                )
+                if (projects.length < 2)
+                    throw new ApiError(
+                        400,
+                        "TooFewProjects",
+                        `Only ${projects.length} project${projects.length === 1 ? "" : "s"} opted into ${prize.name} can be judged (held ones don't count). A run needs at least 2 to compare.`,
+                    )
+                const emails = [
+                    ...new Set(
+                        input.emails
+                            .map((e) => e.trim().toLowerCase())
+                            .filter(Boolean),
+                    ),
+                ]
+                const bad = emails.filter(
+                    (e) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e),
+                )
+                if (emails.length === 0 || bad.length)
+                    throw new ApiError(
+                        400,
+                        "BadEmails",
+                        emails.length === 0
+                            ? "Add at least one judge's email."
+                            : `Not an email: ${bad.join(", ")}.`,
+                    )
+                // A run's judges are new judges. An email that is already a judge (main Round 1,
+                // another run, or revoked) is refused rather than moved: moving them would silently
+                // drop a room's coverage, and a revoked judge can't sign in. Staff move or restore
+                // them first.
+                const taken = emails.filter((e) =>
+                    s.judges.some((j) => j.email.toLowerCase() === e),
+                )
+                if (taken.length)
+                    throw new ApiError(
+                        409,
+                        "JudgeBusy",
+                        `Already a judge: ${taken.join(", ")}. A run's judges must be new; leave them out, or move them first.`,
+                    )
+                const run: SponsorRun = {
+                    id: `run-${s.seq++}`,
+                    prizeId: prize.id,
+                    sponsor: prize.sponsor,
+                    createdAt: iso(Date.now()),
+                    createdBy: actor,
+                }
+                s.runs.push(run)
+                // The run's judges walk to the run's tables: their home room is the first one.
+                const home = projects[0]
+                for (const e of emails) {
+                    const local = e.split("@")[0]
+                    s.judges.push({
+                        id: `j-${s.seq++}`,
+                        name: local
+                            .split(/[._-]+/)
+                            .filter(Boolean)
+                            .map((w) => w[0].toUpperCase() + w.slice(1))
+                            .join(" "),
+                        email: e,
+                        kind: "sponsor",
+                        org: prize.sponsor,
+                        orgDomain: e.split("@")[1],
+                        path: home.path,
+                        room: home.room,
+                        round2PrizeId: prize.id,
+                        run: run.id,
+                        checkedIn: false,
+                        seen: 0,
+                        conflicts: [],
+                    })
+                }
+                audit("sponsor-run", `${run.id}:${prize.id}:${emails.length}`)
+                return delay(runSummary(run))
             },
             async prizes() {
                 requireStaff()

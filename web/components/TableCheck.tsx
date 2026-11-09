@@ -441,7 +441,10 @@ export function TableCheck(p: TableCheckProps) {
                         className="gv-tc__code"
                         value={codeDisplay(raw)}
                         onChange={onChange}
-                        disabled={locked || busy}
+                        disabled={locked}
+                        // While checking the field is read-only, not disabled: the judge who pressed
+                        // Enter in it keeps focus there, and the answer lands where they are typing.
+                        readOnly={busy}
                         inputMode="text"
                         autoCapitalize="characters"
                         autoComplete="off"

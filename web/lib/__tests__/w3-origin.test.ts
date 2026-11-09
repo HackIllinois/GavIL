@@ -21,7 +21,10 @@ vi.mock("next/navigation", () => ({
 
 import { assertOrigin, originProblem } from "../env"
 
-afterEach(() => vi.unstubAllEnvs())
+afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+})
 
 describe("originProblem", () => {
     const prod = { NODE_ENV: "production" }
@@ -67,6 +70,9 @@ describe("getApi in a deployed build", () => {
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "")
         vi.stubEnv("GAVIL_MOCK", "")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("GAVIL_GRANT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         const { getApi } = await import("../api/server")
         await expect(getApi()).rejects.toThrow(/GAVIL_ORIGIN/)
     })
@@ -75,6 +81,9 @@ describe("getApi in a deployed build", () => {
         vi.stubEnv("NODE_ENV", "production")
         vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
         vi.stubEnv("GAVIL_MOCK", "")
+        vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+        vi.stubEnv("GAVIL_GRANT_SECRET", "a".repeat(32))
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
         const seen: (string | null)[] = []
         vi.stubGlobal(
             "fetch",

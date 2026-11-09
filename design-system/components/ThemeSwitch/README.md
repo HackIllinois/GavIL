@@ -1,0 +1,8 @@
+# ThemeSwitch
+
+Day or night, one tap: a toggle chip whose mark is the sun or the moon. Night is the same cream posters on a darker ground, for a dim room (not a dark mode).
+
+- **Provide:** `theme` + `onChange(theme)` (controlled) or `defaultTheme` (`'sunset'` | `'night'`), `label` (default "Night theme"), `className`. The control only says which theme the person chose: the host applies it (the web app writes a cookie and `data-theme` on `<html>`, so a reload and every screen start in it). It never follows the phone's own colour setting: Night is a design decision for a dim room, not a dark mode.
+- It is a toggle button (`aria-pressed`): the label stays "Night theme" in both states and the state is said by the pressed look (the plum `select` ring and wash, as every chip) and by the mark, which cross-fades from the sun to the moon, so it is never colour alone. 48px (`tap-min`), the chip's own paper fill, so it reads on paper, on the painted ground and on wood. A chip on wood takes the ink focus ring, like a secondary button, because the cream ring would vanish on its paper fill.
+- Where it goes: **My notes**, at the end of the page above Sign out (it is a setting of this phone, not of the work), and the **admin header**, beside the identity (and Sign out, where the app has one in the header). Never in the middle of a judging screen. The previews are one page per theme, so a tap flips the page at once and a reload goes back to the page's own theme; the web app keeps the choice in a cookie.
+- `sun` and `moon` are Lucide names, so the app can switch to lucide-react with no renames.

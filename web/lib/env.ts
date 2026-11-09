@@ -7,11 +7,10 @@
  *   unset NODE_ENV are never mock, whatever GAVIL_MOCK says.
  * - mockDemoEnabled(): the sign-in shortcuts (every email code is 123456, `demo-<judgeId>`
  *   one-tap links) only with an explicit GAVIL_MOCK_DEMO=1 on top of mockEnabled().
- * - assertServerEnv(): the boot-time check (instrumentation.ts, and getApi() on every request).
- *   GAVIL_MOCK=1 or GAVIL_MOCK_DEMO=1 outside development/test throws, so a misconfigured deploy
- *   fails loudly instead of quietly serving adonix or the mock.
+ * - assertServerEnv(): the boot-time mock-mode check. It stays separate from deploy configuration
+ *   validation so /api/health can start and report a 503 when required secrets are missing.
  */
-import { originList } from "./api/client"
+import { adonixUrlProblem, originList } from "./api/client"
 
 export type Env = Record<string, string | undefined>
 
@@ -37,6 +36,24 @@ export function secureCookies(env: Env = process.env): boolean {
 /** What is wrong with this server's environment, or null. */
 export function serverEnvProblem(env: Env = process.env): string | null {
     const dev = DEV_ENVS.has(env.NODE_ENV ?? "")
+    const mockProblem = mockEnvProblem(env)
+    if (mockProblem) return mockProblem
+    // In production, GAVIL_JWT_SECRET is required to avoid amplification attacks on adonix
+    if (!dev && !env.GAVIL_JWT_SECRET?.trim())
+        return "GAVIL_JWT_SECRET is not set in production. Set adonix's shared JWT secret to verify sessions locally."
+    // In production, GAVIL_GRANT_SECRET is required (>= 32 chars) to mint scan grants
+    if (
+        !dev &&
+        (!env.GAVIL_GRANT_SECRET || env.GAVIL_GRANT_SECRET.trim().length < 32)
+    )
+        return `GAVIL_GRANT_SECRET is not set or too short in production. It must be at least 32 characters.`
+    // In production, ADONIX_URL must be HTTPS and on the allow list
+    if (!dev) return adonixUrlProblem(env)
+    return null
+}
+
+function mockEnvProblem(env: Env): string | null {
+    const dev = DEV_ENVS.has(env.NODE_ENV ?? "")
     if (env.GAVIL_MOCK === "1" && !dev)
         return `GAVIL_MOCK=1 is set with NODE_ENV=${env.NODE_ENV ?? "(unset)"}. Mock mode runs only under next dev or vitest: remove GAVIL_MOCK from this deployment.`
     if (env.GAVIL_MOCK_DEMO === "1" && !dev)
@@ -44,8 +61,14 @@ export function serverEnvProblem(env: Env = process.env): string | null {
     return null
 }
 
-/** Throws when the environment would turn mock mode or demo shortcuts on in a deployed build. */
+/** Throws only when a deployment is trying to run the mock or demo shortcuts. */
 export function assertServerEnv(env: Env = process.env): void {
+    const p = mockEnvProblem(env)
+    if (p) throw new Error(p)
+}
+
+/** Throws for any production configuration problem before a request can use a secret or API URL. */
+export function assertServerConfig(env: Env = process.env): void {
     const p = serverEnvProblem(env)
     if (p) throw new Error(p)
 }

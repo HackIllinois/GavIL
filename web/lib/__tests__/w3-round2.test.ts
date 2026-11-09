@@ -128,7 +128,7 @@ describe("Round 2 opens when nominations close", () => {
 })
 
 describe("the mock's deliberation closes", () => {
-    it("by default 60 min after Round 1 ends: a new ranking is 409 RoundOver and the phase says closed", async () => {
+    it("by default 60 min after Round 1 ends: a new ranking is 409 Round2Closed and the phase says closed", async () => {
         fresh()
         toMinutesAfterEnd(20)
         const b = await board()
@@ -136,7 +136,7 @@ describe("the mock's deliberation closes", () => {
             clientId: cid("r"),
             order: ids(b),
         })
-        toMinutesAfterEnd(61)
+        toMinutesAfterEnd(62) // two minutes after the default 60-minute close
         expect((await judge("j2").judging.me()).round.phase).toBe("closed")
         const e = await rejection(
             judge("j2").judging.submitRound2("creative", {
@@ -144,7 +144,7 @@ describe("the mock's deliberation closes", () => {
                 order: ids(b),
             }),
         )
-        expect(e.code).toBe("RoundOver")
+        expect(e.code).toBe("Round2Closed")
     })
 
     it("deliberationMinutes: 0 leaves it open", async () => {

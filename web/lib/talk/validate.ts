@@ -18,9 +18,10 @@
  *     suggestion's quote never gets that exception;
  *   - every stack entry needs a quote naming the tech in the segment it cites (no quote, no
  *     entry: no invented tech);
- *   - text or a reason that reads as a score, rank, verdict, instruction or self-advocacy is
- *     dropped (a prior-work concern may report a past win: "won first place at another hackathon
- *     last year" is the concern, not a verdict);
+ *   - text or a reason that reads as a verdict (marks out of ten, stars, a grade, a ranking,
+ *     praise that judges), an instruction or self-advocacy is dropped (a prior-work concern may
+ *     report a past win: "won first place at another hackathon last year" is the concern, not a
+ *     verdict);
  *   - a presenter not on the Devpost roster is dropped; Claude sees first names only
  *     (teamLabels), and a name it gives back is resolved to the full roster name here;
  *   - a prize suggestion for a prize not allowed for this project (never Most Popular) is dropped;

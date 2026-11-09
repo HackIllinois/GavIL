@@ -20,7 +20,7 @@
  *  - The 8:00 cap runs on a wall-clock timer of its own (not on level readings), the warning one
  *    minute before it; audio held offline is checked against `heldAt` on reconnect and on page
  *    return as well as by a timer.
- *  - Highlights describe, they never score: they come from the server (rules, or Claude checked by
+ *  - Highlights describe, they never judge: they come from the server (rules, or Claude checked by
  *    the validator) as rows the judge keeps, edits or removes; an edit that reads as a verdict is
  *    refused by the card. A prize suggestion needs the judge's own tap on Nominate.
  *  - Nothing the judge typed is ever lost to a failure here: every failure state says so.
@@ -235,6 +235,7 @@ export class TalkSession {
     private capT: ReturnType<typeof setTimeout> | undefined
     private warnT: ReturnType<typeof setTimeout> | undefined
     private holdT: ReturnType<typeof setTimeout> | undefined
+    private receiptT: ReturnType<typeof setTimeout> | undefined
     private held: Held | null = null
     private transcript: TranscriptResult | null = null
     private failure: {
@@ -248,6 +249,7 @@ export class TalkSession {
     private stopping: "stop" | "delete" | null = null
     private lastLive = 0
     private disposed = false
+    private processing = false
     private readonly now: () => number
     private readonly newId: () => string
     private readonly holdMs: number
@@ -300,7 +302,10 @@ export class TalkSession {
         this.listeners.add(fn)
         return () => this.listeners.delete(fn)
     }
-    getSnapshot = (): TalkSnapshot => this.snap
+    getSnapshot = (): TalkSnapshot => {
+        this.expireReceiptIfNeeded()
+        return this.snap
+    }
     subscribeLive = (fn: Listener): (() => void) => {
         this.liveListeners.add(fn)
         return () => this.liveListeners.delete(fn)
@@ -337,6 +342,7 @@ export class TalkSession {
     private set(patch: Partial<TalkSnapshot>) {
         if (this.disposed) return
         const next = { ...this.snap, ...patch }
+        this.clearExpiredReceipt(next)
         const rec =
             next.state === "recording" || next.state === "paused"
                 ? {
@@ -357,6 +363,67 @@ export class TalkSession {
         next.draft = this.makeDraft(next)
         this.snap = next
         for (const l of [...this.listeners]) l()
+    }
+    /** Receipt expiry is a privacy boundary, including after a suspended page wakes. */
+    private expireReceiptIfNeeded(): boolean {
+        const next = { ...this.snap }
+        if (!this.clearExpiredReceipt(next)) return false
+        next.kept = next.items.filter(
+            (i) => i.state === "kept" || i.state === "edited",
+        ).length
+        next.draft = undefined
+        this.snap = next
+        for (const l of [...this.listeners]) l()
+        return true
+    }
+    /**
+     * A time on the server's clock (a receipt's expiry) read on this phone's: `serverNow` is the
+     * server's clock as it answered, so the difference to this clock (taken as the answer arrives,
+     * a few seconds of latency at most) is how far off the phone is. Without it, as given.
+     */
+    private onThisClock(serverTime: string | undefined, serverNow?: string) {
+        const t = serverTime ? Date.parse(serverTime) : NaN
+        const sn = serverNow ? Date.parse(serverNow) : NaN
+        if (!serverTime || !Number.isFinite(t) || !Number.isFinite(sn))
+            return serverTime
+        return new Date(t - (sn - this.now())).toISOString()
+    }
+    private clearExpiredReceipt(snapshot: TalkSnapshot): boolean {
+        if (!this.receiptExpiresAt) return false
+        const expiry = Date.parse(this.receiptExpiresAt)
+        if (Number.isFinite(expiry) && this.now() < expiry) {
+            clearTimeout(this.receiptT)
+            this.receiptT = setTimeout(
+                () => this.expireReceiptIfNeeded(),
+                Math.max(1, expiry - this.now()),
+            )
+            return false
+        }
+        clearTimeout(this.receiptT)
+        this.receiptT = undefined
+        this.receiptExpiresAt = undefined
+        this.transcript = null
+        this.failure = null
+        if (this.held?.transcript) {
+            this.run++
+            this.discardHeld()
+        }
+        snapshot.items = snapshot.items.map((item) => ({
+            ...item,
+            quote: null,
+        }))
+        snapshot.prize = null
+        return true
+    }
+    private armReceiptExpiry() {
+        clearTimeout(this.receiptT)
+        this.receiptT = undefined
+        if (!this.receiptExpiresAt) return
+        const expiry = Date.parse(this.receiptExpiresAt)
+        this.receiptT = setTimeout(
+            () => this.expireReceiptIfNeeded(),
+            Number.isFinite(expiry) ? Math.max(0, expiry - this.now()) : 0,
+        )
     }
     private setLive(patch: Partial<TalkLive>) {
         this.liveSnap = { ...this.liveSnap, ...patch }
@@ -543,6 +610,8 @@ export class TalkSession {
         // One microphone per judge: whatever else is open finishes first.
         this.deps.beforeRecord?.(this)
         this.discardHeld()
+        clearTimeout(this.receiptT)
+        this.receiptT = undefined
         this.transcript = null
         this.failure = null
         this.recording = undefined
@@ -655,6 +724,8 @@ export class TalkSession {
         this.run++
         this.stopEngine(true)
         this.discardHeld()
+        clearTimeout(this.receiptT)
+        this.receiptT = undefined
         this.transcript = null
         this.failure = null
         this.recording = undefined
@@ -936,10 +1007,13 @@ export class TalkSession {
     }
     /** The network is back (or the page returned, or the judge tapped): try the waiting step again. */
     retryHeld() {
+        this.expireReceiptIfNeeded()
         if (!this.held || this.checkHeld()) return
         const s = this.snap.state
-        if (s !== "offline-queued" && s !== "processing") return
-        if (s === "offline-queued") this.set({ state: "processing" })
+        // Retry only held work; never start a second upload/highlights pass while one is active.
+        if ((s !== "offline-queued" && s !== "failed") || this.processing)
+            return
+        this.set({ state: "processing" })
         void this.process()
     }
     private discardHeld() {
@@ -949,19 +1023,22 @@ export class TalkSession {
     }
 
     private async process() {
+        if (this.processing) return
+        this.processing = true
         const h = this.held
-        if (!h) return
-        const run = ++this.run
-        const alive = () =>
-            !this.disposed && this.run === run && this.held === h
-        if (!this.deps.online()) {
-            this.holdOffline()
-            return
-        }
-        if (h.step === "upload") {
-            let t: TranscriptResult
-            try {
-                t = await this.deps.upload({
+        let step: "upload" | "highlights" = h?.step ?? "upload"
+        let alive = () => false
+        try {
+            if (!h) return
+            const run = ++this.run
+            alive = () => !this.disposed && this.run === run && this.held === h
+            if (!this.deps.online()) {
+                this.holdOffline()
+                return
+            }
+            if (h.step === "upload") {
+                step = "upload"
+                const t = await this.deps.upload({
                     projectId: this.projectId,
                     mode: this.mode,
                     consentAt:
@@ -970,25 +1047,24 @@ export class TalkSession {
                     attemptId: h.attemptId,
                     audio: h.audio as Blob,
                 })
-            } catch (e) {
-                if (alive()) this.pipelineError(e, "upload")
+                if (!alive()) return
+                this.transcript = t
+                this.receiptExpiresAt = this.onThisClock(
+                    t.receiptExpiresAt,
+                    t.serverNow,
+                )
+                this.armReceiptExpiry()
+                h.transcript = t
+                h.audio = null // the audio is dropped the moment the transcript is back
+                h.step = "highlights"
+            }
+            step = "highlights"
+            const t = h.transcript as TranscriptResult
+            if (!this.deps.online()) {
+                this.holdOffline()
                 return
             }
-            if (!alive()) return
-            this.transcript = t
-            this.receiptExpiresAt = t.receiptExpiresAt
-            h.transcript = t
-            h.audio = null // the audio is dropped the moment the transcript is back
-            h.step = "highlights"
-        }
-        const t = h.transcript as TranscriptResult
-        if (!this.deps.online()) {
-            this.holdOffline()
-            return
-        }
-        let resp: HighlightsResponse
-        try {
-            resp = await this.deps.highlights({
+            const resp = await this.deps.highlights({
                 projectId: this.projectId,
                 mode: this.mode,
                 segments: t.segments,
@@ -997,13 +1073,14 @@ export class TalkSession {
                 receipt: t.receipt,
                 attemptId: h.hlAttempt,
             })
+            if (!alive()) return
+            this.applyHighlights(t, resp)
+            this.discardHeld()
         } catch (e) {
-            if (alive()) this.pipelineError(e, "highlights")
-            return
+            if (alive()) this.pipelineError(e, step)
+        } finally {
+            this.processing = false
         }
-        if (!alive()) return
-        this.discardHeld()
-        this.applyHighlights(t, resp)
     }
 
     private applyHighlights(t: TranscriptResult, resp: HighlightsResponse) {
@@ -1063,13 +1140,20 @@ export class TalkSession {
             const secs = Number(e.details.durationSec)
             this.failure = {
                 receipt: fr.receipt,
-                receiptExpiresAt: fr.receiptExpiresAt,
+                receiptExpiresAt: this.onThisClock(
+                    fr.receiptExpiresAt,
+                    fr.serverNow,
+                ),
                 durationSec:
                     Number.isFinite(secs) && secs > 0
                         ? Math.round(secs)
                         : (h?.seconds ?? 0),
             }
-            this.receiptExpiresAt = fr.receiptExpiresAt
+            this.receiptExpiresAt = this.onThisClock(
+                fr.receiptExpiresAt,
+                fr.serverNow,
+            )
+            this.armReceiptExpiry()
             this.recording = {
                 mode: this.mode,
                 status: "failed",
@@ -1144,6 +1228,7 @@ export class TalkSession {
     // ── What the evaluation write carries ─────────────────────────────────────
 
     private makeDraft(s: TalkSnapshot): SessionDraft | undefined {
+        if (this.clearExpiredReceipt(s)) return undefined
         if (!this.recording) return undefined
         const proof: TalkProof | undefined = this.transcript
             ? {
@@ -1200,6 +1285,8 @@ export class TalkSession {
         this.run++
         this.stopEngine(true)
         this.cancelTimers()
+        clearTimeout(this.receiptT)
+        this.receiptT = undefined
         this.discardHeld()
         this.disposed = true
         this.listeners.clear()

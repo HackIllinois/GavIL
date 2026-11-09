@@ -11,6 +11,7 @@
  * a message that keeps only some of the words.
  */
 import { ApiError } from "../api/client"
+import { own } from "../format"
 import { foldText } from "./fold"
 
 const headers = {
@@ -36,6 +37,7 @@ const SAFE_DETAILS = [
     // A failure receipt (TranscriptionFailed / RecordingTooLong): a server-signed token.
     "receipt",
     "receiptExpiresAt",
+    "serverNow",
 ] as const
 
 /**
@@ -53,6 +55,56 @@ const ECHO_CHARS = 12
 const SHORT_PIECE = 6
 /** A message or detail longer than this is never needed by the phone: it is treated as an echo. */
 const MAX_CHECKED = 8 * 1024
+/** Maximum bytes for a single string value in the request (per field). */
+export const MAX_FIELD_BYTES = 64 * 1024
+
+/** Count UTF-8 bytes without allocating a second copy of a hostile value; stop at the limit. */
+function bytesWithin(s: string, max: number): number | null {
+    if (s.length > max) return null
+    let bytes = 0
+    for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i)
+        if (c < 0x80) bytes++
+        else if (c < 0x800) bytes += 2
+        else if (
+            c >= 0xd800 &&
+            c <= 0xdbff &&
+            i + 1 < s.length &&
+            s.charCodeAt(i + 1) >= 0xdc00 &&
+            s.charCodeAt(i + 1) <= 0xdfff
+        ) {
+            bytes += 4
+            i++
+        } else bytes += 3
+        if (bytes > max) return null
+    }
+    return bytes
+}
+
+/** Free text fields are bounded before they reach the scrubber or any service work. */
+export function hasOversizedField(body: unknown): boolean {
+    const b = (body ?? {}) as Record<string, unknown>
+    const fields: unknown[] = [b.notes, b.note, b.k]
+    const addSegments = (list: unknown) => {
+        if (Array.isArray(list))
+            for (const segment of list)
+                fields.push((segment as { text?: unknown } | null)?.text)
+    }
+    addSegments(b.segments)
+    addSegments((b.talkProof as { segments?: unknown } | null)?.segments)
+    if (Array.isArray(b.highlights))
+        for (const item of b.highlights) {
+            fields.push(
+                (item as { text?: unknown } | null)?.text,
+                (item as { quote?: unknown } | null)?.quote,
+            )
+        }
+    return fields.some(
+        (value) =>
+            typeof value === "string" &&
+            bytesWithin(value, MAX_FIELD_BYTES) === null,
+    )
+}
 
 /**
  * The request's own text (the transcript's segments, the judge's notes, kept highlights, a
@@ -66,8 +118,10 @@ export function sensitiveOf(body: unknown): string {
     const out: string[] = []
     let size = 0
     const add = (x: unknown) => {
-        if (typeof x !== "string" || !x.trim() || size > 64 * 1024) return
-        size += x.length
+        if (typeof x !== "string" || !x.trim()) return
+        const bytes = bytesWithin(x, MAX_FIELD_BYTES - size)
+        if (bytes === null) return
+        size += bytes
         const k = skeleton(x)
         if (k) out.push(k)
     }
@@ -146,7 +200,9 @@ const unHtml = (s: string) =>
                     : parseInt(e.slice(1), 10),
             )
         const k = e.toLowerCase()
-        if (k in NAMED_ENTITIES) return NAMED_ENTITIES[k]
+        // (own keys only: "&constructor;" is not an entity, and "constructor" is inherited)
+        const named = own(NAMED_ENTITIES, k)
+        if (named !== undefined) return named
         // &eacute; → e (the fold drops the accent anyway).
         const accent =
             /^([a-z])(acute|grave|circ|uml|tilde|cedil|ring|slash)$/.exec(k)

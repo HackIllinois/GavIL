@@ -6,6 +6,7 @@ import {
     ActionBar,
     Button,
     Card,
+    Icon,
     DemoStatus,
     Disclosure,
     EnRoute,
@@ -24,7 +25,10 @@ import {
     type DemoStatusValue,
     type TableCheckInput,
 } from "@/components"
+import type { LocalDraft } from "@/lib/outbox"
+import { webUrl } from "@/lib/format"
 import { LEASE_SECONDS } from "@/lib/queue"
+import { OLDER_NOTES, PROJECT_WRITE_STALE } from "@/lib/copy"
 import {
     checkArrival,
     CHECK_LENGTH,
@@ -37,10 +41,12 @@ import {
     arrivalFields,
     arrivalView,
     checkState,
+    draftIsOlder,
     leaseLine,
     leaseMinutes,
     needsCheckView,
     NEEDS_CHECK,
+    notesJoined,
     notesWithLines,
     notesWithout,
     NOT_A_PLACARD,
@@ -85,19 +91,27 @@ import type {
 } from "@/lib/api/types"
 import {
     dropLocalDraft,
+    dropOlderDraft,
+    dropQueued,
     dropTalkDrafts,
     enqueueQuietly,
     flagSessionEnd,
+    flagStaleBuild,
     flagWrongJudge,
     keepWrite,
+    knownProjectRevision,
     leaveForSignIn,
     localDraft,
     newClientId,
     noteTalkDropped,
+    olderDraft,
     queuedItems,
+    rememberProjectRevision,
+    restampLocalDraft,
     saveLocalDraft,
     sendOrQueue,
     sendWithin,
+    setLocalDraftAside,
     setTalkDraft,
     settled,
     talkDraft,
@@ -107,6 +121,7 @@ import {
     evaluationInput,
     evaluationWrite,
     isNavigationError,
+    isStaleBuild,
     sessionEnd,
     type OutboxWrite,
     type SessionEnd,
@@ -128,10 +143,12 @@ import {
 } from "../actions"
 import { FloorPlanSheet } from "../FloorPlan"
 import { JudgeScreen } from "../JudgeScreen"
+import { OlderNotesSheet, type Leaving } from "./OlderNotesSheet"
+import { PositionLabel } from "../PositionLabel"
 import { useJudgeToast } from "../JudgeToast"
 import { sessionKV } from "../store"
 import { TableTalkSection } from "../TableTalkSection"
-import { TalkFollowUp } from "../TalkFollowUp"
+import { MemoCue, TalkFollowUp } from "../TalkFollowUp"
 import { useJudgeOutbox } from "../useJudgeOutbox"
 import { LEAVING, useBusy } from "../useBusy"
 import { useRoomWatch } from "../useRoomWatch"
@@ -141,12 +158,16 @@ export interface EvaluateScreenProps {
     /** The Visit lease for this table; renewed while this screen is open. */
     visit?: Visit
     room: Room
+    /** The table's room when it is not the judge's own (a sponsor run): directions and the placard check use it. */
+    tableRoom?: Room
     position: number
     estimatedTotal: number
     /** Prizes this project can be nominated for. */
     prizes: Prize[]
     /** Autosaved notes and nominations, restored after a reload or a trip to My notes. */
-    draft?: { notes: string; nominations: string[] }
+    draft?: { notes: string; nominations: string[]; revision?: number }
+    /** Current compare-and-set revision for this judge and project. */
+    projectRevision?: number
     secondsLeft: number
     totalSeconds: number
     initialToast?: string | null
@@ -182,6 +203,9 @@ const LOCK_REASON = "Check the table first: scan its placard or type its code."
  * Drafts: every edit is kept on the phone at once (restored after a reload or a quick trip to
  * My notes, whatever the server has yet), autosaved to the server after a pause, and anything
  * not yet saved is put in the outbox when the screen closes or the page is hidden for good.
+ * Notes this phone kept that are older than the saved ones are set aside in a card (add them or
+ * discard them); Submit, or a skip for good, asks first while that card is undecided
+ * (OlderNotesSheet), because the table ending clears the copy, which is the only place they live.
  * Table talk (when the event has it on and the team hasn't opted out) is its own card with its own
  * session; Submit settles it first and the evaluation carries what the judge kept.
  */
@@ -189,10 +213,12 @@ export function EvaluateScreen({
     project,
     visit,
     room,
+    tableRoom,
     position,
     estimatedTotal,
     prizes,
     draft,
+    projectRevision,
     secondsLeft,
     totalSeconds,
     initialToast,
@@ -224,6 +250,10 @@ export function EvaluateScreen({
     const [typingLocked, setTypingLocked] = useState(false)
     const [notes, setNotes] = useState(draft?.notes ?? "")
     const [noms, setNoms] = useState<string[]>(draft?.nominations ?? [])
+    /** Notes this phone kept that are older than the ones the server has: the judge adds or discards them. */
+    const [older, setOlder] = useState<LocalDraft | null>(null)
+    /** Submit or a skip for good was pressed while those are undecided: the sheet asks what becomes of them. */
+    const [leaving, setLeaving] = useState<Leaving | null>(null)
     const [demo, setDemo] = useState<DemoStatusValue | null>(null)
     const [over, setOver] = useState(secondsLeft === 0)
     const [sheet, setSheet] = useState(false)
@@ -246,6 +276,8 @@ export function EvaluateScreen({
     const notesRef = useRef(notes)
     const nomsRef = useRef(noms)
     const demoRef = useRef(demo)
+    const projectRevisionRef = useRef(projectRevision ?? draft?.revision ?? 0)
+    const staleHandled = useRef<string | null>(null)
     const talkRef = useRef<TalkSession | null>(null)
     // What the server has for this draft (as far as this screen knows), and whether the table
     // is finished (submitted or skipped): nothing is flushed after that.
@@ -258,6 +290,51 @@ export function EvaluateScreen({
     /** A check-in saved on the phone, not yet confirmed by the server (its clientId). */
     const pendingArrival = useRef<string | null>(null)
     const judgeId = scope?.judgeId
+    /**
+     * Take the project revision an answer named. It only moves up (answers can arrive out of
+     * order), except `exact`: a StaleWrite says where the server really is. It is also kept for the
+     * whole page (rememberProjectRevision), because a save queued behind another goes out later
+     * from the outbox, and the next edit has to start after it.
+     */
+    function adoptRevision(revision: unknown, exact = false) {
+        if (
+            typeof revision !== "number" ||
+            !Number.isSafeInteger(revision) ||
+            revision < 0
+        )
+            return
+        projectRevisionRef.current = exact
+            ? revision
+            : Math.max(projectRevisionRef.current, revision)
+        if (judgeId)
+            rememberProjectRevision(judgeId, project.id, revision, exact)
+    }
+    /** What the next write expects: the newest revision any answer on this page named. */
+    function currentRevision(): number {
+        const known = judgeId
+            ? knownProjectRevision(judgeId, project.id)
+            : undefined
+        return Math.max(projectRevisionRef.current, known ?? 0)
+    }
+    /**
+     * Read the revision out of a server action's own answer, the moment it arrives (inside the
+     * send, before the outbox lets go of it): an edit that follows straight after must not still
+     * hold the old one.
+     */
+    function adoptReply(r: ActionResult<unknown> | undefined) {
+        if (!r) return
+        if (r.ok) {
+            const data = r.data as
+                | { revision?: unknown; evaluation?: { revision?: unknown } }
+                | null
+                | undefined
+            const revision = data?.revision ?? data?.evaluation?.revision
+            adoptRevision(revision)
+            // This phone's own write: its draft is based on that revision now (draftIsOlder).
+            if (scope) restampLocalDraft(scope, project.id, revision)
+        } else if (r.code === "StaleWrite")
+            adoptRevision(r.details?.revision, true)
+    }
     const setTalk = useCallback((s: TalkSession | null) => {
         talkRef.current = s
     }, [])
@@ -267,6 +344,42 @@ export function EvaluateScreen({
     useEffect(() => prefetchArt(), [])
 
     const showToast = toast.show
+
+    useEffect(() => {
+        // The page's own props only ever move it up: a later answer from a save is newer than
+        // the props this render started from.
+        adoptRevision(projectRevision ?? draft?.revision)
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- adoptRevision reads judgeId and the project
+    }, [projectRevision, draft?.revision])
+
+    const staleDead = dead.find(
+        (d) =>
+            "projectId" in d.item &&
+            d.item.projectId === project.id &&
+            d.code === "StaleWrite",
+    )
+    useEffect(() => {
+        if (!staleDead || staleHandled.current === staleDead.item.clientId)
+            return
+        staleHandled.current = staleDead.item.clientId
+        adoptRevision(staleDead.revision, true)
+        evalId.current = newClientId()
+        evalSent.current = null
+        toast.show(PROJECT_WRITE_STALE, "danger")
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- adoptRevision reads judgeId and the project
+    }, [staleDead, toast])
+
+    function handleStaleWrite(
+        details: Record<string, unknown> | undefined,
+        clientId: string,
+    ) {
+        adoptRevision(details?.revision, true)
+        staleHandled.current = clientId
+        evalId.current = newClientId()
+        evalSent.current = null
+        toast.show(PROJECT_WRITE_STALE, "danger")
+    }
+
     /**
      * The walk is over (the judge says they are at the table, or a check-in landed): a memo still
      * running stops here and keeps what was said. A memo is never taken at a table (the server
@@ -288,13 +401,17 @@ export function EvaluateScreen({
     }, [seated, endWalk])
 
     // The toast the last screen left for this one ("Saved. Next table below."), then the URL is clean.
+    // Keyed on the words, not on mount: in a production build the submit action's revalidatePath
+    // re-renders this keyed screen for the next table first, and the push to ?toast=saved then
+    // reaches the same instance with a new `initialToast`. The same words again (a refresh of the
+    // page) are not a new toast.
     useEffect(() => {
         if (initialToast) showToast(initialToast)
         if (!scan && /[?&]toast=/.test(window.location.search))
             window.history.replaceState(null, "", SCAN_CLEAN_URL)
-        // Once per screen.
+        // `scan` is read when the words change, not tracked.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [initialToast, showToast])
 
     // The demo tap kept for a reload.
     useEffect(() => {
@@ -319,6 +436,8 @@ export function EvaluateScreen({
             r = await renewVisit(visit.id, judgeId)
         } catch (e) {
             if (isNavigationError(e)) throw e
+            // An old page (a redeploy): the lease would silently stop renewing. Say so.
+            if (isStaleBuild(e)) flagStaleBuild()
             return
         }
         if (!r) return
@@ -368,6 +487,8 @@ export function EvaluateScreen({
     // ── Staff moved the judge: the old table is gone, load the new room ──
     const onMoved = useCallback(() => go("/judge/evaluate?toast=moved"), [go])
     useRoomWatch(room.id, onMoved)
+    /** Where the table is: its own room on a sponsor run, else the judge's room. */
+    const where = tableRoom ?? room
 
     // ── Saved on the phone: lock this table until it is sent, then load what's next ──
     const queuedHere = items.find(
@@ -785,6 +906,7 @@ export function EvaluateScreen({
             projectId: project.id,
             notes: text,
             nominations: n,
+            revision: currentRevision(),
             createdAt: new Date().toISOString(),
             label: project.name,
         }
@@ -824,22 +946,38 @@ export function EvaluateScreen({
         const older = queuedItems(scope).find(
             (i) => i.kind === "draft" && i.projectId === project.id,
         )?.clientId
+        const write = draftWrite(text, n)
         const d = await sendTable(
             scope,
-            draftWrite(text, n),
-            () => saveDraft(project.id, text, n, scope.judgeId),
+            write,
+            async () => {
+                const r = await saveDraft(
+                    project.id,
+                    text,
+                    n,
+                    scope.judgeId,
+                    currentRevision(),
+                )
+                adoptReply(r)
+                return r
+            },
             older,
         )
-        if (d.status === "refused") throw new Error(d.error)
+        if (d.status === "refused") {
+            if (d.code === "StaleWrite")
+                handleStaleWrite(d.details, write.clientId)
+            throw new Error(d.error)
+        }
         // Neither sent nor kept: the field says "Not saved" and the text stays on screen.
         if (d.status === "unsaved")
             throw new Error(unsavedCopy(d.why, "Your notes", d.sessionEnd))
+        if (d.status === "sent") adoptRevision(d.data?.revision)
         savedDraft.current = key
         if (d.status === "queued") return "local"
     }
     function keepLocal(text: string, n: string[]) {
         if (scope && !finished.current)
-            saveLocalDraft(scope, project.id, text, n)
+            saveLocalDraft(scope, project.id, text, n, currentRevision())
     }
     function onNotes(text: string) {
         notesRef.current = text
@@ -880,6 +1018,44 @@ export function EvaluateScreen({
             700,
         )
     }
+    /**
+     * The judge keeps what this phone had: it goes under the saved notes (the field, the phone's
+     * copy and the set-aside copy follow), and what the notes are now is returned.
+     */
+    function mergeOlder(): { notes: string; nominations: string[] } | null {
+        if (!older || !scope) return null
+        const text = notesJoined(notesRef.current, older.notes)
+        const known = new Set(prizes.map((p) => p.id))
+        const n = [
+            ...new Set([
+                ...nomsRef.current,
+                ...older.nominations.filter((id) => known.has(id)),
+            ]),
+        ]
+        dropOlderDraft(scope, project.id)
+        setOlder(null)
+        notesRef.current = text
+        nomsRef.current = n
+        setNotes(text)
+        setNoms(n)
+        keepLocal(text, n)
+        touched()
+        return { notes: text, nominations: n }
+    }
+    /** "Add them to my notes": the older words go under the saved ones, and that is saved. */
+    function addOlder() {
+        if (!mergeOlder()) return
+        clearTimeout(nomTimer.current)
+        nomTimer.current = setTimeout(
+            () =>
+                void saveNow(notesRef.current, nomsRef.current).catch(() => {}),
+            700,
+        )
+    }
+    function discardOlder() {
+        if (scope) dropOlderDraft(scope, project.id)
+        setOlder(null)
+    }
     function onDemo(v: DemoStatusValue) {
         demoRef.current = v
         setDemo(v)
@@ -890,20 +1066,88 @@ export function EvaluateScreen({
 
     // Restore what this phone has that the server may not (yet): a reload, or Back from My
     // notes before the last autosave landed.
+    //
+    // The phone's copy carries the revision it was typed on. If the server is past it and the
+    // words differ, another tab or device saved since: sending it as the current revision would
+    // replace those notes without a StaleWrite, so it is set aside (kept on the phone, shown above
+    // the notes) and the judge adds it to the saved notes or discards it.
     const projectId = project.id
     useEffect(() => {
         if (!scope) return
+        // A copy set aside earlier (a reload, Back from My notes) is still the judge's to decide.
+        const aside = olderDraft(scope, projectId)
+        if (aside) setOlder(aside)
         const local = localDraft(scope, projectId)
         if (!local) return
+        adoptRevision(local.revision)
         const key = JSON.stringify([local.notes, local.nominations])
         const here = JSON.stringify([notesRef.current, nomsRef.current])
-        if (key === here) return
+        if (key === here) {
+            // The server has these very words. A copy the page queued as it closed (its save was
+            // out, and landed) is stamped with the revision before that save: replayed, it would
+            // be refused StaleWrite and kept as a dead letter for notes that are saved. It has
+            // nothing left to say, so it goes; a copy with other words is the judge's work and stays.
+            const spent = queuedItems(scope).find(
+                (i) =>
+                    i.kind === "draft" &&
+                    i.projectId === projectId &&
+                    JSON.stringify([i.notes, i.nominations]) === here,
+            )
+            if (spent) void dropQueued(scope, spent.clientId)
+            return
+        }
+        const serverRevision = Math.max(
+            projectRevision ?? 0,
+            draft?.revision ?? 0,
+        )
+        if (
+            draftIsOlder(local, {
+                notes: notesRef.current,
+                nominations: nomsRef.current,
+                revision: serverRevision,
+            })
+        ) {
+            // (a copy already set aside keeps its words: the two are put together, none is lost)
+            const kept: LocalDraft = aside
+                ? {
+                      ...local,
+                      notes: notesJoined(aside.notes, local.notes),
+                      nominations: [
+                          ...new Set([
+                              ...aside.nominations,
+                              ...local.nominations,
+                          ]),
+                      ],
+                  }
+                : local
+            setLocalDraftAside(scope, projectId, kept)
+            setOlder(kept)
+            toast.show(OLDER_NOTES.toast, "warn")
+            return
+        }
         const ok = new Set(prizes.map((p) => p.id))
         const n = local.nominations.filter((id) => ok.has(id))
         notesRef.current = local.notes
         nomsRef.current = n
         setNotes(local.notes)
         setNoms(n)
+        // The outbox may hold this table's draft already: the page queued the words as it was
+        // hidden (a reload just after a keystroke), and the outbox replays that copy as this
+        // screen opens. A send of the same words from here is a second write at the same revision:
+        // one of the two is refused StaleWrite and kept as a dead letter ("1 item couldn't be
+        // sent") for notes that are saved. So the outbox keeps the send. Words newer than its
+        // copy take the copy's place in the queue (still no send of our own).
+        const queued = queuedItems(scope).find(
+            (i) => i.kind === "draft" && i.projectId === projectId,
+        )
+        if (queued && queued.kind === "draft") {
+            const words = JSON.stringify([local.notes, n])
+            if (words !== JSON.stringify([queued.notes, queued.nominations]))
+                queueDraft(local.notes, n)
+            // (kept on the phone for the outbox: leaving this screen queues nothing again)
+            savedDraft.current = words
+            return
+        }
         void saveNow(local.notes, n).catch(() => {})
         // Once per table and judge.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1009,8 +1253,23 @@ export function EvaluateScreen({
     function notSaved(why: UnsavedWhy, what: string, end?: SessionEnd) {
         toast.show(unsavedCopy(why, what, end), "danger")
     }
-    function submit() {
+    /**
+     * The Submit button. With the older notes of this phone still undecided it asks first (the
+     * sheet): the set-aside copy is the only place those words survive, and the table ending
+     * clears it.
+     */
+    function onSubmit() {
+        if (older) setLeaving({ kind: "submit" })
+        else submit()
+    }
+    /**
+     * Send the evaluation. `over`: the notes just put together from the sheet ("Add them and
+     * submit"), which the state of this render does not hold yet.
+     */
+    function submit(over?: { notes: string; nominations: string[] }) {
         if (!scope) return
+        const text = over?.notes ?? notes
+        const list = over?.nominations ?? noms
         start(async () => {
             // Table talk first: a recording still going is stopped and its highlights waited for
             // (or its audio is waiting for a connection), so the evaluation carries what was
@@ -1035,8 +1294,8 @@ export function EvaluateScreen({
             )
             const talkNow = talkDraft(scope, project.id)
             const content = JSON.stringify([
-                notes,
-                noms,
+                text,
+                list,
                 talkNow?.talkProof?.receipt ?? null,
                 talkNow?.recording ?? null,
                 talkNow?.highlights ?? null,
@@ -1048,8 +1307,9 @@ export function EvaluateScreen({
             const base = {
                 clientId: evalId.current,
                 projectId: project.id,
-                notes,
-                nominations: noms,
+                notes: text,
+                nominations: list,
+                revision: currentRevision(),
             }
             const input = evaluationInput(base, talkNow)
             const replaces = queuedHere?.clientId
@@ -1064,7 +1324,11 @@ export function EvaluateScreen({
             const d = await sendTable(
                 scope,
                 write,
-                () => submitEvaluation(input, scope.judgeId),
+                async () => {
+                    const r = await submitEvaluation(input, scope.judgeId)
+                    adoptReply(r)
+                    return r
+                },
                 replaces,
             )
             if (d.status === "queued") {
@@ -1074,6 +1338,10 @@ export function EvaluateScreen({
             if (d.status === "unsaved")
                 return notSaved(d.why, "Your evaluation", d.sessionEnd)
             if (d.status === "refused") {
+                if (d.code === "StaleWrite") {
+                    handleStaleWrite(d.details, evalId.current)
+                    return
+                }
                 if (d.code === "NotArrived") {
                     setArrived(false)
                     setArrivedBy(undefined)
@@ -1084,6 +1352,7 @@ export function EvaluateScreen({
                 toast.show("Not sent. " + d.error, "danger")
                 return
             }
+            adoptRevision(d.data?.evaluation?.revision)
             // Saved, but the server may have left some Table talk out: say so (the notes stand).
             void noteTalkDropped(
                 scope,
@@ -1105,9 +1374,18 @@ export function EvaluateScreen({
         })
     }
 
-    function skip(reason: SkipChoice, note: string) {
+    /**
+     * `asked`: the judge has been asked about the older notes of this phone and chose to leave
+     * without them. A skip that ends the table (every reason but "busy" and "can't find it", which
+     * come back) clears the set-aside copy with it, so with that copy undecided it asks first.
+     */
+    function skip(reason: SkipChoice, note: string, asked = false) {
         setSheet(false)
         if (!scope) return
+        if (older && !asked && reason !== "busy" && reason !== "cant-find") {
+            setLeaving({ kind: "skip", reason, note })
+            return
+        }
         const createdAt = new Date().toISOString()
         const replaces = queuedHere?.clientId
         if (reason === "cant-find") {
@@ -1184,6 +1462,9 @@ export function EvaluateScreen({
 
     const members = project.team.map((m) => m.name).join(", ")
     const pathLabel = project.path === "pro" ? "Pro" : "General"
+    // The team typed these two addresses: only an http(s) one is ever a link (webUrl).
+    const devpostHref = webUrl(project.devpostUrl)
+    const repoHref = webUrl(project.repoUrl)
     // Screen readers hear the hold as a polite status that changes only at thresholds (held,
     // under 2 minutes), never every minute tick; the minutes are for the eyes.
     const lease = leaseLine(
@@ -1237,7 +1518,7 @@ export function EvaluateScreen({
             settle
             settleKey={project.id}
             onClick={() => setSheet(true)}
-            disabled={pending}
+            pending={pending}
         >
             Skip
         </Button>
@@ -1266,7 +1547,7 @@ export function EvaluateScreen({
                 block={over}
                 settle
                 settleKey={project.id}
-                disabled={pending}
+                pending={pending}
                 onClick={() => {
                     endWalk()
                     setAtTable(true)
@@ -1284,8 +1565,8 @@ export function EvaluateScreen({
                 block={over}
                 settle
                 settleKey={project.id}
-                onClick={submit}
-                disabled={pending || !arrived}
+                onClick={onSubmit}
+                disabled={!arrived}
                 loading={pending}
             >
                 {pending
@@ -1307,9 +1588,28 @@ export function EvaluateScreen({
     )
     const floor = map && (
         <FloorPlanSheet
-            room={room}
+            room={where}
             table={project.tableCode}
             onClose={() => setMap(false)}
+        />
+    )
+    const leaveSheet = leaving && older && (
+        <OlderNotesSheet
+            kind={leaving.kind}
+            project={project.name}
+            older={older}
+            prizes={prizes}
+            onBack={() => setLeaving(null)}
+            onAdd={() => {
+                setLeaving(null)
+                submit(mergeOlder() ?? undefined)
+            }}
+            onLeave={() => {
+                setLeaving(null)
+                if (leaving.kind === "skip")
+                    skip(leaving.reason, leaving.note, true)
+                else submit()
+            }}
         />
     )
 
@@ -1323,25 +1623,38 @@ export function EvaluateScreen({
                 notesFrom="evaluate"
                 talkSeen={seen}
             >
-                <TableProgress
-                    tone="plaque"
-                    done={Math.max(0, position - 1)}
-                    total={Math.max(estimatedTotal, position)}
-                    current
-                    label={`Next table · ${position} of about ${estimatedTotal}`}
-                />
-                <h1 className="gv-sr">{`Head to Table ${project.tableCode} in Room ${room.id}: ${project.name}.`}</h1>
-                <EnRoute
-                    table={project.tableCode}
-                    room={room.id}
-                    label={walkLabel(room)}
-                    hint={WALK_HINT}
-                    project={{ name: project.name, team: project.team }}
-                    lost={now != null && walkedTooLong(visit, now)}
-                    onMap={() => setMap(true)}
-                    mapHref={room.mapUrl}
-                    onAskStaff={() => skip("cant-find", "")}
-                />
+                {/* The part of the walk screen that has to be seen first. A memo card (below) starts
+                    after it, never half under the bar (judge.css). */}
+                <div className="gj-fold">
+                    <TableProgress
+                        tone="plaque"
+                        done={Math.max(0, position - 1)}
+                        total={Math.max(estimatedTotal, position)}
+                        current
+                        label={
+                            <>
+                                {"Next table · "}
+                                <PositionLabel
+                                    position={position}
+                                    total={estimatedTotal}
+                                />
+                            </>
+                        }
+                    />
+                    {scope && talk && <MemoCue scope={scope} talk={talk} />}
+                    <h1 className="gv-sr">{`Head to Table ${project.tableCode} in Room ${where.id}: ${project.name}.`}</h1>
+                    <EnRoute
+                        table={project.tableCode}
+                        room={where.id}
+                        label={walkLabel(where)}
+                        hint={WALK_HINT}
+                        project={{ name: project.name, team: project.team }}
+                        lost={now != null && walkedTooLong(visit, now)}
+                        onMap={() => setMap(true)}
+                        mapHref={where.mapUrl}
+                        onAskStaff={() => skip("cant-find", "")}
+                    />
+                </div>
                 {scope && talk && (
                     <TalkFollowUp
                         scope={scope}
@@ -1350,6 +1663,7 @@ export function EvaluateScreen({
                     />
                 )}
                 {skipSheet}
+                {leaveSheet}
                 {floor}
             </JudgeScreen>
         )
@@ -1364,11 +1678,13 @@ export function EvaluateScreen({
             talkSeen={seen}
         >
             <Wayfinding
-                room={room.id}
+                room={where.id}
                 table={project.tableCode}
-                label={`${position} of about ${estimatedTotal}`}
+                label={
+                    <PositionLabel position={position} total={estimatedTotal} />
+                }
                 onMap={() => setMap(true)}
-                mapHref={room.mapUrl}
+                mapHref={where.mapUrl}
             />
             {leaseLost ? (
                 <div className="gv-alert gv-alert--warn" role="alert">
@@ -1418,7 +1734,7 @@ export function EvaluateScreen({
                             table: project.tableCode,
                             team: project.team,
                         }}
-                        room={room.id}
+                        room={where.id}
                         state={view.state}
                         result={view.result}
                         via={arrivedBy === "scan" ? "scan" : "typed"}
@@ -1453,15 +1769,20 @@ export function EvaluateScreen({
                     />
                     <div className="gv-disclosures">
                         <Disclosure icon="doc" title="Devpost description">
-                            {project.description}{" "}
-                            <a
-                                className="gv-link gv-link--block"
-                                href={project.devpostUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                Open on Devpost
-                            </a>
+                            {project.description}
+                            {devpostHref && (
+                                <>
+                                    {" "}
+                                    <a
+                                        className="gv-link gv-link--block"
+                                        href={devpostHref}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Open on Devpost
+                                    </a>
+                                </>
+                            )}
                         </Disclosure>
                         <Disclosure
                             icon="users"
@@ -1479,14 +1800,22 @@ export function EvaluateScreen({
                                     : undefined
                             }
                         >
-                            <a
-                                className="gv-link gv-link--block"
-                                href={project.repoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {project.repoUrl.replace(/^https?:\/\//, "")}
-                            </a>
+                            {repoHref ? (
+                                <a
+                                    className="gv-link gv-link--block"
+                                    href={repoHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {project.repoUrl.replace(
+                                        /^https?:\/\//,
+                                        "",
+                                    )}
+                                </a>
+                            ) : (
+                                // Not an http(s) address (a team typed it freely): shown, never linked.
+                                project.repoUrl
+                            )}
                         </Disclosure>
                     </div>
                     <Garland />
@@ -1497,6 +1826,7 @@ export function EvaluateScreen({
                             projectName={project.name}
                             talk={talk}
                             optedOut={!!project.recordingOptOut}
+                            preConsented={!!project.recordingConsent}
                             arrivedBy={arrivedBy}
                             confirmed={arrived && !queuedArrival}
                             engine={talkEngine}
@@ -1516,6 +1846,51 @@ export function EvaluateScreen({
                             locked={!arrived}
                             lockedReason={LOCK_REASON}
                         />
+                    )}
+                    {older && (
+                        <div
+                            className="gv-alert gv-alert--warn"
+                            role="group"
+                            aria-label="Older notes on this phone"
+                        >
+                            <Icon name="alert" size={18} />
+                            <div className="gv-stack">
+                                <div>
+                                    <b>{OLDER_NOTES.title}</b>
+                                    <p>{OLDER_NOTES.body(project.name)}</p>
+                                    <p className="gj-older">
+                                        {older.notes || OLDER_NOTES.noWords}
+                                    </p>
+                                    {older.nominations.length > 0 && (
+                                        <p>
+                                            {"Nominated on this phone: " +
+                                                prizes
+                                                    .filter((p) =>
+                                                        older.nominations.includes(
+                                                            p.id,
+                                                        ),
+                                                    )
+                                                    .map((p) => p.name)
+                                                    .join(", ")}
+                                        </p>
+                                    )}
+                                </div>
+                                <Button
+                                    variant="secondary"
+                                    size="lg"
+                                    onClick={addOlder}
+                                >
+                                    {OLDER_NOTES.add}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="lg"
+                                    onClick={discardOlder}
+                                >
+                                    {OLDER_NOTES.discard}
+                                </Button>
+                            </div>
+                        </div>
                     )}
                     <NotesField
                         value={notes}
@@ -1544,6 +1919,7 @@ export function EvaluateScreen({
                 </>
             )}
             {skipSheet}
+            {leaveSheet}
             {floor}
         </JudgeScreen>
     )

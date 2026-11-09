@@ -13,6 +13,8 @@ export interface TableTalkCardProps {
      * Popular): toggle the real prize chip. Gets the prize's name.
      */
     onNominate?: (prize: string) => void
+    /** Project.recordingConsent: the team agreed on the submission form, so no consent sheet. */
+    preConsented?: boolean
 }
 
 const never = () => () => {}
@@ -25,7 +27,12 @@ const never = () => () => {}
  * support are all asked of the session; "supported" is read after hydration so the server's
  * markup and the first client render agree.
  */
-export function TableTalkCard({ session, as, onNominate }: TableTalkCardProps) {
+export function TableTalkCard({
+    session,
+    as,
+    onNominate,
+    preConsented,
+}: TableTalkCardProps) {
     const snap = useSyncExternalStore(
         session.subscribe,
         session.getSnapshot,
@@ -68,6 +75,7 @@ export function TableTalkCard({ session, as, onNominate }: TableTalkCardProps) {
             }
             failedAt={snap.failedAt}
             ai={session.gateNow.ai}
+            preConsented={preConsented && snap.mode === "table"}
             highlights={{
                 items: snap.items,
                 fallback: snap.fallback,

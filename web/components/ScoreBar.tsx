@@ -16,9 +16,9 @@ export interface ScoreBarProps {
 }
 
 /**
- * Admissions only (judges never score). APG radiogroup: arrows and Home/End move and select; focus
- * follows the keyboard only (a tap never paints a focus ring). With `label={false}` the group is
- * named by `ariaLabel`.
+ * Admissions only (never on a judge screen). APG radiogroup: arrows and Home/End move and select;
+ * focus follows the keyboard only (a tap never paints a focus ring). With `label={false}` the
+ * group is named by `ariaLabel`.
  */
 export function ScoreBar({
     value,

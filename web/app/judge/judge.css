@@ -199,6 +199,11 @@
 .gj-stack-end {
     margin-top: auto;
     padding-top: var(--space-4);
+    /* My notes ends with the theme switch and then the sign-out: one column. */
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
 }
 
 /* ── Waiting for a table ─────────────────────────────────────────────────────────────────────── */
@@ -272,4 +277,96 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
+}
+/*
+ * A button that names a table the team chose: the cue above the signpost ("Memo · <project>",
+ * "Late recording · <project>"), the memo card's "Save to my notes for <project>", and "They told
+ * me they're <project>" in the check-in by name. A long name wraps inside the button, on as many
+ * lines as it needs, and never runs past the screen edge (a gv-btn is one line, nowrap, overflow
+ * visible, and its chamfer clips what spills: at 320 px "NeuralMesh" was already cut off). Whole
+ * words wrap; one word longer than the button breaks. No ellipsis: the name is what says which
+ * table it is. The icons keep their size (.gv-icon is flex: none). Two classes, so it wins over
+ * the .gv-btn shorthand whichever sheet loads last.
+ */
+.gv-btn.gj-memo__cue,
+.gj-memo__save .gv-btn,
+.gv-tc__name-body .gv-btn {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: center;
+    padding-block: var(--space-2);
+}
+
+/* The notes this phone kept that are older than the saved ones (EvaluateScreen): their own words, line breaks kept. */
+.gj-older {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--ink);
+    font-weight: 400;
+}
+/*
+ * The same words in the sheet that asks before they are left behind (OlderNotesSheet), quoted like
+ * the consent script. The sheet scrolls as a whole and its buttons stay stuck at the bottom, so a
+ * long note never pushes them out of reach.
+ */
+.gj-older--sheet {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    background: var(--surface-sunken);
+    box-shadow: inset var(--space-1) 0 0 var(--select);
+}
+
+/*
+ * The first screen of the walk (progress, the memo cue, the signpost). It lays out like the body
+ * around it. When a memo card follows (TalkFollowUp renders .gj-memo as the body's next child), it
+ * is at least as tall as the screen under the top band, so the card starts below the first screen:
+ * seen by scrolling to it (the cue above does that), never half under the action bar at rest.
+ */
+.gj-fold {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+.gv-shell__body:has(> .gj-memo) > .gj-fold {
+    min-height: calc(
+        100svh - var(--gv-top-h) - var(--space-4) - var(--space-3)
+    );
+}
+
+/* Compare → "Full notes": one block per project, every word the judge typed, uncut. */
+.gj-fullnotes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-bottom: var(--space-4);
+    box-shadow: 0 var(--stroke-hair) 0 var(--line);
+}
+.gj-fullnotes:last-child {
+    padding-bottom: 0;
+    box-shadow: none;
+}
+.gj-fullnotes__order {
+    font: var(--type-eyebrow);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--ink-soft);
+}
+.gj-fullnotes__name {
+    margin: 0;
+    font: var(--type-display-sm);
+    color: var(--ink);
+}
+.gj-fullnotes__noms {
+    flex-wrap: wrap;
+}
+.gj-fullnotes__text {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+/* A plain event has no night variant: the Day/Night switch is gone from the first paint (no flash). */
+:root[data-theme="plain"] .gj-themeswitch {
+    display: none;
 }

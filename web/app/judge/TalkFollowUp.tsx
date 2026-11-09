@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button, TableTalkCard, useTableTalk } from "@/components"
 import {
     highlightLine,
+    LEFT_EVENT,
     memoCandidates,
     nominationIds,
     notesWithLines,
@@ -12,6 +13,7 @@ import {
     seatedTable,
     type LeftTable,
 } from "@/lib/judge-ui"
+import { motionOK } from "@/lib/motion"
 import { newClientId, sendOrQueue } from "@/lib/offline"
 import { evaluationInput, evaluationWrite } from "@/lib/outbox"
 import type { TalkScope } from "@/lib/talk/registry"
@@ -46,7 +48,13 @@ export interface TalkFollowUpProps {
  * nominations). A memo is offered for 15 minutes after leaving the table; the server enforces
  * it too (never while seated at a table, 409 StillAtTable).
  */
-export function TalkFollowUp({ scope, talk, engine }: TalkFollowUpProps) {
+/**
+ * The tables this judge left lately that can still be followed up, newest first. It re-reads when
+ * the list changes in this tab (noteLeft and dropLeft say so: LEFT_EVENT) or in another, when the
+ * page is shown again (a memo window may have run out while it was away) and on a slow tick for
+ * the windows that close by themselves.
+ */
+function useFollowUps(scope: TalkScope, enabled: boolean) {
     const [left, setLeft] = useState<LeftTable[]>([])
     const [now, setNow] = useState(0)
     const eventId = scope.eventId
@@ -59,19 +67,37 @@ export function TalkFollowUp({ scope, talk, engine }: TalkFollowUpProps) {
             setLeft(s ? readLeft(s, { eventId, judgeId }, t) : [])
         }
         read()
-        // A memo window closes by itself, and another tab may have noted a table.
         const tick = setInterval(read, 30_000)
+        const shown = () => {
+            if (document.visibilityState !== "hidden") read()
+        }
         window.addEventListener("storage", read)
+        window.addEventListener(LEFT_EVENT, read)
+        window.addEventListener("pageshow", read)
+        document.addEventListener("visibilitychange", shown)
         return () => {
             clearInterval(tick)
             window.removeEventListener("storage", read)
+            window.removeEventListener(LEFT_EVENT, read)
+            window.removeEventListener("pageshow", read)
+            document.removeEventListener("visibilitychange", shown)
         }
     }, [eventId, judgeId])
+    return {
+        list: memoCandidates(left, now, enabled),
+        gone: (l: LeftTable) => setLeft((x) => x.filter((y) => y !== l)),
+    }
+}
+
+/** The id of a table's card, so the cue can take the judge to it. */
+const cardId = (projectId: string) => `gj-memo-${projectId}`
+
+export function TalkFollowUp({ scope, talk, engine }: TalkFollowUpProps) {
+    const { list, gone } = useFollowUps(scope, talk.enabled)
     // Sitting at a table, as the server says or as this phone's saved check-in says: a memo is for
     // between tables (the mic would hear a team that never said yes), so the cards below are shut.
     const { items } = useJudgeOutbox()
     const seat = seatedTable(talk.seatedAt, items)
-    const list = memoCandidates(left, now, talk.enabled)
     if (!list.length) return null
     return (
         <>
@@ -83,11 +109,69 @@ export function TalkFollowUp({ scope, talk, engine }: TalkFollowUpProps) {
                     talk={talk}
                     seat={seat}
                     engine={engine}
-                    onGone={() => setLeft((x) => x.filter((y) => y !== l))}
+                    onGone={() => gone(l)}
                 />
             ))}
         </>
     )
+}
+
+/**
+ * On the walk screen the cards are below the signpost, past the first screen: one line each
+ * above it says a memo is waiting and takes the judge there (scroll, then focus into the card).
+ * A screen reader hears it once, from a status region that is on the screen before the offer comes.
+ */
+export function MemoCue({
+    scope,
+    talk,
+    quiet,
+}: Pick<TalkFollowUpProps, "scope" | "talk"> & {
+    /** Only the announcement: the card is already in view (the wait screen), so no cue to it. */
+    quiet?: boolean
+}) {
+    const { list } = useFollowUps(scope, talk.enabled)
+    if (!talk.enabled) return null
+    const names = list.map((l) => l.name)
+    const said = !list.length
+        ? ""
+        : list.every((l) => l.why === "held")
+          ? `A late recording for ${names.join(" and ")} is below.`
+          : list.length === 1
+            ? `A memo about ${names[0]} is below.`
+            : `Memos about ${names.join(" and ")} are below.`
+    return (
+        <>
+            <span className="gv-sr gj-memo__said" role="status">
+                {said}
+            </span>
+            {(quiet ? [] : list).map((l) => (
+                <Button
+                    key={l.projectId}
+                    variant="secondary"
+                    size="lg"
+                    block
+                    icon="mic"
+                    iconRight="chevron"
+                    className="gj-memo__cue"
+                    onClick={() => showCard(l.projectId)}
+                >
+                    {(l.why === "held" ? "Late recording · " : "Memo · ") +
+                        l.name}
+                </Button>
+            ))}
+        </>
+    )
+}
+
+/** Scroll the card under its cue into view and put focus in it. */
+function showCard(projectId: string) {
+    const card = document.getElementById(cardId(projectId))
+    if (!card) return
+    card.scrollIntoView({
+        block: "start",
+        behavior: motionOK() ? "smooth" : "auto",
+    })
+    card.querySelector<HTMLElement>("button")?.focus({ preventScroll: true })
 }
 
 /** TalkFollowUp for the signed-in judge: for the screens that don't hold the scope themselves. */
@@ -230,7 +314,7 @@ function FollowUpCard({
     }
     if (saved) return null
     return (
-        <div className="gj-memo">
+        <div className="gj-memo" id={cardId(entry.projectId)}>
             <div className="gv-step">
                 {(held ? "Late recording · " : "Memo · ") + entry.name}
             </div>

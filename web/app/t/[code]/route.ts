@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { getApi, getSession } from "@/lib/api/server"
 import {
     GRANT_COOKIE,
@@ -11,6 +12,7 @@ import {
     readPendingScan,
 } from "@/lib/auth/grant"
 import { parseArrivalCode } from "@/lib/judging"
+import { PLACARD_RATE_LIMITED } from "@/lib/copy"
 
 /**
  * Placard QR codes encode https://judging.hackillinois.org/t/<CODE>?k=<token> (the TABLE, never
@@ -32,11 +34,134 @@ import { parseArrivalCode } from "@/lib/judging"
  * Nothing here changes judging state: link previews, prefetchers and a second look at the same QR
  * check nobody in. Responses are no-store and no-referrer. The camera's own URL (with `k`) stays
  * in the phone's history; a photo of the placard is the residual risk (CONTRACT §2).
+ *
+ * Rate limiting: /t/<CODE> is rate-limited by session (for judges) or IP (for signed-out users)
+ * to prevent abuse of the placard check endpoint. The limit is generous for a venue behind one NAT.
+ * Uses Cloudflare's rate-limit binding (PLACARD_RATELIMIT) with an in-memory fallback for dev/mock.
  */
+
+// ponytail: isolate-local fallback capped at 10k keys; production uses the Workers binding.
+const memoryRatelimit = new Map<string, { count: number; resetAt: number }>()
+const RATELIMIT_WINDOW_MS = 60_000 // 1 minute window
+const RATELIMIT_MAX = 600 // generous for a venue behind one NAT
+const RATELIMIT_KEYS_MAX = 10_000
+
+type RateLimitResult = {
+    success: boolean
+    remaining?: number
+    resetAt: number
+}
+
+function checkMemoryRatelimit(key: string): RateLimitResult {
+    const now = Date.now()
+    if (
+        memoryRatelimit.size >= RATELIMIT_KEYS_MAX &&
+        !memoryRatelimit.has(key)
+    ) {
+        for (const [storedKey, entry] of memoryRatelimit)
+            if (entry.resetAt <= now) memoryRatelimit.delete(storedKey)
+        if (memoryRatelimit.size >= RATELIMIT_KEYS_MAX)
+            memoryRatelimit.delete(
+                memoryRatelimit.keys().next().value as string,
+            )
+    }
+    const entry = memoryRatelimit.get(key)
+    if (!entry || now >= entry.resetAt) {
+        memoryRatelimit.set(key, {
+            count: 1,
+            resetAt: now + RATELIMIT_WINDOW_MS,
+        })
+        return {
+            success: true,
+            remaining: RATELIMIT_MAX - 1,
+            resetAt: now + RATELIMIT_WINDOW_MS,
+        }
+    }
+    if (entry.count >= RATELIMIT_MAX) {
+        return { success: false, remaining: 0, resetAt: entry.resetAt }
+    }
+    entry.count++
+    return {
+        success: true,
+        remaining: RATELIMIT_MAX - entry.count,
+        resetAt: entry.resetAt,
+    }
+}
+
+async function checkRatelimit(key: string): Promise<RateLimitResult> {
+    let binding:
+        | { limit: (options: { key: string }) => Promise<{ success: boolean }> }
+        | undefined
+    try {
+        binding = (
+            getCloudflareContext().env as unknown as {
+                PLACARD_RATELIMIT?: {
+                    limit: (options: {
+                        key: string
+                    }) => Promise<{ success: boolean }>
+                }
+            }
+        ).PLACARD_RATELIMIT
+    } catch {
+        // `next dev` and vitest do not have a Workers request context.
+    }
+    if (binding) {
+        try {
+            const result = await binding.limit({ key })
+            return {
+                success: result.success,
+                resetAt: Date.now() + RATELIMIT_WINDOW_MS,
+            }
+        } catch {
+            // Fail closed if a configured production binding is unavailable.
+            return {
+                success: false,
+                remaining: 0,
+                resetAt: Date.now() + RATELIMIT_WINDOW_MS,
+            }
+        }
+    }
+    return checkMemoryRatelimit(key)
+}
+
 export async function GET(
     req: NextRequest,
     { params }: { params: Promise<{ code: string }> },
 ) {
+    const session = await getSession()
+    const ip =
+        req.headers.get("cf-connecting-ip") ??
+        req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+        "unknown"
+    const rl = await checkRatelimit(
+        session ? `session:${session.payload.id}` : `ip:${ip}`,
+    )
+    if (!rl.success) {
+        const res = NextResponse.json(
+            {
+                error: "RateLimited",
+                message: PLACARD_RATE_LIMITED,
+            },
+            {
+                status: 429,
+                headers: {
+                    "Cache-Control": "no-store",
+                    "Referrer-Policy": "no-referrer",
+                    "X-Robots-Tag": "noindex",
+                    "Retry-After": String(
+                        Math.max(
+                            1,
+                            Math.ceil((rl.resetAt - Date.now()) / 1000),
+                        ),
+                    ),
+                    "X-RateLimit-Limit": String(RATELIMIT_MAX),
+                    "X-RateLimit-Remaining": "0",
+                },
+            },
+        )
+        return res
+    }
+
     const { code: raw } = await params
     let decoded = raw
     try {
@@ -60,7 +185,6 @@ export async function GET(
         return res
     }
 
-    const session = await getSession()
     if (!session) {
         const q = new URLSearchParams({ next: code ? `/t/${code}` : "/judge" })
         if (code) q.set("table", code)
@@ -106,5 +230,14 @@ export async function GET(
                 grantCookieOptions,
             )
     }
+    // Add rate limit headers to successful responses.
+    res.headers.set("X-RateLimit-Limit", String(RATELIMIT_MAX))
+    if (rl.remaining != null)
+        res.headers.set("X-RateLimit-Remaining", String(rl.remaining))
+    if (rl.resetAt)
+        res.headers.set(
+            "X-RateLimit-Reset",
+            String(Math.ceil(rl.resetAt / 1000)),
+        )
     return res
 }

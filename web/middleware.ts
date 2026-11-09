@@ -72,8 +72,23 @@ function stripBearerParams(req: NextRequest): NextResponse {
     return res
 }
 
-/** A server-action POST: the Next.js client marks it with a Next-Action header. */
-const isServerAction = (req: NextRequest) => req.headers.has("next-action")
+/**
+ * What Next.js sends an action as: a client call is text/plain, a form action is a urlencoded or
+ * multipart body. (The server itself only treats a POST with the header as an action.)
+ */
+const ACTION_CONTENT_TYPE =
+    /^\s*(?:text\/plain|multipart\/form-data|application\/x-www-form-urlencoded)\s*(?:;|$)/i
+
+/**
+ * A server-action request: a POST that the Next.js client marks with a Next-Action header and
+ * sends as one of the types above. Anything else that merely carries the header (a GET of a
+ * page, a PUT, a POST of JSON) is a page request: the gate redirects it to /login like any other,
+ * instead of letting a judge layout run without a session.
+ */
+const isServerAction = (req: NextRequest) =>
+    req.method === "POST" &&
+    req.headers.has("next-action") &&
+    ACTION_CONTENT_TYPE.test(req.headers.get("content-type") ?? "")
 
 /**
  * A judge's server action posted from a page whose session is gone (expired, cleared in another
@@ -115,8 +130,9 @@ function actionRedirect(to: URL): NextResponse {
 
 /**
  * Route gate (S7). The /judge and /admin shells open only for a VERIFIED `gavil_session`
- * (verifySessionCached: the mock signature, GAVIL_JWT_SECRET's HS256 signature, or an adonix
- * round trip; `exp` required, lifetime capped; one verdict per token per minute):
+ * (verifySessionCached: the mock signature, GAVIL_JWT_SECRET's HS256 signature, or, only in
+ * development/test without the secret, an adonix round trip; `exp` required, lifetime capped;
+ * positive verdicts cached 60 s, negative 10 s, concurrent checks coalesced):
  *   /judge/*  needs JUDGE
  *   /admin/*  needs STAFF or ADMIN
  * Anything else redirects to /login?next=<path>:
@@ -124,8 +140,9 @@ function actionRedirect(to: URL): NextResponse {
  *   its judge in `gavil_clear` so /login clears that judge's data from the phone;
  *   (a judge's server action is the exception: it is let through to answer 401 as data, below);
  * - forged, tampered, refused by adonix: the cookie is cleared, no message;
- * - adonix unreachable (no shared secret): `error=network`, the cookie is kept (sign in again
- *   is not the fix; trying again in a moment is);
+ * - adonix unreachable (development, no shared secret): `error=network`, the cookie is kept (sign
+ *   in again is not the fix; trying again in a moment is); a production server with no
+ *   GAVIL_JWT_SECRET: `error=config`, the cookie is kept, and an organizer is the fix;
  * - the wrong role: `error=forbidden`.
  */
 async function gate(req: NextRequest) {
@@ -152,7 +169,8 @@ async function gate(req: NextRequest) {
     if (v?.ok) url.searchParams.set("error", "forbidden")
     else if (dead) url.searchParams.set("error", "expired")
     else if (v && !v.ok && v.reason === "unreachable")
-        url.searchParams.set("error", "network")
+        // (a server with no GAVIL_JWT_SECRET is not "the network": config)
+        url.searchParams.set("error", v.config ? "config" : "network")
     const res = isServerAction(req)
         ? actionRedirect(url)
         : NextResponse.redirect(url)
@@ -170,15 +188,38 @@ async function gate(req: NextRequest) {
 }
 
 /**
+ * adonix's origin for the policy's `form-action`, or null when ADONIX_URL is unusable in this
+ * environment (not HTTPS in production, a host off the allow list, not a URL). `adonixUrl()`
+ * throws then, on purpose: nothing may send the session JWT there. This runs before every
+ * request, so the throw must stop here: a deployment with a bad ADONIX_URL still answers
+ * /api/health with its designed 503 (`{ ok: false, problem: "config" }`) instead of a generic 500,
+ * and every page keeps its headers; whatever needs adonix fails closed at `getApi()`.
+ */
+function adonixOriginOrNull(): string | null {
+    try {
+        return originOf(adonixUrl())
+    } catch {
+        return null
+    }
+}
+
+/**
  * Every page, route handler and redirect (the matcher below) gets the security headers and a
  * Content-Security-Policy with a fresh nonce. The route gate above runs exactly as it always
  * did: it decides by pathname and answers `NextResponse.next()` for everything that is not
  * /judge, /admin or /auth/magic, so /login, /t/A12, /api/* and the rest pass untouched.
  *
- * Next.js 15 reads the nonce from the REQUEST's content-security-policy header and puts it on
+ * Next.js reads the nonce from the REQUEST's content-security-policy header and puts it on
  * its own scripts, so a pass-through is rebuilt with the policy as a request header override
  * (pages that carry a nonce render per request, and these all do: the root layout reads the
  * theme cookie). `x-nonce` is there for a component that needs it (`headers()`).
+ *
+ * Why this is still `middleware.ts` on Next.js 16 (which deprecates the name and prints a notice
+ * at build time): `proxy.ts` is Node.js-only, and OpenNext runs a Node.js proxy on Cloudflare only
+ * as an experimental path its maintainers say they do not support, while the edge `middleware`
+ * is its main path. Everything here is edge-safe, so nothing is lost. The rename is mechanical
+ * (file name, this function's name, the tests' import) and was verified to behave the same:
+ * web/README.md, Deploy, "Next.js 16 on OpenNext".
  */
 export async function middleware(req: NextRequest) {
     const dev = process.env.NODE_ENV === "development"
@@ -186,9 +227,10 @@ export async function middleware(req: NextRequest) {
     const csp = contentSecurityPolicy({
         nonce,
         dev,
-        // `next dev --turbopack` sets TURBOPACK=1 (npm run dev); see CspOptions.turbopack.
+        // `next dev` (Turbopack, the default) sets TURBOPACK ("auto" or "1"); `--webpack` leaves
+        // it unset. See CspOptions.turbopack.
         turbopack: dev && !!process.env.TURBOPACK,
-        adonixOrigin: originOf(adonixUrl()),
+        adonixOrigin: adonixOriginOrNull(),
     })
 
     // A `<Link>`'s RSC fetch of a redirecting route handler (/auth/google …) becomes a hard
@@ -226,19 +268,22 @@ export async function middleware(req: NextRequest) {
 /**
  * The first three are the gate's own paths, exactly as before (they match whatever follows,
  * dots included, so a /judge/x.y path never slips past the gate). The last takes everything
- * else except Next's own static files (/_next/static, served with the hashed-build cache headers
- * by Cloudflare's asset store or next.config.ts) and /_next/image. Files with an extension are
- * NOT excluded: a real public/ file never reaches the Worker (Cloudflare serves it from its
- * asset store, with public/_headers), and a dotted path that does (a 404 for /robots.txt or
- * /favicon.ico, a placard URL such as /t/A12.png) is an HTML page or a redirect that needs the
- * Content-Security-Policy like any other. Because the matcher takes every such path, next.config.ts
- * `headers()` names only what is left over, so no response gets the headers twice.
+ * else except Next's own static files (/_next/static/*, served with the hashed-build cache headers
+ * by Cloudflare's asset store or next.config.ts) and /_next/image*. The negative lookahead uses
+ * segment-boundary matching (/(?:static|image)(?:/|$)) so near-prefix paths like
+ * /_next/staticfoo and /_next/imageevil are NOT excluded and still get CSP headers.
+ * Files with an extension are NOT excluded: a real public/ file never reaches the Worker
+ * (Cloudflare serves it from its asset store, with public/_headers), and a dotted path that does
+ * (a 404 for /robots.txt or /favicon.ico, a placard URL such as /t/A12.png) is an HTML page or a
+ * redirect that needs the Content-Security-Policy like any other. Because the matcher takes every
+ * such path, next.config.ts `headers()` names only what is left over, so no response gets the
+ * headers twice.
  */
 export const config = {
     matcher: [
         "/judge/:path*",
         "/admin/:path*",
         "/auth/magic",
-        "/((?!_next/static|_next/image).*)",
+        "/((?!_next/(?:static|image)(?:/|$)).*)",
     ],
 }

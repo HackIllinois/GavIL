@@ -26,7 +26,12 @@ export interface FlagCardProps {
     /** The clear button's words (default "Clear, send to judging"). */
     clearLabel?: string
     onEscalate?: () => void
-    /** Which action is running (its button shows a spinner), or false. Both buttons wait while one runs. */
+    /**
+     * Which action is running (its button shows a spinner), `true` when it is another card's, or
+     * false. Any value holds both buttons through Button `pending`: the one that was pressed keeps
+     * focus (aria-disabled, never `disabled`, so a keyboard or screen-reader user keeps their
+     * place) and the other is disabled, so a double tap cannot enqueue the action twice.
+     */
     busy?: "clear" | "escalate" | boolean
 }
 
@@ -79,7 +84,7 @@ export function FlagCard({
                             icon="check"
                             onClick={onClear}
                             loading={busy === "clear"}
-                            disabled={!!busy}
+                            pending={!!busy}
                         >
                             {clearLabel ?? "Clear, send to judging"}
                         </Button>
@@ -91,7 +96,7 @@ export function FlagCard({
                             icon="flag"
                             onClick={onEscalate}
                             loading={busy === "escalate"}
-                            disabled={!!busy}
+                            pending={!!busy}
                         >
                             Escalate
                         </Button>

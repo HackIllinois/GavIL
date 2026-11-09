@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import {
     ActionBar,
     Badge,
@@ -16,13 +15,14 @@ import type { Room, WaitBreakdown } from "@/lib/api/types"
 import { waitCopy } from "@/lib/copy"
 import { SCAN_CLEAN_URL, type PlacardScan } from "@/lib/judge-ui"
 import { withTimeout } from "@/lib/offline"
+import { useRefreshWhenReachable } from "@/lib/security/refresh"
 import { flagWrongJudge } from "@/lib/offline"
 import { requestHelp } from "../actions"
 import { useJudge } from "../JudgeContext"
 import { JudgeScreen } from "../JudgeScreen"
 import { useJudgeToast } from "../JudgeToast"
 import { ScanNote } from "../ScanNote"
-import { TalkFollowUp } from "../TalkFollowUp"
+import { MemoCue, TalkFollowUp } from "../TalkFollowUp"
 import { useBusy } from "../useBusy"
 import { useRoomWatch } from "../useRoomWatch"
 
@@ -109,12 +109,25 @@ export function WaitScreen({
     talk?: { enabled: boolean; llm: boolean; maxSeconds: number }
     talkEngine?: "fixture" | "mic"
 }) {
-    const router = useRouter()
     const go = useSwapNavigate()
     const me = useJudge()
     const toast = useJudgeToast()
     const [pinging, ping] = useBusy()
-    const refresh = useCallback(() => router.refresh(), [router])
+    // Checking again, by itself and on "Check now": never while the phone cannot reach the server
+    // (a refresh that fails would replace this screen with the browser's offline page).
+    const refreshIfReachable = useRefreshWhenReachable()
+    const refresh = useCallback(
+        () => void refreshIfReachable(),
+        [refreshIfReachable],
+    )
+    const showToast = toast.show
+    const checkNow = useCallback(async () => {
+        if ((await refreshIfReachable()) !== "refreshed")
+            showToast(
+                "Can’t reach the server just now. Your notes are safe on this phone; this screen tries again by itself.",
+                "danger",
+            )
+    }, [refreshIfReachable, showToast])
     useEffect(() => {
         const ms = Math.min(15, Math.max(5, waitSeconds)) * 1000
         const t = setInterval(refresh, ms)
@@ -122,12 +135,11 @@ export function WaitScreen({
     }, [refresh, waitSeconds])
     const onMoved = useCallback(() => go("/judge/evaluate?toast=moved"), [go])
     useRoomWatch(room.id, onMoved)
-    const showToast = toast.show
+    // Keyed on the words: staff can move the judge while this screen is up, and the push to
+    // ?toast=moved then lands on this same instance (see EvaluateScreen).
     useEffect(() => {
         if (initialToast) showToast(initialToast)
-        // Once per screen.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [initialToast, showToast])
     const mins = Math.max(1, Math.round(waitSeconds / 60))
     const copy = waitCopy(remaining, waiting, mins)
     return (
@@ -192,6 +204,7 @@ export function WaitScreen({
             <p className="gv-lede gj-center" role="status">
                 {copy.body}
             </p>
+            {me && talk && <MemoCue scope={me} talk={talk} quiet />}
             {me && talk && (
                 <TalkFollowUp scope={me} talk={talk} engine={talkEngine} />
             )}
@@ -217,7 +230,7 @@ export function WaitScreen({
                 icon="rotate-ccw"
                 settle
                 settleKey="check"
-                onClick={refresh}
+                onClick={() => void checkNow()}
             >
                 Check now
             </Button>

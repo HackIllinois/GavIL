@@ -108,7 +108,7 @@ export function emitter(): Emitter {
     }
 }
 
-/** A level reading is taken this often (15 a second): an analysis rate, not a design value. */
+/** A level reading is taken this often (15 a second): a sampling rate, not a design value. */
 export const LEVEL_MS = 1000 / 15
 
 /**

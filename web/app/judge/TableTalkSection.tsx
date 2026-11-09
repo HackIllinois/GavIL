@@ -23,6 +23,8 @@ export interface TableTalkSectionProps {
     talk: { enabled: boolean; llm: boolean; maxSeconds: number }
     /** Project.recordingOptOut. */
     optedOut: boolean
+    /** Project.recordingConsent: the team agreed on the submission form (no consent sheet). */
+    preConsented?: boolean
     arrivedBy?: ArrivalMethod
     /** The server has the check-in (it is not waiting in the outbox). */
     confirmed: boolean
@@ -134,7 +136,11 @@ export function TableTalkSection(p: TableTalkSectionProps) {
     }, [live])
     return (
         <>
-            <TableTalkCard session={session} onNominate={p.onNominate} />
+            <TableTalkCard
+                session={session}
+                onNominate={p.onNominate}
+                preConsented={!!p.preConsented && !p.optedOut}
+            />
             <DemoStatus
                 value={demo}
                 suggested={snap.demoSuggested}

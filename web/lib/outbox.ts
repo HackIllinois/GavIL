@@ -81,6 +81,8 @@ export interface TalkDraft extends TalkFields {
 export interface TalkDropped {
     highlights: number
     recording: boolean
+    /** Nominations of a first evaluation that arrived after Round 2 opened: not counted. */
+    nominations?: number
 }
 
 export interface OutboxScope {
@@ -124,6 +126,8 @@ export type OutboxWrite =
           notes: string
           nominations: string[]
           createdAt: string
+          /** Expected server revision for this judge/project. */
+          revision?: number
           /** Table talk metadata and kept highlights (no audio). */
           recording?: EvaluationRecording
           highlights?: KeptHighlight[]
@@ -179,6 +183,8 @@ export type OutboxWrite =
           notes: string
           nominations: string[]
           createdAt: string
+          /** Expected server revision for this judge/project. */
+          revision?: number
           label?: string
       }
 
@@ -192,6 +198,10 @@ export type OutboxItem = OutboxWrite & {
      * this item waits for that send instead of replaying the older words over it.
      */
     supersededBy?: string
+    /** A prior request for the same project must settle before this replacement is replayed. */
+    waitFor?: string
+    /** A prior request may time out and enqueue after this replacement; suppress that stale copy. */
+    replacesClientId?: string
 }
 
 export interface DeadItem {
@@ -201,6 +211,8 @@ export interface DeadItem {
     /** The server's error code and HTTP status, for the staff member looking at it. */
     code?: string
     status?: number
+    /** Current project revision when a StaleWrite was refused. */
+    revision?: number
 }
 
 export type SendResult = "ok" | "retry" | "hold" | "dead"
@@ -243,6 +255,7 @@ export interface EvaluationDraft {
     projectId: string
     notes: string
     nominations: string[]
+    revision?: number
 }
 
 /** The body of the online call: the notes and nominations, and this table's Table talk. */
@@ -256,6 +269,7 @@ export function evaluationInput(
         projectId: d.projectId,
         notes: d.notes,
         nominations: d.nominations,
+        ...(d.revision != null ? { revision: d.revision } : {}),
         ...talkFieldsOf(talk, nowMs),
     }
 }
@@ -322,6 +336,7 @@ export function evaluationReplayInput(
         projectId: item.projectId,
         notes: item.notes,
         nominations: item.nominations,
+        ...(item.revision != null ? { revision: item.revision } : {}),
         createdAt: item.createdAt,
         sentAt,
         // The same expiry the sweep uses, so an item with no `talkExpiresAt` is never sent
@@ -520,23 +535,39 @@ export function dismissNotice(kv: KV, s: OutboxScope, id?: string) {
 }
 
 /**
- * Told to the judge when an evaluation was saved but its Table talk wasn't all kept: the
- * recording note, or some highlights, did not count (the receipt was too old, from another visit,
- * already used, the event switched Table talk off…). The notes are always saved. Null when
+ * Told to the judge when an evaluation was saved but not all of it counted: the Table talk's
+ * recording note or some highlights (the receipt was too old, from another visit, already used,
+ * the event switched Table talk off…), or its nominations, which came after nominations closed
+ * (a first evaluation replayed after Round 2 opened). The notes are always saved. Null when
  * nothing was left out.
  */
 export function droppedNotice(
     dropped: TalkDropped | undefined | null,
     table?: string,
 ): string | null {
-    if (!dropped || (!dropped.highlights && !dropped.recording)) return null
+    if (
+        !dropped ||
+        (!dropped.highlights && !dropped.recording && !dropped.nominations)
+    )
+        return null
     const parts = [
         dropped.highlights
             ? `${dropped.highlights} ${dropped.highlights === 1 ? "highlight" : "highlights"}`
             : null,
         dropped.recording ? "the recording note" : null,
     ].filter((x): x is string => !!x)
-    return `${table ? `${table}: your` : "Your"} notes are saved. Table talk couldn’t keep ${parts.join(" and ")}.`
+    const n = dropped.nominations ?? 0
+    return (
+        `${table ? `${table}: your` : "Your"} notes are saved.` +
+        (parts.length
+            ? ` Table talk couldn’t keep ${parts.join(" and ")}.`
+            : "") +
+        (n
+            ? n === 1
+                ? " Your nomination came after nominations closed (Round 2 had opened), so it was not counted."
+                : ` Your ${n} nominations came after nominations closed (Round 2 had opened), so they were not counted.`
+            : "")
+    )
 }
 
 /**
@@ -858,12 +889,24 @@ export function enqueueChecked(
     s: OutboxScope,
     write: OutboxWrite,
     replaces?: string,
+    waitFor?: string,
 ): EnqueueResult {
-    const item: OutboxItem = { ...write, judgeId: s.judgeId }
+    const item: OutboxItem = {
+        ...write,
+        judgeId: s.judgeId,
+        ...(waitFor ? { waitFor } : {}),
+        ...(waitFor || replaces
+            ? { replacesClientId: waitFor ?? replaces }
+            : {}),
+    }
     tidyQueue(kv, s)
     let result: EnqueueResult = { saved: true, items: [] }
     const done = mutateQueue(kv, s, (before) => {
         let items = [...before]
+        if (items.some((x) => x.replacesClientId === item.clientId)) {
+            result = { saved: true, items }
+            return null
+        }
         if (items.some((x) => x.clientId === item.clientId)) {
             result = { saved: true, items }
             return null
@@ -918,6 +961,23 @@ export function enqueueItem(
     replaces?: string,
 ): OutboxItem[] {
     return enqueueChecked(kv, s, write, replaces).items
+}
+
+/** The drafts of this table that are still queued (an evaluation of it has just been sent). */
+function dropQueuedDrafts(kv: KV, s: OutboxScope, projectId: string) {
+    mutateQueue(kv, s, (items) => {
+        const next = items.filter(
+            (x) =>
+                !(
+                    x.kind === "draft" &&
+                    x.judgeId === s.judgeId &&
+                    x.projectId === projectId &&
+                    // (one that waits behind an in-flight send is that send's business)
+                    !flights(kv).has(flightKey(x.judgeId, x.clientId))
+                ),
+        )
+        return next.length === items.length ? null : next
+    })
 }
 
 /** This judge's queue as a read-modify-write that survives another tab's write (mutate). */
@@ -1039,12 +1099,21 @@ export function addDead(
     outcome: ActionOutcome,
     at: string,
 ): boolean {
+    const currentRevision =
+        outcome.revision ??
+        (outcome.code === "StaleWrite" &&
+        typeof outcome.details?.revision === "number" &&
+        Number.isSafeInteger(outcome.details.revision) &&
+        outcome.details.revision >= 0
+            ? outcome.details.revision
+            : undefined)
     const entry: DeadItem = {
         item: forStaff(item),
         error: outcome.error ?? `Refused (${outcome.status ?? "?"})`,
         at,
         ...(outcome.code ? { code: outcome.code } : {}),
         ...(outcome.status != null ? { status: outcome.status } : {}),
+        ...(currentRevision != null ? { revision: currentRevision } : {}),
     }
     const done = mutateDead(kv, s, (dead) => [
         ...dead.filter((d) => d.item.clientId !== item.clientId),
@@ -1120,6 +1189,7 @@ function moveToOwner(kv: KV, s: OutboxScope, item: OutboxItem) {
 export interface LocalDraft {
     notes: string
     nominations: string[]
+    revision?: number
     /** Phone clock at the last edit. */
     at: string
 }
@@ -1148,13 +1218,78 @@ export function readDraft(
         : null
 }
 
-/** After the evaluation or skip reached the server. */
+/** After the evaluation or skip reached the server (the table's set-aside copy goes with it). */
 export function clearDraft(kv: KV, s: OutboxScope, projectId: string) {
     mutateMap<LocalDraft>(kv, draftsKey(s), (all) => {
-        if (!(projectId in all)) return null
+        const aside = asideKey(projectId)
+        if (!(projectId in all) && !(aside in all)) return null
+        const { [projectId]: _gone, [aside]: _asideGone, ...rest } = all
+        void _gone
+        void _asideGone
+        return rest
+    })
+}
+
+/** Where a table's draft is kept once it has been set aside as older than the server's notes. */
+const asideKey = (projectId: string) => `${projectId}#older`
+
+/**
+ * The phone's draft for this table is older than the notes the server has (another tab or device
+ * saved since: draftIsOlder): move it out of the way of the restore, which would send it. It stays
+ * on the phone until the judge adds it to the saved notes or discards it.
+ */
+export function setDraftAside(
+    kv: KV,
+    s: OutboxScope,
+    projectId: string,
+    /** What to keep (a copy already set aside, put together with this one); default: the draft as it is. */
+    keep?: LocalDraft,
+) {
+    mutateMap<LocalDraft>(kv, draftsKey(s), (all) => {
+        const d = keep ?? all[projectId]
+        if (!d) return null
         const { [projectId]: _gone, ...rest } = all
         void _gone
+        return { ...rest, [asideKey(projectId)]: d }
+    })
+}
+
+/** The draft that was set aside for this table, or null. */
+export function readAsideDraft(
+    kv: KV,
+    s: OutboxScope,
+    projectId: string,
+): LocalDraft | null {
+    return readDraft(kv, s, asideKey(projectId))
+}
+
+/** The judge added the set-aside copy to the saved notes, or discarded it. */
+export function clearAsideDraft(kv: KV, s: OutboxScope, projectId: string) {
+    mutateMap<LocalDraft>(kv, draftsKey(s), (all) => {
+        const aside = asideKey(projectId)
+        if (!(aside in all)) return null
+        const { [aside]: _gone, ...rest } = all
+        void _gone
         return rest
+    })
+}
+
+/**
+ * This phone's own write reached the server and the answer named `revision`: the phone's draft
+ * for the table (its words may be newer than what was sent) is now based on it, so it is not
+ * mistaken for an older one after a reload (draftIsOlder). Only an answer to this phone's write
+ * counts: the revision a page was drawn with says nothing about who wrote it.
+ */
+export function restampDraft(
+    kv: KV,
+    s: OutboxScope,
+    projectId: string,
+    revision: number,
+) {
+    mutateMap<LocalDraft>(kv, draftsKey(s), (all) => {
+        const d = all[projectId]
+        if (!d || (d.revision ?? -1) >= revision) return null
+        return { ...all, [projectId]: { ...d, revision } }
     })
 }
 
@@ -1189,6 +1324,9 @@ export interface ActionOutcome {
     status?: number
     code?: string
     error?: string
+    details?: Record<string, unknown>
+    /** New project revision after a successful write (or current revision on StaleWrite). */
+    revision?: number
     /** An evaluation that was saved with some Table talk left out (told to the judge). */
     dropped?: TalkDropped
     /** What the item was about, for the notice ("NeuralMesh"). */
@@ -1411,6 +1549,7 @@ export function withTimeout<T>(
  * once the Wi-Fi comes back).
  */
 const inFlight = new WeakMap<KV, Map<string, Promise<unknown>>>()
+const inFlightThings = new WeakMap<KV, Map<string, string>>()
 
 function flights(kv: KV): Map<string, Promise<unknown>> {
     let m = inFlight.get(kv)
@@ -1418,8 +1557,53 @@ function flights(kv: KV): Map<string, Promise<unknown>> {
     return m
 }
 
+function thingFlights(kv: KV): Map<string, string> {
+    let m = inFlightThings.get(kv)
+    if (!m) inFlightThings.set(kv, (m = new Map()))
+    return m
+}
+
 const flightKey = (judgeId: string, clientId: string) =>
     `${judgeId}|${clientId}`
+
+/**
+ * The project revision this phone last heard from the server, per judge and project (one page's
+ * memory, per store). Every answer that names one feeds it: a save, an evaluation, a replay from
+ * the queue and a StaleWrite refusal. The notes screen asks it before every send, so a save that
+ * was queued behind another, and went out later from the outbox, still moves the next edit on.
+ */
+const knownRevisions = new WeakMap<KV, Map<string, number>>()
+
+const isRevision = (n: unknown): n is number =>
+    typeof n === "number" && Number.isSafeInteger(n) && n >= 0
+
+/**
+ * Remember an answer's revision. It only ever moves up (answers can arrive out of order), except
+ * `exact`: a StaleWrite names where the server really is, which may be lower (a restarted dev
+ * server), and wins.
+ */
+export function rememberRevision(
+    kv: KV,
+    judgeId: string,
+    projectId: string,
+    revision: unknown,
+    exact = false,
+) {
+    if (!isRevision(revision)) return
+    let m = knownRevisions.get(kv)
+    if (!m) knownRevisions.set(kv, (m = new Map()))
+    const key = `${judgeId}|${projectId}`
+    const had = m.get(key)
+    if (exact || had == null || revision > had) m.set(key, revision)
+}
+
+export function knownRevision(
+    kv: KV,
+    judgeId: string,
+    projectId: string,
+): number | undefined {
+    return knownRevisions.get(kv)?.get(`${judgeId}|${projectId}`)
+}
 
 /** True while an earlier send of this write is still waiting for its answer. */
 export function stillSending(
@@ -1440,15 +1624,33 @@ export function sendTracked<T>(
     clientId: string,
     p: Promise<T>,
     ms: number = SEND_TIMEOUT_MS,
+    thing?: string,
 ): Promise<T> {
     const m = flights(kv)
     const key = flightKey(judgeId, clientId)
+    const thingKey_ = thing ? `${judgeId}|${thing}` : undefined
     m.set(key, p)
+    if (thingKey_) thingFlights(kv).set(thingKey_, clientId)
     const done = () => {
         if (m.get(key) === p) m.delete(key)
+        if (thingKey_ && thingFlights(kv).get(thingKey_) === clientId)
+            thingFlights(kv).delete(thingKey_)
     }
     p.then(done, done)
     return withTimeout(p, ms)
+}
+
+export function activeWriteForThing(
+    kv: KV,
+    judgeId: string,
+    thing: OutboxWrite,
+): string | undefined {
+    const key = `${judgeId}|${thingKey(thing)}`
+    const clientId = thingFlights(kv).get(key)
+    if (!clientId) return undefined
+    if (flights(kv).has(flightKey(judgeId, clientId))) return clientId
+    thingFlights(kv).delete(key)
+    return undefined
 }
 
 /** 2 s, 4 s, 8 s … capped at 60 s. */
@@ -1486,6 +1688,27 @@ export interface FlushReport {
      * sent, and a vote is never waved on while its answer is unknown.
      */
     storageError?: true
+    /**
+     * Set (only then) when a send threw because this page is not the server's build any more
+     * (isStaleBuild): the flush stopped, every item stays queued, no attempt is counted and no
+     * retry is timed (a reload is what helps, and the screen says so).
+     */
+    staleBuild?: true
+}
+
+/**
+ * Whether a thrown error means this page's code is older than the server's: a redeploy left the
+ * page's server-action ids behind (Next.js answers 409 `x-nextjs-action-not-found` and its client
+ * throws UnrecognizedActionError) or a chunk it needs is gone. Retrying cannot fix either: only
+ * a reload can. Matched by name and message, not by import, so this module stays free of Next.
+ */
+export function isStaleBuild(e: unknown): boolean {
+    if (!(e instanceof Error)) return false
+    return (
+        e.name === "UnrecognizedActionError" ||
+        e.name === "ChunkLoadError" ||
+        /^Loading (CSS )?chunk [^\s]+ failed/i.test(e.message)
+    )
 }
 
 /** Flushes running now, per store and keyed `eventId:judgeId`. */
@@ -1554,10 +1777,29 @@ async function flushQueue(
     // A transcript whose receipt ran out while the item waited is not sent and not kept, and an
     // old build's placard token is taken out of storage before anything is sent.
     await tidyQueueLocked(kv, s)
+    /** The copy that already waited its turn behind the write that replaces it (see supersededBy below). */
+    let afterNewer: string | null = null
     for (;;) {
         const item = readQueue(kv, s)[0]
         if (!item) return report
         const foreign = item.judgeId !== s.judgeId
+        if (!foreign && item.waitFor) {
+            const waitKey = flightKey(item.judgeId, item.waitFor)
+            const pending = flights(kv).get(waitKey)
+            if (pending) {
+                try {
+                    await withTimeout(pending, timeoutMs)
+                } catch {
+                    /* A timed out write stays in flight and blocks its replacement. */
+                }
+                if (flights(kv).get(waitKey) === pending) {
+                    report.retryInMs = backoffMs(1)
+                    return report
+                }
+            }
+            await exclusive(s, () => clearWaitFor(kv, s, item.clientId))
+            continue
+        }
         // A newer write for this thing is out right now and replaces this item when it answers:
         // wait for it, never send the older words over it. If it is still out after the wait,
         // try again later.
@@ -1579,6 +1821,18 @@ async function flushQueue(
                     report.retryInMs = backoffMs(1)
                     return report
                 }
+            }
+            // The newer write has answered. Its sender takes this older copy off the queue (or
+            // swaps it for itself) under the judge's lock, and asks for that lock the moment the
+            // answer is in. With real Web Locks the turn comes in a later task, and until then
+            // the copy is still at the head: sent now, it would be refused StaleWrite (the table
+            // is past its revision) and kept as a dead letter for words that were saved. So take
+            // the lock behind that turn, once per copy, and look again. A copy that is still
+            // marked after that outlived the page that made the mark (nothing here is sending its
+            // newer write): it is the judge's words, and goes.
+            if (afterNewer !== item.clientId) {
+                afterNewer = item.clientId
+                await exclusive(s, () => undefined)
                 continue
             }
         }
@@ -1615,15 +1869,29 @@ async function flushQueue(
             const stillOut = !!earlier && flights(kv).get(key) === earlier
             if (stillOut)
                 outcome = { ok: false } // still no answer: try again later
-            else
+            else {
+                const request = Promise.resolve().then(() => send(item))
+                const tracked = request.then(async (answer) => {
+                    const revision = revisionFromAnswer(item, answer)
+                    if (revision != null)
+                        await rebaseQueuedRevisions(
+                            kv,
+                            s,
+                            item,
+                            revision,
+                            answer.ok,
+                        )
+                    return answer
+                })
                 try {
                     outcome = asOutcome(
                         await sendTracked(
                             kv,
                             item.judgeId,
                             item.clientId,
-                            send(item),
+                            tracked,
                             timeoutMs,
+                            thingKey(item),
                         ),
                     )
                 } catch (e) {
@@ -1633,8 +1901,15 @@ async function flushQueue(
                         report.signedOut = true
                         return report
                     }
+                    // An old page (a redeploy): nothing is wrong with the item or the network.
+                    // It waits, uncounted, until a reload sends it from the new page.
+                    if (isStaleBuild(e)) {
+                        report.staleBuild = true
+                        return report
+                    }
                     outcome = { ok: false }
                 }
+            }
         }
         // The session is over (a write action answers it as data): the same quiet end as a
         // navigation. Every item stays queued, nothing is dead-lettered or retried on a timer.
@@ -1673,7 +1948,10 @@ async function flushQueue(
         // other tab's write lands between the dead letter, the removal and the settling.
         const step = await exclusive(s, () => {
             let dead = false
-            if (result === "dead" && item.kind !== "draft") {
+            if (
+                result === "dead" &&
+                (item.kind !== "draft" || outcome.code === "StaleWrite")
+            ) {
                 if (!addDead(kv, s, item, outcome, nowIso())) {
                     countAttempt(kv, s, item.clientId, (item.attempts ?? 0) + 1)
                     return { unkept: true as const }
@@ -1737,6 +2015,17 @@ function countAttempt(
     })
 }
 
+function clearWaitFor(kv: KV, s: OutboxScope, clientId: string) {
+    mutateQueue(kv, s, (items) => {
+        const at = items.findIndex((x) => x.clientId === clientId)
+        if (at < 0 || !items[at].waitFor) return null
+        const next = [...items]
+        const { waitFor: _waitFor, ...item } = next[at]
+        next[at] = item as OutboxItem
+        return next
+    })
+}
+
 // ── Sending now, or saving for later ──────────────────────────────────────────
 
 /** A server action's reply (ActionResult in app/judge/actions.ts). */
@@ -1747,6 +2036,91 @@ export interface ActionReply<T> {
     status?: number
     code?: string
     details?: Record<string, unknown>
+    revision?: number
+}
+
+function revisionFromAnswer(
+    write: OutboxWrite,
+    answer: ActionReply<unknown> | ActionOutcome,
+): number | undefined {
+    if (Number.isSafeInteger(answer.revision) && answer.revision! >= 0)
+        return answer.revision
+    if (!answer.ok && answer.code === "StaleWrite") {
+        const revision = answer.details?.revision
+        return Number.isSafeInteger(revision) && (revision as number) >= 0
+            ? (revision as number)
+            : undefined
+    }
+    if (!answer.ok || !("data" in answer) || !answer.data) return undefined
+    if (write.kind === "draft") {
+        const revision = (answer.data as { revision?: unknown }).revision
+        return Number.isSafeInteger(revision) && (revision as number) >= 0
+            ? (revision as number)
+            : undefined
+    }
+    if (write.kind === "evaluation") {
+        const revision = (
+            answer.data as { evaluation?: { revision?: unknown } }
+        ).evaluation?.revision
+        return Number.isSafeInteger(revision) && (revision as number) >= 0
+            ? (revision as number)
+            : undefined
+    }
+    return undefined
+}
+
+/**
+ * A draft or evaluation was answered with a project revision (`write` is what was sent): the
+ * writes queued after it were composed before that answer existed, so they still carry the older
+ * revision, and the server would refuse each one StaleWrite (a dead letter, in a single tab).
+ * They are moved on to the revision the answer named:
+ *  - the writes queued BEHIND it while it was out (`replacesClientId`), whatever it answered (a
+ *    StaleWrite names where the server really is); more than one can wait behind the same send
+ *    (a trailing draft and the evaluation);
+ *  - on a success only, every later write of the same table in the queue whose own revision is
+ *    older: a draft and the evaluation saved offline both carry the revision the screen knew at
+ *    the tap, the draft goes first and moves the server on, and the evaluation is then sent from
+ *    that revision, not the one it was composed on.
+ * A write ahead of it, a write of another table, one with no revision, or one that already holds a
+ * newer revision is left alone: the server's check is the guard against another tab's old copy.
+ */
+async function rebaseQueuedRevisions(
+    kv: KV,
+    s: OutboxScope,
+    write: OutboxWrite,
+    revision: number,
+    ok: boolean,
+) {
+    await exclusive(s, () =>
+        mutateQueue(kv, s, (items) => {
+            const sentAt = items.findIndex((x) => x.clientId === write.clientId)
+            const sentIsProjectWrite =
+                write.kind === "draft" || write.kind === "evaluation"
+            let changed = false
+            const next = items.map((item, at) => {
+                if (
+                    (item.kind !== "draft" && item.kind !== "evaluation") ||
+                    item.clientId === write.clientId ||
+                    item.revision === revision
+                )
+                    return item
+                const behind = item.replacesClientId === write.clientId
+                const later =
+                    ok &&
+                    sentIsProjectWrite &&
+                    sentAt >= 0 &&
+                    at > sentAt &&
+                    item.judgeId === s.judgeId &&
+                    item.projectId === write.projectId &&
+                    item.revision != null &&
+                    item.revision < revision
+                if (!behind && !later) return item
+                changed = true
+                return { ...item, revision }
+            })
+            return changed ? next : null
+        }),
+    )
 }
 
 /**
@@ -1754,6 +2128,7 @@ export interface ActionReply<T> {
  * letter. Anything else refused online is also kept as a dead letter for staff.
  */
 export const FIX_HERE = new Set([
+    "StaleWrite",
     "NotArrived",
     "IneligibleNomination",
     "NotesTooLong",
@@ -1783,6 +2158,8 @@ export type Delivery<T> =
               | "wrong-judge"
               | "behind"
               | "signed-out"
+          /** Set (only then) when the send threw because this page is an older build (isStaleBuild). */
+          staleBuild?: true
           /**
            * With why "signed-out": how the session ended. The write is kept; the caller leaves
            * for /login (signInPath) once it has seen that it was.
@@ -1839,12 +2216,20 @@ export async function deliver<T>(
         timeoutMs?: number
     },
 ): Promise<Delivery<T>> {
+    const activeId = activeWriteForThing(kv, s.judgeId, write)
     if (!opts.online || opts.behind) {
         const q = await exclusive(s, () =>
-            enqueueChecked(kv, s, write, opts.replaces),
+            enqueueChecked(kv, s, write, opts.replaces ?? activeId, activeId),
         )
         if (!q.saved) return { status: "unsaved", why: q.why }
         return { status: "queued", why: opts.online ? "behind" : "offline" }
+    }
+    if (activeId) {
+        const q = await exclusive(s, () =>
+            enqueueChecked(kv, s, write, opts.replaces ?? activeId, activeId),
+        )
+        if (!q.saved) return { status: "unsaved", why: q.why }
+        return { status: "queued", why: "behind" }
     }
     let r: ActionReply<T>
     // The older copy this write replaces must not replay while this one is out (a flush from the
@@ -1856,13 +2241,21 @@ export async function deliver<T>(
         )
     try {
         // Remembered as in flight: the queued copy isn't resent until this one answers.
+        const request = Promise.resolve().then(call)
+        const tracked = request.then(async (answer) => {
+            const revision = revisionFromAnswer(write, answer)
+            if (revision != null)
+                await rebaseQueuedRevisions(kv, s, write, revision, answer.ok)
+            return answer
+        })
         r = asOutcome(
             await sendTracked(
                 kv,
                 s.judgeId,
                 write.clientId,
-                call(),
+                tracked,
                 opts.timeoutMs ?? SEND_TIMEOUT_MS,
+                thingKey(write),
             ),
         )
     } catch (e) {
@@ -1876,6 +2269,14 @@ export async function deliver<T>(
             )
             if (!q.saved) return { status: "unsaved", why: q.why }
             throw e
+        }
+        if (isStaleBuild(e)) {
+            // An old page (a redeploy): the write is kept, and the screen is told to reload.
+            const q = await exclusive(s, () =>
+                enqueueChecked(kv, s, write, opts.replaces),
+            )
+            if (!q.saved) return { status: "unsaved", why: q.why }
+            return { status: "queued", why: "unreachable", staleBuild: true }
         }
         r = { ok: false }
     }
@@ -1896,6 +2297,11 @@ export async function deliver<T>(
         await exclusive(s, () => {
             settleDead(kv, s, write)
             if (replaces) removeQueued(kv, s, replaces)
+            // The evaluation carries the notes as they were at Submit: a draft of this table that
+            // is still waiting on the phone (saved offline, its retry not due yet) is older than it
+            // and, sent now, would be refused StaleWrite (a dead letter for a table that went fine).
+            if (write.kind === "evaluation")
+                dropQueuedDrafts(kv, s, write.projectId)
         })
         return { status: "sent", data: r.ok ? (r.data ?? null) : null }
     }

@@ -48,7 +48,7 @@ export interface HighlightListProps {
 
 /**
  * Suggestions from what was said. Each row: what it is, the verbatim quote with its time, heard
- * or "Not sure", and Keep / Edit / Remove (Remove leaves an Undo in place). Never a score, a rank
+ * or "Not sure", and Keep / Edit / Remove (Remove leaves an Undo in place). Never a verdict
  * or a winner: rows that read as a verdict are dropped before they render, and an edit that reads
  * as one is refused. A prize suggestion is a separate card: never pre-selected, it nominates only
  * when the judge taps Nominate.
@@ -123,7 +123,7 @@ export function HighlightList({
     function save(it: Highlight) {
         const t = draft.trim()
         if (!t) return
-        // The judge's own words, but a highlight still describes: a verdict (score, rank, winner) or a line aimed at the note-taker is refused.
+        // The judge's own words, but a highlight still describes: a verdict (a grade, a place, a winner) or a line aimed at the note-taker is refused.
         const why = refusedEdit(t)
         if (why) {
             setErr(why)

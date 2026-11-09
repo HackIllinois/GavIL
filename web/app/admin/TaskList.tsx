@@ -227,7 +227,7 @@ function TaskButtons({
                 <Button
                     size="sm"
                     variant="secondary"
-                    disabled={pending}
+                    pending={pending}
                     data-confirm-absent={t.id}
                     onClick={onConfirmAbsent}
                 >

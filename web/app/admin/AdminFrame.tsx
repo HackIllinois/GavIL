@@ -1,6 +1,12 @@
 "use client"
 
-import { useCallback, useMemo, useState, type ReactNode } from "react"
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type ReactNode,
+} from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { Brand, Button, InlineConfirm, Tabs, type TabItem } from "@/components"
 import type { RoundPhase } from "@/lib/api/types"
@@ -9,6 +15,7 @@ import {
     type AdminArea,
     type ConsoleRole,
 } from "@/lib/permissions"
+import { ThemeSwitch } from "../ThemeSwitch"
 import { AdminRunProvider, useAdminToast } from "./AdminRun"
 
 const AREAS: { id: AdminArea; label: string; href: string }[] = [
@@ -78,6 +85,17 @@ function Console({
     const current = areaFor(pathname)
     const [dirty, setDirty] = useState<string | null>(null)
     const [asking, setAsking] = useState<string | null>(null)
+    // The tab the judge just chose, until its page arrives. The route changes some time after the
+    // key press (router.push is async), and the tab bar moves focus with the selection only while
+    // the selection changes inside the key press: so the bar shows the chosen tab at once.
+    const [chosen, setChosen] = useState<AdminArea | null>(null)
+    useEffect(() => setChosen(null), [pathname])
+    useEffect(() => {
+        if (!chosen) return
+        // (a page that never arrives, offline: the bar goes back to the page that is open)
+        const t = setTimeout(() => setChosen(null), 5000)
+        return () => clearTimeout(t)
+    }, [chosen])
     const go = useCallback(
         (href: string) => {
             if (dirty) setAsking(href)
@@ -116,6 +134,7 @@ function Console({
                             <span>
                                 {email} · {role === "admin" ? "Admin" : "Staff"}
                             </span>
+                            <ThemeSwitch className="ad__logout" />
                             <form action="/auth/logout" method="post">
                                 <Button
                                     type="submit"
@@ -130,12 +149,15 @@ function Console({
                     </div>
                     <Tabs
                         items={items}
-                        value={current}
+                        value={chosen ?? current}
                         label="Admin sections"
                         panelPrefix="ad-panel-"
-                        onChange={(id) =>
+                        onChange={(id) => {
+                            // Unsaved edits: the console asks first and does not go yet, so the
+                            // bar stays where it is.
+                            if (!dirty) setChosen(id as AdminArea)
                             go(AREAS.find((a) => a.id === id)!.href)
-                        }
+                        }}
                     />
                 </div>
             </header>

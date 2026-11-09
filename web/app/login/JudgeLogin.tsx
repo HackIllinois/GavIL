@@ -1,7 +1,9 @@
 "use client"
 
 import { useActionState, useEffect } from "react"
-import { Button, ButtonLink, Icon } from "@/components"
+import { Button, ButtonLink, Icon, OfflineBanner } from "@/components"
+import { SIGNIN_OFFLINE } from "@/lib/copy"
+import { useOnline } from "@/lib/offline"
 import { DeskScan } from "./DeskScan"
 import { judgeAuth, type LoginState } from "./actions"
 
@@ -10,6 +12,9 @@ export function JudgeLogin({ next }: { next?: string }) {
     const [state, act, busy] = useActionState(judgeAuth, {
         step: "email",
     } as LoginState)
+    // Offline nothing can be emailed or checked: a notice says so and the buttons wait.
+    const online = useOnline()
+    const offNote = !online && <OfflineBanner>{SIGNIN_OFFLINE}</OfflineBanner>
     // Back to the placard that was scanned before signing in: a full navigation (see LoginState).
     const to = state.step === "signed-in" ? state.to : null
     useEffect(() => {
@@ -41,6 +46,7 @@ export function JudgeLogin({ next }: { next?: string }) {
                     It works once and expires in 15 minutes. Open it on this
                     phone.
                 </p>
+                {offNote}
                 <div className="gv-or">or type the code from the email</div>
                 <form action={act} className="gj-sent" noValidate>
                     <input type="hidden" name="next" value={next ?? ""} />
@@ -88,6 +94,7 @@ export function JudgeLogin({ next }: { next?: string }) {
                             variant="secondary"
                             block
                             loading={busy}
+                            disabled={!online}
                         >
                             {busy ? "Signing in…" : "Sign in with code"}
                         </Button>
@@ -110,6 +117,7 @@ export function JudgeLogin({ next }: { next?: string }) {
 
     return (
         <>
+            {offNote}
             <form action={act} className="gv-stack" noValidate>
                 <div className="gj-field">
                     <label htmlFor="email">Email</label>
@@ -146,12 +154,17 @@ export function JudgeLogin({ next }: { next?: string }) {
                     block
                     iconRight="arrow"
                     loading={busy}
+                    disabled={!online}
                 >
-                    {busy ? "Sending…" : "Email me a sign-in link"}
+                    {busy
+                        ? "Sending…"
+                        : state.failed === "send"
+                          ? "Try again"
+                          : "Email me a sign-in link"}
                 </Button>
             </form>
             <div className="gv-or">or</div>
-            <DeskScan />
+            <DeskScan disabled={!online} />
         </>
     )
 }

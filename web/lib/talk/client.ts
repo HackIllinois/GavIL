@@ -39,7 +39,11 @@ export class TalkHttpError extends Error {
         this.name = "TalkHttpError"
     }
     /** The failure receipt of a transcription that was counted but failed (502 / 413). */
-    get receipt(): { receipt: string; receiptExpiresAt?: string } | null {
+    get receipt(): {
+        receipt: string
+        receiptExpiresAt?: string
+        serverNow?: string
+    } | null {
         const r = this.details.receipt
         return typeof r === "string"
             ? {
@@ -47,6 +51,10 @@ export class TalkHttpError extends Error {
                   receiptExpiresAt:
                       typeof this.details.receiptExpiresAt === "string"
                           ? this.details.receiptExpiresAt
+                          : undefined,
+                  serverNow:
+                      typeof this.details.serverNow === "string"
+                          ? this.details.serverNow
                           : undefined,
               }
             : null

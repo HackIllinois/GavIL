@@ -147,7 +147,7 @@ export function JudgesTable({
                                                 <Button
                                                     size="sm"
                                                     variant="secondary"
-                                                    disabled={pending}
+                                                    pending={pending}
                                                     onClick={() =>
                                                         run(() =>
                                                             sendJudgeLink(
@@ -164,7 +164,7 @@ export function JudgesTable({
                                                 <Button
                                                     size="sm"
                                                     variant="ghost-danger"
-                                                    disabled={pending}
+                                                    pending={pending}
                                                     onClick={() =>
                                                         setAsking({
                                                             kind: "revoke",
@@ -180,7 +180,7 @@ export function JudgesTable({
                                                             size="sm"
                                                             variant="ghost-danger"
                                                             icon="zap"
-                                                            disabled={pending}
+                                                            pending={pending}
                                                             onClick={() =>
                                                                 setAsking({
                                                                     kind: "void",

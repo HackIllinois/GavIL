@@ -1,4 +1,4 @@
-<!-- @dsCard group="Screens" height=900 width=7330 page subtitle="Phone judge flow at 390px (Sarah Kim, Room 4217): walk to the table, the right-table check (and the name fallback), the consent script, Table talk, compare with recall, skip (busy), waiting for a table, My notes, time-up offline, Round 2 before it opens, and Round 2" -->
+<!-- @dsCard group="Screens" height=900 width=8620 page subtitle="Phone judge flow at 390px (Sarah Kim, Room 4217): walk to the table (and the memo waiting for the table just left), the right-table check (and the name fallback), the consent script, Table talk, older notes this phone kept, compare with recall, skip (busy), waiting for a table, My notes with the theme switch, time-up offline, a new version of the app, Round 2 before it opens, and Round 2" -->
 <!doctype html>
 <html lang="en" data-theme="night">
 <head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
@@ -31,6 +31,12 @@
   .wait__list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:var(--space-2)}
   .wait__list li{display:flex;align-items:center;justify-content:space-between;gap:var(--space-2);font:var(--type-body-sm);font-weight:500;color:var(--ink-soft)}
   .wait__list b{font:var(--type-body-strong);color:var(--ink)}
+  /* The first screen of the walk and the memo card under it; the notes this phone kept that are older than the saved ones; the end of My notes. */
+  .gj-fold{display:flex;flex-direction:column;gap:var(--space-3);flex:none}
+  .gj-memo{display:flex;flex-direction:column;gap:var(--space-2)}
+  .gj-older{white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink);font-weight:400}
+  .gj-stack-end{margin-top:auto;padding-top:var(--space-4);display:flex;flex-direction:column;align-items:stretch;gap:var(--space-2)}
+  .gj-stack-end__row{display:flex;justify-content:center}
 </style></head>
 <body class="gv-root">
 <div id="root"></div>
@@ -45,6 +51,9 @@
   var prizes=['Best UI/UX','Most Creative','Best Social Impact','Most Useless','Most Popular'];
   var FINALISTS=[{id:'p02',name:'EcoLens',path:'pro',table:'A17',nominations:9,href:'https://devpost.com/software/ecolens'},{id:'p01',name:'NeuralMesh',path:'pro',table:'A12',nominations:7,href:'https://devpost.com/software/neuralmesh'},{id:'p17',name:'CrisisMap',path:'general',table:'C05',nominations:6,href:'https://devpost.com/software/crisismap'},{id:'p10',name:'Lumen',path:'pro',table:'B07',nominations:4,href:'https://devpost.com/software/lumen'},{id:'p22',name:'Canopy',path:'general',table:'C21',nominations:3,href:'https://devpost.com/software/canopy'}];
   var noop=function(){};
+  // "1 of ~4": the total is an estimate (a skip, a team that left or another judge's visit changes it), so the sign says so, short. The tilde
+  // is for the eye only (aria-hidden); a screen reader hears "about". Never "5 of ~4": the estimate can lag behind the judge.
+  function pos(n,total){ return h(React.Fragment,null,n+' of ',h('span',{'aria-hidden':true},'~'),h('span',{className:'gv-sr'},'about '),Math.max(total,n)); }
   var notesBtn=h(G.Button,{variant:'ghost',icon:'notes',onClick:noop},'My notes');
   // A still can open scrolled to the part it is about (`at`: a selector), like a judge who scrolled there.
   function Scrolled(p){ var ref=React.useRef(); React.useLayoutEffect(function(){ var r=ref.current, t=p.at&&r&&r.querySelector(p.at); if(!t) return; var el=[r.querySelector('.gv-shell__body'),r.querySelector('.phone__scroll')].filter(function(x){ return x&&x.scrollHeight>x.clientHeight+1; })[0]; var top=r.querySelector('.gv-shell__top'), cover=top&&el.contains(top)?top.getBoundingClientRect().height:0; if(el) el.scrollTop=Math.max(0,t.getBoundingClientRect().top-el.getBoundingClientRect().top+el.scrollTop-cover-12); },[]); return h('div',{className:'phone',ref:ref},h('div',{className:'phone__scroll'},p.children)); }
@@ -76,15 +85,16 @@
   // NeuralMesh, EcoLens, comparison 1 (NeuralMesh vs EcoLens), PocketLab skipped, Atlas at time up (offline), comparison 2,
   // Round 1 complete: 3 projects, 2 comparisons.
   var P={
-    neuralmesh:{name:'NeuralMesh',table:'A12',label:'1 of 4',tracks:['Modal'],tagline:'Self-healing P2P mesh networking with RL routing.',desc:A.description,team:'Ana Ruiz, Dev Patel, Kim Lee',members:3,repo:'github.com/neuralmesh/core',commits:48,slug:'neuralmesh'},
-    pocketlab:{name:'PocketLab',table:'A20',label:'3 of 4',tracks:[],tagline:'A $12 oscilloscope from a phone and a microcontroller.',desc:'Turns a phone plus a cheap microcontroller into an oscilloscope and logic analyzer for intro EE labs.',team:'Sam Ortiz, Priya Nair, Jo Kim, Ben Wu',members:4,repo:'github.com/pocketlab/fw',commits:76,slug:'pocketlab'},
-    atlas:{name:'Atlas',table:'A22',label:'4 of 4',tracks:[],tagline:'Indoor maps from a 30-second phone walkthrough.',desc:'Walk a building with your phone for 30 seconds and Atlas builds a navigable indoor map with room labels.',team:'Theo Grant, Lia Novak, Max Ortiz',members:3,repo:'github.com/atlas-maps/atlas',commits:95,slug:'atlas'}
+    neuralmesh:{name:'NeuralMesh',table:'A12',label:pos(1,4),tracks:['Modal'],tagline:'Self-healing P2P mesh networking with RL routing.',desc:A.description,team:'Ana Ruiz, Dev Patel, Kim Lee',members:3,repo:'github.com/neuralmesh/core',commits:48,slug:'neuralmesh'},
+    pocketlab:{name:'PocketLab',table:'A20',label:pos(3,4),tracks:[],tagline:'A $12 oscilloscope from a phone and a microcontroller.',desc:'Turns a phone plus a cheap microcontroller into an oscilloscope and logic analyzer for intro EE labs.',team:'Sam Ortiz, Priya Nair, Jo Kim, Ben Wu',members:4,repo:'github.com/pocketlab/fw',commits:76,slug:'pocketlab'},
+    atlas:{name:'Atlas',table:'A22',label:pos(4,4),tracks:[],tagline:'Indoor maps from a 30-second phone walkthrough.',desc:'Walk a building with your phone for 30 seconds and Atlas builds a navigable indoor map with room labels.',team:'Theo Grant, Lia Novak, Max Ortiz',members:3,repo:'github.com/atlas-maps/atlas',commits:95,slug:'atlas'}
   };
   function link(href,text){ return h('a',{className:'gv-link gv-link--block',href:href,target:'_blank',rel:'noopener'},h('span',null,text),h(G.Icon,{name:'external'})); }
   function evalScreen(opts){
     var p=opts.p;
     return h(G.JudgeShell,{right:notesBtn,offline:opts.offline,queued:opts.queued,recording:opts.recording,timer:h(G.TimerBar,{secondsLeft:opts.left,totalSeconds:7200,haptics:false}),
       footer:h(G.ActionBar,null,opts.left===0?null:h(G.Button,{variant:'ghost',icon:'skip',onClick:noop},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',block:opts.left===0,disabled:!!opts.locked,onClick:noop},opts.left===0?'Submit final evaluation':'Submit evaluation'))},
+      opts.top,
       h(G.Wayfinding,{room:'4217',table:p.table,label:p.label,onMap:noop}),
       h(G.TableCheck,Object.assign({project:{name:p.name,table:p.table,team:p.team},room:'4217',state:'matched',via:'scan',onName:noop,onMap:noop},opts.check||{})),
       h(G.ProjectHeader,{as:'h1',name:p.name,path:'pro',table:p.table,room:'4217',tracks:p.tracks,showLocation:false,eyebrow:'Now judging',tagline:p.tagline}),
@@ -95,6 +105,7 @@
       h(G.Garland,null),
       opts.talk!==false&&h(G.TableTalk,Object.assign({state:'idle',project:p.name,onAsk:noop},opts.talk||{})),
       opts.talk!==false&&h(G.DemoStatus,{defaultValue:opts.demo,suggested:opts.demoSuggested,disabled:!!opts.locked,lockedReason:opts.locked?'Check the table first: scan its placard or type its code.':null}),
+      opts.older,
       h(G.NotesField,{defaultValue:opts.note,status:opts.noteStatus,disabled:!!opts.locked}),
       h(G.NominationPicker,{prizes:prizes,defaultSelected:opts.noms||[],disabled:!!opts.locked,hint:opts.hint||'Nominate only standouts. About 1 in 5 projects per prize.'}),
       opts.overlay);
@@ -102,9 +113,19 @@
   var s3=evalScreen({p:P.neuralmesh,left:4488,note:'Demo worked live. Strong RL story; UI rough.',noms:['Most Creative']});
   // The walk: the table on a hero signpost, who to look for. Nothing can be judged yet.
   var sWalk=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:4495,totalSeconds:7200,haptics:false}),footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',icon:'skip',onClick:noop},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',onClick:noop},'I\u2019m at the table'))},
-    h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:'Next table \u00b7 1 of 4'}),
+    h(G.TableProgress,{tone:'plaque',done:0,total:4,current:true,label:h(React.Fragment,null,'Next table \u00b7 ',pos(1,4))}),
     h('h1',{className:'gv-sr'},'Head to Table A12 in Room 4217: NeuralMesh.'),
     h(G.EnRoute,{table:'A12',room:'4217',label:'Room 4217 \u00b7 Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:'NeuralMesh',team:'Ana Ruiz, Dev Patel, Kim Lee'},onMap:noop}));
+  // The walk to the second table after a first table whose recording was used up: a memo about the table just left is waiting. The cue sits
+  // between the plaque and the signpost; the memo card is the next block and starts below the first screen (the status region says it once).
+  var sMemo=h(G.JudgeShell,{right:notesBtn,timer:h(G.TimerBar,{secondsLeft:4380,totalSeconds:7200,haptics:false}),footer:h(G.ActionBar,null,h(G.Button,{variant:'ghost',icon:'skip',onClick:noop},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow',onClick:noop},'I\u2019m at the table'))},
+    h('div',{className:'gj-fold'},
+      h(G.TableProgress,{tone:'plaque',done:1,total:4,current:true,label:h(React.Fragment,null,'Next table \u00b7 ',pos(2,4))}),
+      h('span',{className:'gv-sr gj-memo__said',role:'status'},'A memo about NeuralMesh is below.'),
+      h(G.Button,{variant:'secondary',size:'lg',block:true,icon:'mic',iconRight:'chevron',className:'gj-memo__cue',onClick:noop},'Memo \u00b7 NeuralMesh'),
+      h('h1',{className:'gv-sr'},'Head to Table A17 in Room 4217: EcoLens.'),
+      h(G.EnRoute,{table:'A17',room:'4217',label:'Room 4217 \u00b7 Siebel Center, 4th floor',hint:'Facing a placard, higher numbers are to your left.',project:{name:'EcoLens',team:'Maya Chen, Leo Brooks'},onMap:noop})),
+    h('div',{className:'gj-memo',id:'gj-memo-p01'},h('div',{className:'gv-step'},'Memo \u00b7 NeuralMesh'),h(G.TableTalk,{mode:'memo',project:'NeuralMesh',state:'memo',demo:true,onStart:noop})));
   // At the table, the wrong placard: notes, nominations, Table talk and Submit stay locked (Skip doesn't).
   var sCheck=evalScreen({p:P.neuralmesh,left:4470,note:'',locked:true,talk:{disabled:true},check:{state:'mismatch',defaultValue:'A14',result:{code:'A14',name:'LedgerLite',direction:'two tables to your right'}}});
   // The team agreed: Table talk records (the word Recording, the timer, the level, Mark this, Stop and delete). No live captions: nothing on screen repeats what is said.
@@ -115,6 +136,17 @@
   var sName=evalScreen({p:P.neuralmesh,left:4450,note:'',check:{state:'name',onName:undefined},talk:{disabled:true,lockedReason:'Scan the placard or type its code to use Table talk.'},hint:'Confirmed by name: nominations are held until staff check this table. Nominate only standouts.'});
   var nm=G.talk.extract(Object.assign({},G.talk.FIXTURES.p01)), nmItems=G.talk.toItems(nm).map(function(x,i){ return i<2?Object.assign({},x,{state:'kept'}):x; });
   var sReady=evalScreen({p:P.neuralmesh,left:4380,note:'Does: '+nmItems[0].text,demo:'ran_live',talk:{state:'ready',meta:'1:52 \u00b7 241 words',highlights:{defaultItems:nmItems},onDiscard:noop}});
+  // Another device saved newer notes for this table while this phone held its own: the phone's words are set aside (never sent over the newer ones)
+  // above the notes box, and the judge adds them to the saved notes or discards them. The notes box holds the saved notes.
+  var olderCard=h('div',{className:'gv-alert gv-alert--warn',role:'group','aria-label':'Older notes on this phone'},h(G.Icon,{name:'alert',size:'wide'}),
+    h('div',{className:'gv-stack'},h('div',null,h('b',null,'Notes from this phone are older than the saved ones'),h('p',null,'Another device saved newer notes for NeuralMesh, so these were not sent. Nothing is lost: add them to the saved notes, or discard them.'),h('p',{className:'gj-older'},'Demo ran live. Strong RL story; UI rough.'),h('p',null,'Nominated on this phone: Most Creative')),
+      h(G.Button,{variant:'secondary',size:'lg',onClick:noop},'Add them to my notes'),h(G.Button,{variant:'ghost',size:'lg',onClick:noop},'Discard them')));
+  var sOlder=evalScreen({p:P.neuralmesh,left:4300,note:'Saved from another device: the demo ran live and rerouted in about 2 s.',noms:['Best UI/UX'],older:olderCard});
+  // A deploy while this page was open: it is the version before, so nothing it sends can work until it reloads. The alert is the first thing on every screen of the app.
+  var staleCard=h('div',{className:'gv-alert gv-alert--warn',role:'alert','data-stale-build':''},h(G.Icon,{name:'alert',size:'wide'}),
+    h('div',{className:'gv-stack'},h('div',null,h('b',null,'A new version of Gav-IL is ready.'),h('p',null,'This page is from the version before it, so it can\u2019t send or check anything right now. Reload to carry on. Everything saved here stays on this phone and is sent after the reload.')),
+      h(G.Button,{variant:'secondary',size:'lg',onClick:noop},'Reload')));
+  var sStale=evalScreen({p:P.neuralmesh,left:4250,note:'Demo worked live. Strong RL story; UI rough.',noms:['Most Creative'],top:staleCard});
   // PocketLab's team is presenting to a sponsor: busy, no penalty, it comes back after the next table.
   var sBusy=evalScreen({p:P.pocketlab,left:2405,note:'',talk:false,overlay:h(G.SkipSheet,{project:'PocketLab',defaultReason:'busy',onCancel:noop,onSkip:noop})});
   // Every remaining table is taken: the judge waits, and the phone buzzes when one frees up.
@@ -145,7 +177,8 @@
       h('span',{className:'gv-row',style:{gap:'var(--space-1)'}},h(G.PathBadge,{path:x.p}),h(G.Badge,{mono:true},'Table '+x.t),x.nom.map(function(m){return h(G.Badge,{tone:'brand',icon:'star',key:m},m)})),
       !x.skipped&&x.recall&&h(G.RecallBlock,{rows:x.recall}),
       h('span',{className:'gv-note__body',style:x.recall?{whiteSpace:'pre-line',display:'-webkit-box',WebkitBoxOrient:'vertical',WebkitLineClamp:3,overflow:'hidden'}:undefined},x.skipped||x.note||'No notes yet.'),
-      !x.skipped&&h('span',{className:'gv-note__edit'},h(G.Icon,{name:'notes'}),'Tap to edit'));})));
+      !x.skipped&&h('span',{className:'gv-note__edit'},h(G.Icon,{name:'notes'}),'Tap to edit'));})),
+    h('div',{className:'gj-stack-end'},h('div',{className:'gj-stack-end__row'},h(G.ThemeSwitch,{defaultTheme:document.documentElement.getAttribute('data-theme')==='night'?'night':'sunset'})),h('div',{className:'gj-stack-end__row'},h(G.Button,{variant:'ghost',onClick:noop},'Sign out (Sarah Kim)'))));
 
   // Time is up at the last table, offline: the note is saved on the phone (not an error) and joins the queue the tag counts.
   var s8=evalScreen({p:P.atlas,left:0,offline:true,queued:2,note:'Last one. Clean demo; it ran on the venue Wi-Fi.',noteStatus:'local'});
@@ -171,7 +204,7 @@
     h(G.DeliberationBoard,{top:3,nominees:FINALISTS}));
 
   ReactDOM.createRoot(document.getElementById('root')).render(h('div',{className:'jj'},
-    Phone(1,'Check-in confirm',s1),Phone(2,'Countdown',s2),Phone(3,'Walk to the table',sWalk),Phone(4,'Wrong placard: A14',sCheck),Phone(5,'No placard: confirmed by name',sName),Phone(6,'Ask the team first',sConsent),Phone(7,'Right table · Table talk records',sTalk,'.gv-tt'),Phone(8,'Highlights: keep what\u2019s right',sReady,'.gv-tt'),Phone(9,'Compare with recall',s4),Phone(10,'Vote recorded: undo or next table',s5),Phone(11,'Skip: team is busy',sBusy),Phone(12,'All tables busy',sWait),Phone(13,'My notes (tap to edit)',s7),Phone(14,'Time is up, offline',s8),Phone(15,'Round 1 complete',s9),Phone(16,'Round 2 before it opens',s9b),Phone(17,'Round 2 ranking',s10)));
+    Phone(1,'Check-in confirm',s1),Phone(2,'Countdown',s2),Phone(3,'Walk to the table',sWalk),Phone(4,'Walk: a memo is waiting',sMemo),Phone(5,'Wrong placard: A14',sCheck),Phone(6,'No placard: confirmed by name',sName),Phone(7,'Ask the team first',sConsent),Phone(8,'Right table · Table talk records',sTalk,'.gv-tt'),Phone(9,'Highlights: keep what\u2019s right',sReady,'.gv-tt'),Phone(10,'Older notes on this phone',sOlder,'.gv-alert[role=group]'),Phone(11,'Compare with recall',s4),Phone(12,'Vote recorded: undo or next table',s5),Phone(13,'Skip: team is busy',sBusy),Phone(14,'All tables busy',sWait),Phone(15,'My notes: theme switch, Sign out',s7,'.gj-stack-end'),Phone(16,'Time is up, offline',s8),Phone(17,'A new version is ready',sStale),Phone(18,'Round 1 complete',s9),Phone(19,'Round 2 before it opens',s9b),Phone(20,'Round 2 ranking',s10)));
 })();
 </script>
 </body>

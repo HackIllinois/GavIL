@@ -141,7 +141,7 @@ export function StaffTable({
                                             <Button
                                                 size="sm"
                                                 variant="ghost-danger"
-                                                disabled={pending}
+                                                pending={pending}
                                                 onClick={() =>
                                                     setRemoving(s.email)
                                                 }

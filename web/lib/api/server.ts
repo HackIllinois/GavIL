@@ -1,7 +1,7 @@
 import "server-only"
 import { cookies, headers } from "next/headers"
 import { redirect } from "next/navigation"
-import { assertOrigin, assertServerEnv, mockEnabled } from "../env"
+import { assertOrigin, assertServerConfig, mockEnabled } from "../env"
 import { SESSION_COOKIE } from "../auth/session"
 import { verifySessionCached } from "../auth/verify"
 import type { SessionPayload } from "./types"
@@ -60,7 +60,7 @@ async function ownOrigin(): Promise<string | null> {
  * GAVIL_MOCK_DEMO=1) throws here and at boot (instrumentation.ts): it never quietly serves either.
  */
 export async function getApi(): Promise<GavilApi> {
-    assertServerEnv()
+    assertServerConfig()
     const s = await getSession()
     if (mockEnabled()) return createMockApi(s?.payload ?? null)
     // A deployed build trusts only GAVIL_ORIGIN for its own origin, never the Host header.

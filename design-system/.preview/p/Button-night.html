@@ -1,4 +1,4 @@
-<!-- @dsCard group="Actions" height=470 -->
+<!-- @dsCard group="Actions" height=540 -->
 <!doctype html>
 <html lang="en" data-theme="night">
 <head><script>window.__gvErrors=[];addEventListener('error',function(e){__gvErrors.push(String(e.message||e.type))});addEventListener('unhandledrejection',function(e){__gvErrors.push('unhandled rejection: '+String(e.reason))});</script>
@@ -12,7 +12,7 @@
 <script>
 (function(){
   var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
-  root.render(h('div',{className:'gv-stack'},h(G.ActionBar,null,h(G.Button,{variant:'ghost',icon:'skip'},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow'},'Submit evaluation')),h(G.Card,null,h('div',{className:'gv-stack'},h('div',{className:'gv-row'},h(G.Button,null,'Confirm & start'),h(G.Button,{variant:'secondary',icon:'map'},'Floor plan'),h(G.Button,{variant:'ghost'},'Use a different email')),h('div',{className:'gv-row'},h(G.Button,{size:'sm',variant:'ghost-danger',icon:'flag'},'Escalate'),h(G.Button,{size:'sm',variant:'danger'},'Revoke'),h(G.Button,{size:'sm',variant:'secondary'},'Next')),h('div',{className:'gv-row'},h(G.Button,{loading:true},'Sending…'),h(G.Button,{disabled:true},'Pick a project')),h('div',{className:'gv-row'},h(G.Button,{variant:'wood',shape:'back',size:'sm'},'All applicants'),h(G.Button,{variant:'wood',icon:'code'},'Scan check-in QR'),h(G.Button,{variant:'wood',shape:'next'},'Next table'),h(G.Button,{variant:'wood',disabled:true},'Not yet'))))));
+  root.render(h('div',{className:'gv-stack'},h(G.ActionBar,null,h(G.Button,{variant:'ghost',icon:'skip'},'Skip'),h(G.Button,{size:'lg',iconRight:'arrow'},'Submit evaluation')),h(G.Card,null,h('div',{className:'gv-stack'},h('div',{className:'gv-row'},h(G.Button,null,'Confirm & start'),h(G.Button,{variant:'secondary',icon:'map'},'Floor plan'),h(G.Button,{variant:'ghost'},'Use a different email')),h('div',{className:'gv-row'},h(G.Button,{size:'sm',variant:'ghost-danger',icon:'flag'},'Escalate'),h(G.Button,{size:'sm',variant:'danger'},'Revoke'),h(G.Button,{size:'sm',variant:'secondary'},'Next')),h('div',{className:'gv-row'},h(G.Button,{loading:true},'Sending…'),h(G.Button,{disabled:true},'Pick a project')),h('div',{className:'gv-row'},h(G.Button,{loading:true,pending:true},'Saving…'),h(G.Button,{variant:'secondary',pending:true},'Cancel')),h('div',{className:'gv-row'},h(G.Button,{variant:'wood',shape:'back',size:'sm'},'All applicants'),h(G.Button,{variant:'wood',icon:'code'},'Scan check-in QR'),h(G.Button,{variant:'wood',shape:'next'},'Next table'),h(G.Button,{variant:'wood',disabled:true},'Not yet'))))));
 })();
 </script>
 </body>

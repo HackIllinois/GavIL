@@ -18,7 +18,7 @@ import type {
     TableCheckResult,
     TableCheckState,
 } from "@/components"
-import { parseArrivalCode } from "./judging"
+import { GRACE_SECONDS, parseArrivalCode } from "./judging"
 import type { HighlightRow, RecallRows } from "./talk/highlights"
 import { CONCERN_LABEL, recallOf } from "./talk/highlights"
 import type { TalkGate, TalkState } from "./talk/session"
@@ -538,8 +538,12 @@ export interface WatchedRanking {
 export type Round2Left =
     /** Sent: the screen shows exactly this order as the judge's ("Your order: …"). */
     | { kind: "sent"; order: string[] }
-    /** Refused: the board opens again in the order the judge tried, with the reason. */
-    | { kind: "refused"; order: string[]; error: string }
+    /**
+     * Refused: the board opens again in the order the judge tried, with the reason. `code` is the
+     * server's (Round2Closed: deliberation closed while the ranking waited, so there is no board
+     * to open again).
+     */
+    | { kind: "refused"; order: string[]; error: string; code?: string }
 
 /**
  * What happened to the watched ranking once it left the queue (null: nothing was watched). The
@@ -554,8 +558,66 @@ export function round2Left(
     if (!watched) return null
     const refused = dead.find((d) => d.item.clientId === watched.clientId)
     return refused
-        ? { kind: "refused", order: watched.order, error: refused.error }
+        ? {
+              kind: "refused",
+              order: watched.order,
+              error: refused.error,
+              ...(refused.code ? { code: refused.code } : {}),
+          }
         : { kind: "sent", order: watched.order }
+}
+
+// ── Round 2 as the judge meets it on the Round 1 complete screen ──────────────
+
+/** Where Round 2 is: not yet open (nominations still close), open, or over (deliberation closed). */
+export type Round2State = "soon" | "open" | "over"
+
+/**
+ * Round 2 opens when nominations close: Round 1's end plus the grace window. After deliberation
+ * closes (phase "closed") it is over. Judged on the server's phase and the clock, so a Round 1
+ * complete screen that stays open says the right thing later (it used to say "opens at" for ever).
+ */
+export function round2StateOf(
+    round: { endsAt: string; phase: string },
+    nowMs: number,
+): Round2State {
+    if (round.phase === "closed") return "over"
+    return nowMs >= Date.parse(round.endsAt) + GRACE_SECONDS * 1000
+        ? "open"
+        : "soon"
+}
+
+// ── Notes kept on the phone ───────────────────────────────────────────────────
+
+/**
+ * `a`, a blank line, then `b`: two versions of one set of notes put together, none dropped. Words
+ * that are already in `a` are not added a second time.
+ */
+export function notesJoined(a: string, b: string): string {
+    const x = a.replace(/\s+$/, "")
+    const y = b.trim()
+    if (!y || x.includes(y)) return a
+    return x ? `${x}\n\n${y}` : y
+}
+
+/**
+ * Is the notes draft this phone kept older than what the server has? The phone writes every edit
+ * with the revision the page knew when the judge typed ("based on revision N"). When the server
+ * is past that, another tab or device has saved since, and sending the phone's words as the
+ * current revision would replace the newer ones without a StaleWrite. The same words are never a
+ * difference. A draft from before revisions were kept counts as based on revision 0, so it is
+ * older once the server has been written to at all.
+ */
+export function draftIsOlder(
+    local: { notes: string; nominations: string[]; revision?: number },
+    server: { notes: string; nominations: string[]; revision: number },
+): boolean {
+    if (
+        JSON.stringify([local.notes, local.nominations]) ===
+        JSON.stringify([server.notes, server.nominations])
+    )
+        return false
+    return (local.revision ?? 0) < server.revision
 }
 
 // ── A button's "Sending…" ─────────────────────────────────────────────────────
@@ -1104,7 +1166,7 @@ interface Scope {
 const demoKey = (s: Scope, projectId: string) =>
     `gavil:demo:v1:${s.eventId}:${s.judgeId}:${projectId}`
 
-/** The judge's own demo tap at this table, kept for a reload (a fact, never a score). */
+/** The judge's own demo tap at this table, kept for a reload (a fact, never a grade). */
 export function readDemo(
     kv: KV,
     scope: Scope,
@@ -1262,6 +1324,18 @@ export function memoCandidates(
 const LEFT_MAX = 4
 const leftKey = (s: Scope) => `gavil:left:v1:${s.eventId}:${s.judgeId}`
 
+/**
+ * Said on window when the list of tables left changes in THIS tab. A write to sessionStorage fires
+ * no `storage` event in the tab that made it, and after Submit the next table's screen can mount
+ * before the old table is noted (the action's revalidatePath re-renders the keyed screen first),
+ * so the memo offer would wait for its 30 s tick.
+ */
+export const LEFT_EVENT = "gavil:left"
+function leftChanged() {
+    if (typeof window !== "undefined")
+        window.dispatchEvent(new Event(LEFT_EVENT))
+}
+
 function validLeft(x: unknown): x is LeftTable {
     if (!x || typeof x !== "object") return false
     const l = x as Record<string, unknown>
@@ -1305,6 +1379,7 @@ export function noteLeft(kv: KV, scope: Scope, l: LeftTable): void {
             leftKey(scope),
             JSON.stringify([l, ...rest].slice(0, LEFT_MAX)),
         )
+        leftChanged()
     } catch {
         /* a blocked store: no memo is offered, nothing else changes */
     }
@@ -1313,12 +1388,16 @@ export function noteLeft(kv: KV, scope: Scope, l: LeftTable): void {
 /** Forget one table (its memo was saved, or the judge dismissed it), or all of them (sign-out). */
 export function dropLeft(kv: KV, scope: Scope, projectId?: string): void {
     try {
-        if (!projectId) return kv.removeItem(leftKey(scope))
+        if (!projectId) {
+            kv.removeItem(leftKey(scope))
+            return leftChanged()
+        }
         const rest = readLeft(kv, scope, Date.now()).filter(
             (x) => x.projectId !== projectId,
         )
         if (rest.length) kv.setItem(leftKey(scope), JSON.stringify(rest))
         else kv.removeItem(leftKey(scope))
+        leftChanged()
     } catch {
         /* nothing to undo */
     }
@@ -1432,6 +1511,7 @@ export function compareProject(
         name: x.name,
         path: x.path,
         table: x.tableCode,
+        tagline: x.tagline,
         description: x.description,
         notes: x.notes,
         nominations: x.nominations,

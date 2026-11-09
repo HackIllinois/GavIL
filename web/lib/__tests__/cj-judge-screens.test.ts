@@ -312,9 +312,10 @@ describe("JudgeScreen: the frame of every judge screen", () => {
         await flush(0)
         const tag = $<HTMLButtonElement>("button.gv-rectag")!
         expect(tag).toBeTruthy()
-        expect(tag.getAttribute("aria-label")).toBe(
-            "Recording. Show the recorder",
-        )
+        // (named by its words, then what a screen reader needs; the ticking time is aria-hidden)
+        const named = tag.cloneNode(true) as HTMLElement
+        named.querySelectorAll("[aria-hidden]").forEach((n) => n.remove())
+        expect(named.textContent).toBe("Recording. Show the recorder")
         takeRecorderRequest() // nothing asked yet
         press(tag)
         // No recorder on this screen: the tag asks the evaluate page for it, and goes there.

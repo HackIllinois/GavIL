@@ -725,6 +725,7 @@ describe("F15 · drafts restore and pending comparisons are never skipped", () =
         expect((await judge("j1").judging.next()).draft).toEqual({
             notes: "hello",
             nominations: ["ux"],
+            revision: 1,
         })
         expect(n.prizes!.map((p) => p.id)).toContain("modal")
     })

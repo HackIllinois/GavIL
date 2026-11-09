@@ -1,0 +1,12 @@
+# ndemo working files (browser profile, cached narration, raw frames, renders) and composed videos
+.ndemo/
+audio/
+video-raw/
+.frames/
+frames/
+error-*.png
+filelist.txt
+combined-audio.mp3
+*.mp4
+compose/out/
+node_modules/

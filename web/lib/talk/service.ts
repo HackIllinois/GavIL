@@ -17,10 +17,9 @@
  *       bytes are; no type, or application/octet-stream, is judged by the bytes alone).
  *    c. the spend: one transcription, spend-or-refuse in one atomic step (the judge's 2 for this
  *       project and the event budget together), signed by this server (GAVIL_TALK_SECRET) right
- *       before the vendor call, with an attempt id that stays the same across retries of the
- *       same spend (a lost answer is asked again, and a phone-sent `attemptId` makes its own
- *       retry the same spend), so that a lost answer is not a second spend. A judge's own session
- *       can't spend (the talk context is read-only).
+ *       before the vendor call, with an attempt id reserved once. A duplicate reservation is
+ *       refused, so one counted slot cannot authorize concurrent vendor calls. A judge's own
+ *       session can't spend (the talk context is read-only).
  *    d. speech to text, with the server's duration (> 8:30 → 413), then a receipt over
  *       judgeId|projectId|visitId|mode|consentAt|sha256(segments)|durationSec|issuedAt. When the
  *       vendor fails (502) or the recording is too long (413) after the spend, the error carries
@@ -285,9 +284,9 @@ export interface RecordingForm {
      */
     queued?: boolean
     /**
-     * Form field `attemptId`: the phone's id for THIS recording, the same on every retry of its
-     * upload (a lost answer, a second tap). One id is one transcription counted, however many
-     * times it is sent (SpendClaims.attemptId); without one every upload is its own spend.
+     * Form field `attemptId`: the phone's id for THIS recording, stable across its retries. It
+     * reserves one transcription; a duplicate active spend is refused instead of authorizing a
+     * second vendor call. Without an id, every upload is its own spend.
      */
     attemptId?: string
     /** The audio and the type the phone declared for it. */
@@ -432,10 +431,9 @@ const uploadOpts = (form: RecordingFields) =>
         : {}
 
 /**
- * How many times a spend is asked again when its answer never arrives (adonix committed or not,
- * the response was lost or timed out): the phone queues nothing here, and a lost answer must not
- * cost a second slot. Every ask carries a fresh nonce and the SAME attempt id, and adonix answers
- * an attempt it has already counted with the original result (SpendClaims.attemptId).
+ * One immediate retry when the first spend request fails before an answer arrives. If adonix
+ * reserved the attempt but its answer was lost, the retry gets AttemptInProgress and cannot call
+ * the vendor a second time.
  */
 export const SPEND_ASKS = 2
 
@@ -445,10 +443,9 @@ export const SPEND_ASKS = 2
  * spent is a 429; a Claude call comes back `granted: false` with the reason.
  *
  * One intended spend has one attempt id (the phone's own when it sent one with the recording or
- * the highlights request, else made here) and every ask of it signs a new nonce: if the answer is
- * lost (a timeout, a dropped connection: anything but an answer from adonix) the spend is asked
- * again with the same attempt id instead of failing, and adonix returns the original result
- * rather than counting a second slot. An answer from adonix, a refusal included, is final.
+ * the highlights request, else made here). A fresh nonce signs each ask. Adonix atomically reserves
+ * that id for one active vendor call; any later ask is refused, even if the first answer was lost.
+ * If the first request never reached adonix, the retry reserves it normally.
  */
 async function spendFor(
     api: GavilApi,
@@ -478,9 +475,8 @@ async function spendFor(
         )
     /**
      * The vendor call for this attempt has run (it succeeded, or failed after the vendor got the
-     * request): tell adonix, so the attempt is consumed and asking again for it is refused
-     * instead of paying for a second vendor call with the same slot. Best effort: if this never
-     * arrives, SPEND_REPLAYS_MAX still bounds the free replays.
+     * request): tell adonix, so the attempt is consumed. If settle is lost, its reservation still
+     * blocks every duplicate until the attempt expires.
      */
     const settle = async () => {
         try {
@@ -492,7 +488,7 @@ async function spendFor(
                 settle: true,
             })
         } catch {
-            /* the slot is counted either way; see SPEND_REPLAYS_MAX */
+            /* The slot stays reserved even if settle cannot reach adonix. */
         }
     }
     for (let ask = 1; ; ask++) {
@@ -532,7 +528,7 @@ export async function transcribeForJudge(
     const type = checkAudio(form.audio)
     // The speech-to-text call is next: spend it (2 per judge × project, memo included, and the
     // event budget), or refuse (429). It re-checks everything the context did, atomically.
-    // (a lost answer is asked again with the same attempt id: counted once)
+    // (a retry can reserve only if the first request never reached adonix)
     const { spend: ctx, settle } = await spendFor(
         api,
         pre,
@@ -585,6 +581,7 @@ export async function transcribeForJudge(
             throw new ApiError(e.status, e.code, e.message, {
                 receipt: failed.receipt,
                 receiptExpiresAt: failed.expiresAt,
+                serverNow: new Date().toISOString(),
             })
         }
         throw e
@@ -607,5 +604,7 @@ export async function transcribeForJudge(
         ...t,
         receipt: signed.receipt,
         receiptExpiresAt: signed.expiresAt,
+        // (the expiry is on this clock: the phone reads it on its own)
+        serverNow: new Date().toISOString(),
     }
 }

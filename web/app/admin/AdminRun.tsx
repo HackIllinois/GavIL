@@ -91,12 +91,30 @@ export function AdminRunProvider({
  * Run a server action and show its answer in the toast. `pending` is true while it runs (buttons
  * disable themselves with it). `after` runs with the answer, for what only this screen does (clear
  * a field, close a confirm).
+ *
+ * A control that is disabled with `pending` (the room, role and opted-out-team selects) loses
+ * focus to <body> the moment it is: the control that ran the action is remembered and focused
+ * again once the answer is in, but only if focus is still nowhere. A control the admin moved on to,
+ * one the answer removed (Approve becomes Undo), and a tap that focused nothing are left alone.
  */
 export function useAdminRun() {
     const ctx = useContext(Ctx)
     const [pending, start] = useTransition()
+    const ran = useRef<HTMLElement | null>(null)
+    useEffect(() => {
+        if (pending) return
+        const el = ran.current
+        ran.current = null
+        if (!el || !el.isConnected || (el as HTMLSelectElement).disabled) return
+        const now = document.activeElement
+        if (now && now !== document.body) return
+        el.focus({ preventScroll: true })
+    }, [pending])
     const run = useCallback(
         (fn: () => Promise<AdminResult>, after?: (r: AdminResult) => void) => {
+            const a = document.activeElement
+            ran.current =
+                a instanceof HTMLElement && a !== document.body ? a : null
             start(async () => {
                 const r = await fn()
                 ctx?.say(

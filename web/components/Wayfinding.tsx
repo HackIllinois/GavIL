@@ -19,8 +19,8 @@ export interface WayfindingProps {
     /** The table: the inline sign says "Table A12" and rides the room in its label. */
     table?: string | number
     size?: "inline" | "hero"
-    /** Hero: the top board. Inline: the small line above the value. */
-    label?: string
+    /** Hero: the top board. Inline: the small line above the value (text, or markup that reads short: "1 of ~12"). */
+    label?: ReactNode
     /** Hero: the line under the signpost. */
     hint?: ReactNode
     /** Hero: the word on the arrows before the value (default "Room"; EnRoute says "Table"). */
@@ -198,9 +198,19 @@ function HeroSign(p: WayfindingProps) {
  */
 export function Wayfinding(p: WayfindingProps) {
     if (p.size === "hero") return <HeroSign {...p} />
-    const k = p.table
-        ? ["Room " + p.room, p.label].filter(Boolean).join(" · ")
-        : (p.label ?? "Go to")
+    const k = p.table ? (
+        <>
+            {"Room " + p.room}
+            {p.label ? (
+                <>
+                    {" · "}
+                    {p.label}
+                </>
+            ) : null}
+        </>
+    ) : (
+        (p.label ?? "Go to")
+    )
     return (
         <div className="gv-way">
             <span className="gv-way__icon">

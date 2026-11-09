@@ -4,7 +4,7 @@
  * turned into the KeptHighlight list an evaluation stores, and the Recall rows on the Compare
  * cards and in My notes. Port of toItems / fallbackOf / recallOf in design-system/components/bundle.js.
  *
- * A highlight DESCRIBES: it is never a score, a rank or a winner. The server has already dropped
+ * A highlight DESCRIBES: it is never a verdict or a winner. The server has already dropped
  * verdict language; the helpers here drop it again before anything reaches the screen (a stored
  * row, an edit that got past the form), and refuse a judge's edit that reads as one.
  */
@@ -101,7 +101,7 @@ export const reads = {
     steering: (s: string | null | undefined) => !!s && INJECTION.test(s),
 }
 
-/** An edit the judge made that is refused: it scores, ranks or addresses the note-taker. */
+/** An edit the judge made that is refused: it passes a verdict or addresses the note-taker. */
 export function refusedEdit(text: string): string | null {
     if (reads.verdict(text) || reads.steering(text))
         return "That reads like a verdict. Say what was shown or said instead."

@@ -1,6 +1,6 @@
 # Gav-IL: judging platform design doc
 
-HackIllinois 2027 · Owners: Jacob Edley, Aritro Bhattacharjee · Status: **Draft for review** · 2026-10-21
+HackIllinois 2027 · Owners: Jacob Edley, Aritro Bhattacharjee · Status: **Draft for review** (the app runs end to end on a mock adonix; the adonix routes are specified, not built) · 2026-10-22
 
 Interactive design system and clickable prototypes: https://claude.ai/artifact/Ttwy6mbJjbjfLXHnnemVAk (private until shared)
 
@@ -11,13 +11,14 @@ Interactive design system and clickable prototypes: https://claude.ai/artifact/T
 | Question | Answer |
 |---|---|
 | What are we building? | A phone-first app for judges and a desktop admin console. It runs Round 1 (in-person pairwise judging plus prize nominations), Round 2 (deliberations per prize), anti-cheat review, and the admin side of Admissions and Reimbursements. |
-| How will it run? | **Next.js 15 (App Router) + React 19 + TypeScript**, deployed to **Cloudflare via OpenNext**, the same stack as `HackIllinois/site` and `admin-site`. The code goes in the empty `HackIllinois/GavIL` repo. |
-| Where does data live? | In **adonix** (Express + MongoDB). We extend its existing `judge` service with judging routes (queue, evaluations, votes, flags, rounds) and call them through a client generated from adonix's OpenAPI spec, as `admin-site` already does. |
-| Auth | **Judges:** passwordless. A one-tap sign-in link or a 6-digit code by email, or a single-use QR that staff generate for that judge at the check-in desk. This builds on adonix's existing sponsor email-code flow, with a new `JUDGE` role. **Staff and admins:** adonix's existing Google login, limited to `@hackillinois.org`, with `STAFF`/`ADMIN` roles. Judge sessions are tied to the event, last until the event ends, and can be revoked at once. |
-| Algorithm | Gavel-style pairwise comparison: each judge compares the project they just saw with the one before it, and a Thurstone model (the math from the Figma mock's `gavel.ts`) turns those votes into a ranking. The queue runs per room, with a coverage floor of 2 views per project, an atomic lease so no two judges are sent to the same table at once, a conflict list, and a hold on high-confidence flags. Room rankings feed a Pro and a General final in Round 2, so projects from different rooms are compared by people, not by an unconnected model. Round 2 opens at Round 1's end plus the 15-minute grace, and the finalist set is frozen from that moment. |
-| Right-table check | Every table gets a printed placard with a **room-qualified code** (the room letter + the 2-digit table number, e.g. `A12` = Room 4217, table 12), a **2-character check printed only on the placard** (`A12 · K7`) and a QR that encodes the **table**, never the project. The judge scans it, or types the code and the check, before notes, nominations and Submit open. A mismatch names the project that is really at that code. A code the app shows proves nothing, so the proof has to come off the placard (§4.1). |
-| Table talk | **Off by default per event** until counsel signs off. With the team's spoken yes, the judge's phone records the table conversation: the audio is never stored, nobody's voice is identified, and the transcript becomes **descriptions** the judge keeps in their own notes. If the team says no, the judge dictates a private memo of their own voice after leaving the table. Highlights never score, rank or nominate (§4.2). |
+| How will it run? | **Next.js 16 (App Router) + React 19 + TypeScript**, deployed as one Cloudflare Worker through **OpenNext**, the same deploy target as `HackIllinois/site` and `admin-site`. The code goes in the empty `HackIllinois/GavIL` repo. Production (headers, nonce CSP, health check, secrets) is §6.1. |
+| Where does data live? | In **adonix** (Express + MongoDB). We extend its existing `judge` service with judging routes (queue, evaluations, votes, flags, rounds). Every route is written down in `web/lib/api/CONTRACT.md`, and the app calls them through a typed client (`lib/api/client.ts`) that a mock implements, so everything runs before adonix has the routes. Once adonix's OpenAPI lists them the client can be generated, as `admin-site` does. |
+| Auth | **Judges:** passwordless. A one-tap sign-in link or a 6-digit code by email, or a single-use QR that staff generate for that judge at the check-in desk. This builds on adonix's existing sponsor email-code flow, with a new `JUDGE` role. **Staff and admins:** adonix's existing Google login, limited to `@hackillinois.org`, with `STAFF`/`ADMIN` roles. Judge sessions are tied to the event, last until the event ends, can be revoked at once, and are verified on every request with adonix's shared JWT secret (§7). |
+| Algorithm | Gavel-style pairwise comparison: each judge compares the project they just saw with the one before it, and a Thurstone model (the math from the Figma mock's `gavel.ts`) turns those votes into a ranking. The queue runs per room, with a coverage floor of 2 views per project, an atomic lease so no two judges are sent to the same table at once, a conflict list, and a hold on high-confidence flags. Room rankings feed a Pro and a General final in Round 2, so projects from different rooms are compared by people, not by an unconnected model. Round 2 opens at Round 1's end plus the 15-minute grace, the finalist set is frozen from that moment, and a ranking counts only if the server receives it before deliberation closes (§9). |
+| Right-table check | Every table gets a printed placard with a **room-qualified code** (the room letter + the 2-digit table number, e.g. `A12` = Room 4217, table 12), a **2-character check printed only on the placard** (`A12 · K7`) and a QR that encodes the **table**, never the project. The judge scans it, or types the code and the check, before notes, nominations and Submit open. A mismatch names the project that is really at that code. A code the app shows proves nothing, so the proof has to come off the placard. The proof is still weak (a photo of a placard proves only that someone saw it), so staff get review signals instead of a block (§4.1). |
+| Table talk | **Off by default per event** until counsel signs off. With the team's spoken yes, the judge's phone records the table conversation: the audio is never stored, nobody's voice is identified, and the transcript becomes **descriptions** the judge keeps in their own notes. If the team says no, the judge dictates a private memo of their own voice after leaving the table. Highlights describe: they never compare, nominate or pick a winner (§4.2). |
 | Look | The HackIllinois 2027 brand, pushed toward rodeo / old west: wanted-poster paper cards, saloon wood bars, signpost wayfinding, rubber-stamp statuses, sheriff-star completion, and rosette rankings. Sources: the 2027 Figma Design System, Registration, Website and Theme Moodboard files. |
+| Where it stands | `web/` is a working app on a mock adonix: the judge flow, Table talk, placards, the admin console and the production pass (headers, CSP, health check, deploy scripts) are built and tested (counts in §11). Not built: the adonix routes themselves, real email delivery, a live challenge for the placard QR, and an offline cache beyond the outbox (§13, §15). |
 
 ---
 
@@ -33,7 +34,7 @@ From the Notion judging pages and the 2026 retro:
 **Goals for 2027**
 1. Every project is seen by at least 2 judges, and the admin console can show that live.
 2. A judge never has to ask "where do I go next?". The app always shows a room and table, and the placard proves the judge is at the right one (§4.1).
-3. Judging is fair and low-bias: pairwise comparisons, and no 1–10 scores in judging.
+3. Judging is fair and low-bias: pairwise comparisons, and no 1–10 scale anywhere in judging.
 4. Prize winners come from nominations plus a structured deliberation, not ad-hoc opt-ins.
 5. Flagged projects are held out until an admin decides, with the evidence on screen.
 6. It works on a phone, one-handed, in a loud room, on bad Wi-Fi.
@@ -99,35 +100,39 @@ Every screen is in the clickable **JudgePrototype** in the design-system artifac
 
 | # | Screen | What the judge sees and does | States designed |
 |---|---|---|---|
-| 1 | **Sign in** | "Howdy, judge." Enter email to get a one-tap link and a 6-digit code, or get a personal QR from staff at the desk. No password | Invalid email inline, sending, link sent, wrong code, too many tries, expired or already used link, offline (§7) |
-| 2 | **Check-in** | Name, path (Pro/General), Round 1 room, Round 2 prize, "How tonight works" in 3 steps | "Something's wrong" pings staff with the judge's name |
-| 3 | **Countdown** | Saloon-sign **room number** (huge), building and floor, floor-plan link, live countdown | Auto-advances at start, no refresh |
-| 4 | **En route** | Signpost: the room, the table code, who to look for ("NeuralMesh · Team: Ana, Dev, Kim") | "Can't find it?" after 3 min; the walk window running out (the table goes back to the queue, no penalty) |
+| 1 | **Sign in** | "Howdy, judge." Enter email to get a one-tap link and a 6-digit code, or get a personal QR from staff at the desk and scan it in the app ("Scan check-in QR"). No password | Invalid email inline, sending, link sent, wrong code, too many tries, expired or already used link, new sign-ins closed (frozen), offline (a notice; the send, code and desk-QR buttons wait), a send or a code check that failed (it says so, keeps what was typed and spends no try) (§7) |
+| 2 | **Check-in** | Name, path (Pro/General), Round 1 room, Round 2 prize, the projects you will not be sent to and why (a declared conflict, a team member at your company, your own sponsor track), "How tonight works" in 3 steps (4 when the event has Table talk on) | "Something's wrong" pings staff with the judge's name; "Not Sarah?" (the judge's own first name) signs out |
+| 3 | **Countdown** | Saloon-sign **room number** (huge), building and floor, floor-plan link, live countdown | Auto-advances at start, no refresh; staff can move the start, so the phone re-reads the round every 30 s, and a late arrival goes straight to its first table |
+| 4 | **En route** | Signpost: the room, the table code, who to look for ("NeuralMesh · Team: Ana, Dev, Kim"), and the table's place in the round ("Next table · 1 of ~4": the total is an estimate, so the sign says so). When a memo is offered about the table just left, a "Memo · NeuralMesh" button above the signpost scrolls to the memo card | "Can't find it?" after 3 min; the walk window running out (the table goes back to the queue, no penalty) |
 | 5 | **Right-table check** | One field: the code and the 2 characters after the dot ("A12 · K7"), or the camera on the placard's QR. Notes, nominations and Submit stay closed until it matches | Idle, scanning, checking, matched, mismatch, needs the check, wrong check (tries left), unknown code, offline, by name, locked, no camera, failed (§4.1) |
-| 6 | **Evaluate** | Signpost: room + table (+ map). Wanted-poster project header: path, tracks, name, tagline. Devpost / team / GitHub drawers. Private notes (autosave). Nominate chips (prizes). Pinned bar: **Skip** + **Submit evaluation** | Saving / saved / saved on phone (offline) / not saved + Retry; time up → "Submit final evaluation", Skip removed. The screen is locked until the right-table check passes |
+| 6 | **Evaluate** | Signpost: room + table (+ map). Wanted-poster project header: path, tracks, name, tagline. Devpost / team / GitHub drawers. Private notes (autosave). Nominate chips (prizes). Pinned bar: **Skip** + **Submit evaluation** | Saving / saved / saved on phone (offline) / not saved + Retry; time up → "Submit final evaluation", Skip removed; "Older notes on this phone" and "changed in another tab" (the typed notes stay). The screen is locked until the right-table check passes |
 | 7 | **Table talk** | A poster card on the Evaluate screen, between the project header and the notes: "Ask and record", the consent sheet, the recorder, then the highlights as chips the judge keeps | idle, consent, starting (waiting for the microphone), recording, paused, processing, ready, declined, retry, used up, memo, unsupported, denied, mic busy, offline queued, too noisy, failed, locked by admin (§4.2) |
 | 8 | **Skip sheet** | Reason required: team absent → re-queued for someone else; team busy → no penalty, back after one other table; can't find table → staff pinged, moved to the end of your queue; conflict → never shown to you again; something else → note required | Escape/Back cancel, focus trapped |
 | 9 | **Compare** (from 2nd project) | Two poster cards, the previous project ("Earlier") and this one ("Just now"), each with your notes and nominations. Pick one (no ties), **Confirm**, 8 s **Undo** | Opening My notes during undo keeps the vote |
-| 10 | **My notes** | Every project you judged or skipped (stamped JUDGED / SKIPPED), notes, nominations, vote count; editable until Round 1 ends. Sign out at the bottom | Empty state; sign-out confirm clears the phone |
+| 10 | **My notes** | Every project you judged or skipped (stamped JUDGED / SKIPPED), notes, nominations, vote count; editable until Round 1 ends. At the bottom: the "Night theme" switch, then Sign out | Empty state; sign-out confirm clears the phone |
 | 11 | **Waiting** | "Every remaining table is with another judge", and when the next one frees up | Waiting, waiting too long (ping staff), the last table's memo |
 | 12 | **Room map** | Floor plan sheet: your table highlighted, door orientation | Escape closes |
-| 13 | **Round 1 complete** | Sheriff star, counts, saloon sign for the Round 2 room and time | Round 2 opens at Round 1's end + the 15-minute grace |
-| 14 | **Round 2** | Rank finalists with ▲▼ (keyboard and screen-reader friendly), top 3 wear rosettes, "Below the line" divider; submit, then change | Closed until Round 1's end + the 15-minute grace; the finalist set is frozen when it opens. Announces every move |
+| 13 | **Round 1 complete** | Sheriff star, counts, saloon sign for the Round 2 room and time. The lede follows the clock: "Round 2 opens at 8:30 PM, when nominations close", then "Round 2 is open" with when the ranking is due, then "Round 2 has closed" (and Start Round 2 becomes Back to My notes) | Round 2 opens at Round 1's end + the 15-minute grace |
+| 14 | **Round 2** | Rank finalists with ▲▼ (keyboard and screen-reader friendly), top 3 wear rosettes, "Below the line" divider, a "Demo" link per finalist (its Devpost page, in a new tab); submit, then change. A finalist staff pulled after the opening is listed as pulled and cannot be ranked | Closed until Round 1's end + the 15-minute grace; the finalist set is frozen when it opens; "Round 2 is over" and the closed board after deliberation closes (a ranking the server receives after the close is refused, even one queued offline earlier). Announces every move |
 
 **Rules the app follows (from the design-system README):**
 - Phone first: 390 px wide, controls at least 48 px, text fields at 16 px so iOS doesn't zoom.
 - The timer and the action bar stay pinned while the content scrolls.
 - Screen readers hear time thresholds (10 min, 2 min, time up), never every tick.
-- Offline: notes, evaluations and votes are kept on the phone and sent on reconnect. The banner shows on every judging screen. (The prototype simulates this; the real outbox is a milestone, §13.)
+- Offline: notes, evaluations, skips, votes and the Round 2 ranking are kept on the phone and sent on reconnect, in order, by a per-judge outbox (§6). The banner shows on every judging screen, and says "saved on this phone" only when the phone can really keep a write.
 - The right-table check gates the screen: notes, nominations and Submit stay closed until the placard matches (§4.1).
-- Nothing on a judging screen rates or ranks. Judges nominate and compare (§2).
+- No judging screen asks for a number, a star count or a verdict. Judges nominate and compare (§2), and a test scans the app's words for the admissions term and for verdict verbs.
+- Older notes: when another device saved newer notes for a table while this phone held its own, the phone's words are set aside, never sent over the newer ones, and shown above the notes box ("Add them to my notes" or "Discard them"). Submit, or a skip for good, asks first while they are undecided.
+- A new version: after a deploy an open page is still the old build and cannot send or check anything. Every screen shows "A new version of Gav-IL is ready" with a Reload button. Nothing was lost (every write was saved on the phone first), nothing counts as a failed attempt and no retry timer runs meanwhile. Deploys happen between rounds (§6.1).
+- Timers never turn a flaky connection into the browser's offline page: the wait screen, the countdown, the compare screen and the admin auto-refresh skip a refresh while offline and ask `/api/health` first (§6).
+- Night theme: a "Night theme" switch on My notes and in the admin header (§11).
 
 **What we changed from the Figma mock** (full inventory in `docs/research/figma-mock-inventory.md`):
 
 | Mock | Problem | Ours |
 |---|---|---|
 | The demo magic link "arrives" after a 2 s timer; any email works | No real auth | Emailed link or code through adonix, plus the desk QR (§7) |
-| Fixed queue that wraps forever; scores reset when it wraps | Projects are re-judged and compared with themselves | Server queue per room: unseen first, never repeats, ends cleanly |
+| Fixed queue that wraps forever; the rankings reset when it wraps | Projects are re-judged and compared with themselves | Server queue per room: unseen first, never repeats, ends cleanly |
 | No skip | Absent teams stall judges | Skip with a routed reason |
 | No undo | Mis-taps while walking | 8 s undo on votes |
 | 28 px icon buttons, 14 px textareas, hover-only edit | Fails on phones | 48 px targets, 16 px fields, no hover-only actions |
@@ -156,7 +161,7 @@ Every screen is in the clickable **JudgePrototype** in the design-system artifac
 
 **The QR and the `/t` swap.** `k = base64url(HMAC-SHA256(GAVIL_PLACARD_SECRET, eventId|code|check))`, the full 43-character tag. The secret lives in adonix.
 
-`GET /t/<CODE>?k=…` **never changes judging state**. It checks `k` with a read-only `POST /judging/placards/check/`, then swaps it for a signed, httpOnly, `SameSite=Lax` **scan grant** cookie (`gavil_scan`, path `/judge`, 120 s, single use) bound to the session and the table, and redirects to `/judge/evaluate?at=<CODE>&via=scan` **with no token in the URL**. The evaluate screen runs the check with **one** POST, and the arrive action takes `k` out of the grant. The grant is claimed before the call and given back if the call never reached the server. A signed-out scan waits in a signed cookie through sign-in, and `next=` never carries `k`.
+`GET /t/<CODE>?k=…` **never changes judging state**. It checks `k` with a read-only `POST /judging/placards/check/`, then swaps it for a signed, httpOnly, `SameSite=Lax` **scan grant** cookie (`gavil_scan`, path `/judge`, 120 s, single use) bound to the session and the table, and redirects to `/judge/evaluate?at=<CODE>&via=scan` **with no token in the URL**. The evaluate screen runs the check with **one** POST, and the arrive action takes `k` out of the grant. The grant is claimed before the call and given back if the call never reached the server. A signed-out scan waits in a signed cookie through sign-in, and `next=` never carries `k`. `/t/<CODE>` is rate limited to 600 requests a minute per verified session (per visitor IP before sign-in), generous enough for a venue behind one NAT address. The arrival's `clientId` comes from the grant's nonce, so adonix answers a replay as the same arrival.
 
 **The arrival API.** `POST /judging/visits/:id/arrive/` takes `{ judgeId, clientId, method: "scan" | "typed" | "name", code, check?, k? }`. The checks run in this order:
 1. `409 WrongJudge` if the body names another judge. A replayed `clientId` changes nothing.
@@ -172,13 +177,13 @@ Every screen is in the clickable **JudgePrototype** in the design-system artifac
 
 An unknown code says so: "No project is at A13", "There's no table D56", "Table codes start with A, B, C, D".
 
-**The name fallback is an attestation, not proof.** No placard, or it will not scan: the judge asks the team its name and taps "Yes, they're NeuralMesh". That opens the notes, but it is **recorded** (`arrivedBy: "name"`), it raises **one staff placard task** for that table, and that evaluation's **nominations are held** — the notes count for coverage, the nominations count for nothing until a scan or a typed check lands at that visit (within 10 minutes of the Submit) or staff press **Placard OK** on the task. A name check cannot file an absent report (`409 NeedsPlacard`) and cannot start Table talk (`409 PlacardRequired`).
+**The name fallback is an attestation, not proof.** No placard, or it will not scan: the judge asks the team its name and taps "Yes, they're NeuralMesh". That opens the notes, but it is **recorded** (`arrivedBy: "name"`), it raises **one staff placard task** for that table, and that evaluation's **nominations are held** — the notes count for coverage, the nominations count for nothing until a scan or a typed check lands at that visit (within 10 minutes of the Submit, from whatever screen the phone shows by then) or staff press **Placard OK** on the task. A name check cannot file an absent report (`409 NeedsPlacard`) and cannot start Table talk (`409 PlacardRequired`).
 
 **Staff tasks.** The Overview task list carries the floor's work: `absent`, `cant-find`, `placard`, `help`, `skip-note`. **Placard OK** confirms the placard and releases the held nominations; **Restore** puts a team back; **Confirm absent** keeps it held. The placards print from `GET /judging/admin/placards/`: every table in every room's range with its code, check, room and QR.
 
 **Two-phase visits.** The lease starts **en route** (4 minutes, never extended; when it runs out the table goes back to the queue with no penalty, no skip, no absent report and no staff task) and becomes **at table** (10 minutes, renewed while the evaluate screen is open) when the check matches.
 
-**What it does not prove.** A photo of a placard proves that someone saw that placard, not that the judge is standing there now. Two signals watch for abuse: proofs in two different rooms under 60 seconds apart with no staff room move between them, and two or more proofs with no time to walk. Rotating the checks per round (a reprint) is the stronger fix if it is ever needed.
+**What it does not prove.** The QR is a weak attestation, and the contract says so. A photo of a placard proves that someone saw that placard, not that the judge is standing there now, and a typed check can be copied the same way. What limits it: a proof only ever counts for the judge's own leased table, and the Judges tab watches for abuse with two signals, proofs in two different rooms under 60 seconds apart with no staff room move between them, and two or more proofs with no time to walk. A scan the judge did not make by pointing a camera is at least recorded as such: a link opened signed out waits in a cookie and is posted by the sign-in that follows, the arrival then carries `carried: true`, and the Judges tab lists it as a visit signal. It blocks nothing and never flags a judge alone. What would make the proof strong is a live challenge that a photo cannot carry (a code the team's attendee app or staff show and rotate every minute, checked by adonix); it needs the attendee app and an adonix endpoint and is not built (§15). Rotating the checks per round (a reprint) is the other fix if it is ever needed.
 
 ### 4.2 Table talk
 
@@ -192,7 +197,7 @@ Two buttons: **Everyone agreed · start** and **Not this time**. Escape cancels 
 
 **The notice for teams** (`TEAM_NOTICE`), for the hacker guide and the back of the placard:
 
-> Judges may ask to take voice notes at your table. If you agree, the conversation is transcribed by Cloudflare and summarized by Anthropic for that judge's private notes. Anthropic gets the transcript, the judge's own typed notes and, from your Devpost entry, the project's name, tagline and sponsor tracks and your first names (no full names or emails). Anything said aloud, a full name included, is in the transcript. The audio isn't kept and no one's voice is identified. You can say no. It doesn't affect judging.
+> Judges may ask to take voice notes at your table. If you agree, the conversation is transcribed by Cloudflare and summarized by Anthropic for that judge's private notes. Anthropic gets the transcript, the judge's own typed notes, the times the judge tapped “mark this” and, from your Devpost entry, the project's name, tagline and sponsor tracks and your first names (no full names or emails). Anything said aloud, a full name included, is in the transcript. The audio isn't kept and no one's voice is identified. You can say no. It doesn't affect judging.
 
 **If the team says no.** Nothing is sent and nothing is stored; a decline is never recorded anywhere, so it can never bias the judge. After leaving the table the judge may tap **Dictate a memo**: their own voice, their own words, about the table they just left.
 
@@ -201,14 +206,14 @@ Two buttons: **Everyone agreed · start** and **Not this time**. Escape cancels 
 | Data | Where | How long |
 |---|---|---|
 | Audio | The phone only | Deleted once the transcript is back, at Submit or Skip, at sign-out, or at the end of Round 1. **Never on any server.** |
-| Transcript | The phone, and the outbox item that carries it | Gav-IL keeps none. If adonix ever keeps one for a dispute, it is a judge-only collection with a TTL of event end + 7 days |
+| Transcript | The phone, and the outbox item that carries it | Gav-IL keeps none. It leaves the phone when its receipt runs out (30 minutes, read on the server's clock); the typed notes stay. If adonix ever keeps one for a dispute, it is a judge-only collection with a TTL of event end + 7 days |
 | Transcript receipt | The phone | 30 minutes |
 | Highlights the judge kept | The evaluation | The notes' retention |
 | A decline | Nowhere | — |
 | Voices | Nowhere | No diarization, no speaker labels, no voice embeddings, ever |
 
 **Illinois.** Two laws are in play. This is general information, not legal advice.
-- **The Eavesdropping Act** (720 ILCS 5/14-2, amended by P.A. 98-1142): it is an offense to *surreptitiously* record a private conversation without the consent of all parties, and to use or disclose what an unlawful recording captured. Recording openly, with a visible indicator and every party's consent, removes the surreptitious element whether or not a table chat counts as a private conversation. `People v. Clark` (2014 IL 115776) struck down the 1994 all-party statute and pointed at loud, public talk as an example of conversation that is not private; that is a backstop, not the design basis. We still ask every time.
+- **The Eavesdropping Act** (720 ILCS 5/14-2, amended by P.A. 98-1142): it is an offense to *surreptitiously* record a private conversation without the consent of all parties, and to use or disclose what an unlawful recording captured. Recording openly, with a visible indicator and every party's consent, removes the surreptitious element whether or not a table chat counts as a private conversation. `People v. Clark` (2014 IL 115776) struck down the 1994 all-party statute and pointed at loud, public talk as an example of conversation that is not private; that is a backstop, not the design basis. We still get a yes every time: either the consent sheet at the table, or, for a team whose every member agreed on the submission form (`Project.recordingConsent`, decision #73), the judge says out loud that they're recording and taps **Everyone's okay · record** only once everyone at the table is okay with it; Stop and delete stays for anyone who changes their mind.
 - **BIPA** (740 ILCS 14/10) lists "voiceprint" as a biometric identifier. The suits against AI notetakers (Cruz v. Fireflies.AI, and the claims against Otter.ai) turn on speaker recognition and diarization. So: **no diarization, no speaker labels, no voice embeddings, and no matching voices across recordings.** Who said what is inferred from wording only, and "unknown" is allowed.
 - Sign-off from HackIllinois and UIUC counsel (or Student Legal Services) is required before the switch goes on, and the participant notice is theirs to approve.
 
@@ -223,7 +228,7 @@ Two buttons: **Everyone agreed · start** and **Not this time**. Escape cancels 
 | Validate | Server | The validator **drops and never repairs**: a quote that is not a verbatim run of the segment it names, a score, a rank, a verdict, an instruction, a self-advocacy, an off-roster name, an ineligible prize, an over-cap item |
 | Keep | The judge | Every suggestion is a chip, and only the items the judge keeps enter the notes. **A prize suggestion needs a verbatim quote and the judge's own tap**, and **Most Popular is never suggested** (a conversation cannot show it) |
 
-**Receipts, spend and quotas.** Every transcript the server returns is signed: the receipt binds the judge, the project, the visit, the mode, the consent time, the segments' hash and the duration, and lives 30 minutes. Highlights need that receipt with the very same segments, so a judge cannot present "the team said X" for a transcript the server never produced, or edit a real one. A vendor call is spent through a **server-signed, single-use, 60-second proof** that only the Gav-IL server holds, so a judge can never spend the event's money.
+**Receipts, spend and quotas.** Every transcript the server returns is signed: the receipt binds the judge, the project, the visit, the mode, the consent time, the segments' hash and the duration, and lives 30 minutes. Highlights need that receipt with the very same segments, so a judge cannot present "the team said X" for a transcript the server never produced, or edit a real one. A vendor call is spent through a **server-signed, single-use, 60-second proof** that only the Gav-IL server holds, so a judge can never spend the event's money. Each intended spend also carries an **attempt id** inside the proof. adonix reserves it for 15 minutes, so a retry after a lost answer is `409 AttemptInProgress` and buys no second vendor call; the Gav-IL server settles the attempt after the vendor call, and a consumed attempt cannot be asked for again.
 
 | Limit | Value |
 |---|---|
@@ -234,6 +239,8 @@ Two buttons: **Everyone agreed · start** and **Not this time**. Escape cancels 
 | Recording | 8:00 on the phone, 8:30 refused by the server |
 | Upload | 5 MB maximum, 1 KB minimum |
 | Memo window | 15 minutes after leaving the table |
+| Spend proof | Signed by the Gav-IL server, single use, good for 60 seconds |
+| Spend attempt | Reserved for 15 minutes |
 
 Before Claude highlights can be switched on, an admin records a **vendor-retention acknowledgement** (who and when, audited): zero data retention requested from Anthropic, only non-Covered models, and Cloudflare's DPA in hand. The Anthropic API deletes inputs and outputs within 30 days by default; Workers AI does not train on customer content.
 
@@ -265,10 +272,11 @@ The rule extractor is free, so the feature works with no Claude key at all.
 - Interrupted (the screen locked, the track ended): "Paused — tap to resume", and the saved chunks stay.
 - Storage low.
 - The event switch is off, or the team opted out: the recorder is not offered at all.
+- An admin switches Table talk off, or a team opts out, while a recording runs: the phone learns within seconds (it asks every 6 s while recording and every 30 s on a screen that shows Table talk), releases the microphone at once and says "Recording stopped. … Nothing was kept." on whatever screen the judge is on.
 
 Compare renders a recorded and an unrecorded project the same way, with the highlights collapsed, so a team that said no is never penalised.
 
-**The memo.** Only after leaving the table. A memo is refused while the judge is sitting at any table (`409 StillAtTable`: "the mic would pick up a team that never said yes"), and the window is 15 minutes from leaving. A memo is the judge's own voice, so it carries no presenters and no prize suggestions.
+**The memo.** Only after leaving the table. A memo is refused while the judge is sitting at any table (`409 StillAtTable`: "the mic would pick up a team that never said yes"), and the window is 15 minutes from leaving. A memo is the judge's own voice, so it carries no presenters and no prize suggestions. On the phone, "I'm at the table" (and every other way the walk ends) finishes a memo that is still running and keeps what was said; a table recording that starts finishes a running memo first, so one judge never has two microphones; and My notes shows the memo card locked while the judge sits at a table ("Dictate memos between tables, not at one").
 
 ### 4.3 Motion and interaction
 
@@ -283,6 +291,10 @@ The motion and visual audits turned up a short list of rules, and they are rules
 - **Contrast is tested, not assumed**: text ≥ 4.5:1, controls and focus rings ≥ 3:1, in both themes, on the composited background, including the focus ring on wood and on tinted rows.
 - **Type styles are CSS variables** and spacing is on the 4 px grid, so nothing drifts between components.
 - **Targets**: 48 px everywhere in the judge app, and 16 px text fields so iOS does not zoom.
+- **A pressed button keeps focus.** `loading` is `aria-disabled`, never `disabled`, and `pending` (an action that holds a whole screen) disables every other button for real but leaves the pressed one focusable. A control that replaces the one that ran it (Approve becomes Undo) takes focus.
+- **Sticky bars never hide the focused control.** The shell measures the top band and the action bar and turns them into `scroll-padding`, so Tab and Shift+Tab scroll a control out from under them.
+- **Names wrap, they do not ellipsize.** A button that names a table wraps a long name, and the table's place reads "1 of ~4" and fits the plank at 320 px.
+- **A screen change inside one route takes the rise-in, not a View Transition**, and the transition's wait runs on a timer: browsers suspend animation frames while a transition's update callback is pending, so an animation-frame poll froze the old screen for about 4 seconds after every Submit.
 
 ---
 
@@ -293,14 +305,14 @@ Tabs, in order of work:
 | Tab | Purpose |
 |---|---|
 | Overview | Unjudged-projects alert, flag queue, room coverage, judges active, comparisons, time left. Plus the floor's work: the presence map per room, every judge's live state (en route, at table, composing a compare, waiting, idle, done), the staff task list, and **Print placards** |
-| Flagged | Anti-cheat queue with evidence. Admin: Clear (send to judging) or Escalate |
+| Flagged | Anti-cheat queue with evidence, in three groups: held out of judging, escalated with the organizers, and review only (still being judged). Admin: Clear (send to judging) or Escalate; an escalated project stays listed so an admin can clear it |
 | Judges | Who checked in, their path, views so far; send or resend sign-in links. Plus the review signals: unusually fast judging, team-name check-ins, implausible placard proofs, and **Void votes** (with a required reason) |
-| Assignments | Judge → room (one room per judge for Round 1) |
+| Assignments | Judge → room (one room per judge for Round 1). A move ends the judge's open visit (the table goes back to the queue), restarts their compare chain and is audited; the phone notices within 30 seconds ("Staff moved you to Room 4217") |
 | Deliberations | Per-prize combined ranking over the finalists frozen when Round 2 opened |
 | Prizes & paths | Prize list by kind, eligible paths, deliberation room, nominee counts (and the nominations held until a placard is confirmed) |
 | Admissions | Paged applicant table, bulk assign to reviewers, detail page with score / status / notes |
 | Reimbursements | Approve or deny travel requests, running approved total |
-| Settings | Add or remove `@hackillinois.org` staff, change role (Staff ↔ Admin). Plus **Settings → Judging**: freeze new sign-ins, Table talk, AI summaries (which asks for a vendor-retention acknowledgement that records who and when), and the list of teams that opted out of recording |
+| Settings | Add or remove `@hackillinois.org` staff, change role (Staff ↔ Admin). Plus **Settings → Judging**: freeze new sign-ins, Table talk, AI summaries (which asks for a vendor-retention acknowledgement that records who and when), and the list of teams that opted out of recording. The audit log (who did what, and when) is at the bottom of the tab |
 
 The mock ordered its tabs alphabetically (Settings first). We order them by how often staff need them.
 
@@ -318,7 +330,7 @@ The mock ordered its tabs alphabetically (Settings first). We order them by how 
 | Print placards | Print | Print |
 | Judges → Void votes (unusually fast judging) | Read | Void, with a required reason in the audit log |
 
-Destructive actions need a confirm with the item's name in it: remove staff, escalate, mass email, deny reimbursement. In the mock, mass email sent with no confirm.
+Destructive actions need a confirm with the item's name in it: remove staff, escalate, mass email, deny reimbursement. In the mock, mass email sent with no confirm. A reimbursement decision (Approve, Deny, Undo) is written to the audit log; the Deny confirm promises nothing else, since the contract takes only a status. A "Night theme" switch sits beside the signed-in identity in the header.
 
 ---
 
@@ -326,23 +338,66 @@ Destructive actions need a confirm with the item's name in it: remove staff, esc
 
 ```
  Judge phone ─┐                         ┌──────────── adonix (Express + MongoDB) ─────────────┐
- Admin laptop ┼─► GavIL (Next.js 15 on  │ auth: Google (staff), email code/link (judges), JWT │
+ Admin laptop ┼─► GavIL (Next.js 16 on  │ auth: Google (staff), email code/link (judges), JWT │
               │   Cloudflare/OpenNext)  │ judge (existing): judge profiles                    │
               │   • pages + UI          ├─► judge (extended): queue, visits, evaluations,     │
               │   • middleware: role    │   votes, skips, flags, coverage, round-2 rankings   │
               │     gate from JWT       │ admission, registration, … (existing)               │
-              │   • generated API client│ Devpost + GitHub sync job (new, anti-cheat)         │
-              └─  (openapi-ts)          └──────────────────────────────────────────────────────┘
+              │   • typed API client    │ Devpost + GitHub sync job (new, anti-cheat)         │
+              └─  (CONTRACT.md)         └──────────────────────────────────────────────────────┘
 ```
 
 - **Why not a separate database?** adonix already owns users, roles, registrations, admissions and sponsors, and anti-cheat needs registration data. A second database would mean syncing two sources of truth.
-- **The API is written down, not implied.** Every endpoint adonix has to add is in `web/lib/api/CONTRACT.md`, with the request and response shapes, the refusals and their order, and the idempotency rules: the two-phase visit and the arrival check (§4.1), the placards and the scan grant, the team check-in, the talk context and spend (§4.2), the admin floor tasks, the void votes and the event switches. The mock in `web/lib/api/mock.ts` implements all of it, so the app runs end to end before adonix does.
-- **Why Next.js and not Vite?** It is the same deploy target and tooling as `site` and `admin-site`. Middleware gates routes by role before anything renders. The mock's Vite export ports over as plain React components.
-- **Live updates:** the judge app asks for its next project when a screen opens and after each action. The admin overview polls every 10 s and shows "as of 9:14:05 PM" so staleness is visible. Server-sent events for Overview are a v1.1 option if the January load test shows polling isn't enough.
-- **Offline:** every write (evaluation, skip, vote, Round 2 ranking) carries a client-generated `clientId`. Writes go into an IndexedDB outbox that survives reloads and are sent in order on reconnect. The server enforces a unique `(eventId, judgeId, clientId)` index, so a replay is a no-op.
-- **Undo:** the 8-second undo happens **on the phone**. A vote enters the outbox only when the undo window closes. This works the same online and offline, and the server never has to handle a "pending" vote. A vote that arrives after Round 1 ends is still accepted if its `createdAt` (client clock, checked against server skew) is before the end.
+- **The API is written down, not implied.** Every endpoint adonix has to add is in `web/lib/api/CONTRACT.md`, with the request and response shapes, the refusals and their order, and the idempotency rules: the two-phase visit and the arrival check (§4.1), the placards and the scan grant, the team check-in, the talk context and spend (§4.2), the admin floor tasks, the void votes and the event switches. The mock in `web/lib/api/mock.ts` implements all of it, so the app runs end to end before adonix does, and the client in `lib/api/client.ts` is typed by hand against it. When adonix's OpenAPI lists the routes, a generated client (`@hey-api/openapi-ts`, as `admin-site` does) can replace it behind the same interface.
+- **Why Next.js and not Vite?** It is the same deploy target and tooling as `site` and `admin-site`. Middleware gates routes by role before anything renders (it stays `middleware.ts`, on the edge path OpenNext supports: §6.1). The mock's Vite export ports over as plain React components.
+- **Live updates:** the judge app asks for its next project when a screen opens and after each action. The admin overview refreshes itself every 30 s while the page is visible and the laptop can reach the server (a soft refresh: nothing being typed is reset), and says when Devpost was last synced ("Devpost synced 2 min ago"). Server-sent events for Overview are a v1.1 option if the January load test shows polling isn't enough. The wait screen, the countdown and the compare screen refresh themselves too, but only while the phone is online and `/api/health` answers: a refresh that fails makes Next.js navigate the document, and the browser's offline page would replace the app.
+- **Offline:** every write (arrival, evaluation, skip, vote, Round 2 ranking) carries a client-generated `clientId`. Writes go into a per-judge outbox on the phone (`localStorage` today, one queue per event and judge) that survives reloads and is sent in order on reconnect, with a 2, 4, 8 … 60 s backoff. A write counts as saved only when the phone reads it back; the queue holds 500 items at most; the changes that can wait hold a per-judge Web Lock (where the browser has them), so two tabs do not overwrite each other, and a page being hidden writes at once with only a re-read; and a permanent refusal becomes a dead letter that staff can read. The server enforces a unique `(eventId, judgeId, clientId)` index, so a replay is a no-op, and it remembers an id for 36 hours without ever evicting one early (past 20,000 keys a new one is refused, `400 TooManyWrites`). IndexedDB and a service worker are not built, so the next table still needs a connection.
+- **Write conflicts:** a draft or an evaluation carries a per-project revision (compare-and-set). A stale write is `409 StaleWrite`, the typed notes stay on screen, and writes saved on the phone replay from the revision the write before them returned (§8, `CONTRACT.md`).
+- **Undo:** the 8-second undo happens **on the phone**. A vote enters the outbox only when the undo window closes. This works the same online and offline, and the server never has to handle a "pending" vote. A vote that arrives after Round 1 ends is still accepted if its `createdAt` (client clock, checked against server skew) is before the end. (A Round 2 ranking is the opposite: only the server's receipt time counts, §9.)
 - **Fonts and assets:** self-hosted through `next/font` (no Google Fonts request at the event), with fallbacks that keep line lengths.
 - **Table talk runs in the Gav-IL server, not in the browser.** The phone records and uploads; `POST /api/talk/recordings` holds the audio in memory for one Workers AI call and drops it; `POST /api/talk/highlights` runs the rule extractor and, when the event allows it, Claude. Both are thin wrappers over `web/lib/talk/service.ts`, and adonix owns the permissions, the quotas and the event budgets through two signed endpoints (`POST /judging/talk/:projectId/context/`, read-only, and `POST /judging/talk/:projectId/spend/`, the only way to spend a vendor call). A judge never holds a vendor key.
+
+### 6.1 Production
+
+**Where it runs.** One Cloudflare Worker, `gavil`, built with OpenNext (Next.js 16.4, `@opennextjs/cloudflare` 1.20.13) and configured in `web/wrangler.jsonc`, served at `https://judging.hackillinois.org`. It needs the **Workers Paid** plan: the Free plan gives a Worker 10 ms of CPU per request and ends a longer one with Error 1102, and the Table talk rule extractor alone measured 3 to 18 ms warm (120 to 140 ms on a first call) on workerd. The Gav-IL host must also be in adonix's `ALLOWED_WEB_HOSTS`. The step-by-step version is `web/README.md`, Deploy.
+
+**Deploy.** `npm run build:worker` syncs the design system and builds with `GAVIL_MOCK`, `GAVIL_MOCK_DEMO` and `GAVIL_MOCK_TALK` forced to `0` (OpenNext bakes every `.env*` file into the Worker, so a `.env.local` copied from `.env.example` would otherwise carry mock mode into it, and the Worker refuses to boot with it). `npm run preview` runs the Worker locally; `npm run deploy` builds, uploads and ends with `npm run check:health`; `npx wrangler rollback` returns to the previous version. **Deploy between rounds**: a phone that opened Gav-IL before a deploy still runs the old build, whose server actions are gone, so it shows "A new version of Gav-IL is ready" and a Reload button until it reloads. Nothing is lost, because every write was saved on the phone first.
+
+**Config.** Vars are in `wrangler.jsonc` and are not secret; secrets are set once per deploy target with `wrangler secret put`.
+
+| Setting | Kind | Needed | What it is |
+|---|---|---|---|
+| `ADONIX_URL` | var | always | adonix's base URL, read at runtime on every request. In production it must be HTTPS and on `GAVIL_ADONIX_HOSTS` |
+| `GAVIL_ORIGIN` | var | always | Our public origin, or a comma-separated allow-list. It is the `Origin` sent on every adonix write and the only source of the staff Google callback; a deployed build without one serves nothing |
+| `GAVIL_ADONIX_HOSTS` | var | staging only | Extra allowed adonix hosts (default: the production host) |
+| `GAVIL_JWT_SECRET` | secret | always | adonix's `JWT_SECRET`, copied: sessions are verified locally on every request |
+| `GAVIL_GRANT_SECRET` | secret | always | 32 or more random characters, Gav-IL only: signs the placard scan grant |
+| `GAVIL_TALK_SECRET` | secret | Table talk | 32 or more characters, shared with adonix: signs transcript receipts and spend proofs |
+| `CF_ACCOUNT_ID`, `CF_API_TOKEN` | secret | Table talk | Workers AI speech to text |
+| `ANTHROPIC_API_KEY` | secret | optional | Claude highlights; the rule extractor runs without it |
+
+`GAVIL_PLACARD_SECRET`, which signs the placard QR tokens, lives in adonix. A `PLACARD_RATELIMIT` Workers binding (600 requests a minute) limits `/t/<CODE>`.
+
+**Health check.** `GET /api/health` needs no session, never calls adonix and is never cached. It answers `200 {"ok":true}`, or `503 {"ok":false,"problem":"config"}` when `GAVIL_ORIGIN`, a required secret or a safe `ADONIX_URL` is missing or invalid; it never says which. `npm run deploy` ends with `npm run check:health`, which asks it a few times and fails the deploy on anything else, so a missing secret stops at the deploy and not in front of a judge.
+
+**Headers.** Every page, route handler, redirect and 404 carries the same headers, from one source (`lib/security/headers.ts`): HSTS for two years with subdomains (no `preload`: that is the org's call), `nosniff`, `X-Frame-Options: DENY`, COOP `same-origin`, `Permissions-Policy: camera=(self), microphone=(self), geolocation=(), payment=(), usb=()` (the camera is the placard scanner and the microphone is Table talk, so neither is ever denied) and a Referrer-Policy of `strict-origin-when-cross-origin`, or `no-referrer` on `/login`, `/auth/*` and `/t/*`. Four places set them, on disjoint paths, because OpenNext appends a header that two places set and `same-origin, same-origin` is not a valid COOP:
+
+| Where | What it covers |
+|---|---|
+| `middleware.ts` | Everything it matches: the headers, a per-request-nonce `Content-Security-Policy` and the path's Referrer-Policy. Only `/_next/static/*` and `/_next/image` are skipped, on path-segment boundaries |
+| `next.config.ts` `headers()` | Exactly the paths the middleware skips, for a plain `next start` |
+| `public/_headers` | What Cloudflare serves from its asset store before any code runs. It is generated by `cloudflareHeadersFile()` and a test fails if it drifts; it is part of the deploy |
+| `lib/security/worker.mjs` | OpenNext's handler, wrapped: the framework's own answers (a trailing-slash 308, `/_next/image`, a `/_next/data` 404) get the headers, and the `x-middleware-*` hand-off headers are dropped |
+
+**Content-Security-Policy.** `default-src 'self'`; `script-src 'self' 'nonce-…' 'strict-dynamic'`, with a fresh 128-bit nonce on every request that Next.js puts on its own scripts (`unsafe-eval` and `ws:` appear only under `next dev`); `style-src 'self' 'unsafe-inline'` (React inline styles and `next/font`); `img-src 'self' data: blob:`; `media-src` and `worker-src` `'self' blob:` (the recorder and the scanner); `connect-src 'self'` (the browser only ever calls this origin, and adonix is called by the server); `frame-ancestors 'none'`; `base-uri 'self'`; `form-action` this origin plus adonix (staff Google sign-in leaves through it); `object-src 'none'`. The policy is not loosened for convenience. The scanner uses `BarcodeDetector` where it exists and the JavaScript decoder jsQR otherwise, so it needs no WebAssembly. With Turbopack, route chunks added after a client navigation carry no nonce attribute; `'strict-dynamic'` and `'self'` cover them and no screen reports a violation.
+
+**The gate.** `/judge/*` needs a verified JUDGE session and `/admin/*` a verified STAFF or ADMIN one. A bearer value (`token`, `k`) in a `/judge` or `/admin` URL is redirected away before the page renders. Only a real server-action POST from a dead judge session is let through, to answer 401 as data (§7). A scripted GET of an `/auth/*` handler (the prefetch of "Sign in with Google") is answered with an empty 204, so the browser navigates and the CSP is not violated.
+
+**Logs.** `observability.redact_query_string` is on and the automatic per-request log is off, so the token in a sign-in link or a placard scan never reaches Workers Logs; Gav-IL's own code never logs a URL. Check it once after the first real deploy: wrangler's local store does not apply the redaction.
+
+**When a page breaks.** `global-error.tsx`, `error.tsx` and the judge and admin error boundaries never show an error's message or stack. Try again refreshes the route, is disabled while the phone is offline, and on Wi-Fi with no uplink asks `/api/health` first, so a refresh that cannot be answered cannot hand the screen to the browser's offline page. The app installs as a standalone web app (`/manifest.webmanifest`, opens `/judge`).
+
+**Mock mode never ships.** `GAVIL_MOCK=1` runs only under `next dev` or vitest, and the demo shortcuts need `GAVIL_MOCK_DEMO=1` as well. Any other environment refuses to boot with either flag.
 
 ---
 
@@ -351,10 +406,10 @@ Destructive actions need a confirm with the item's name in it: remove staff, esc
 | Who | How they sign in | adonix |
 |---|---|---|
 | Judge (volunteer or sponsor) | Staff add judges in Admin → Judges (the roster). A judge enters their email and gets an email with a **one-tap link** and the same login as a **6-digit code** (15-minute expiry, single use). At the desk, staff can instead look the judge up and show a **personal QR** on the staff device (single use, 2-minute expiry, bound to that judge's assignment). | New `POST /auth/judge/verify/ {email}` and `POST /auth/judge/login/ {email, code}`, modeled on the existing `/auth/sponsor/verify` + `/auth/sponsor/login` code flow (`AuthCode` model). New `POST /auth/judge/redeem/ {token}` for links and QRs. New role `Role.JUDGE` |
-| Staff / Admin | "Sign in with Google" → `GET /auth/login/google/?redirect=…` (existing) | Existing `STAFF` / `ADMIN` roles; domain limited to `@hackillinois.org` |
+| Staff / Admin | "Sign in with Google" → Gav-IL's `/auth/google`, which adds a one-time `state` nonce and sends the browser to `GET /auth/login/google/?redirect=…` (existing); `/auth/callback` checks the state and verifies the token before it installs a session | Existing `STAFF` / `ADMIN` roles; domain limited to `@hackillinois.org` |
 
-- **Link and QR redemption is two-step.** The link opens a GavIL page that says "Sign in as sarah@stripe.com?", and the **Continue** button POSTs the token. Email security scanners that pre-open links therefore can't use them up. Tokens never sit in a GET URL that adonix logs, and auth pages send `Referrer-Policy: no-referrer`. The email goes in the request body, never the query string.
-- **Session:** the judge JWT carries `role: JUDGE`, `eventId` and `assignmentId`. It lasts until the event's end time plus 2 hours (at most 14 h), not adonix's default 24 h, and can be refreshed only while the event is live. It sits in an httpOnly, Secure, `SameSite=Lax` cookie, and adonix checks the `Origin` header on every write.
+- **Link and QR redemption is two-step.** The link opens a GavIL page that says "Sign in as sarah@stripe.com?", and the **Continue** button POSTs the token. Email security scanners that pre-open links therefore can't use them up. Tokens never sit in a GET URL that adonix logs, and auth pages send `Referrer-Policy: no-referrer`. The email goes in the request body, never the query string. The first request of a link still carries its token, so the middleware moves it into a short-lived httpOnly cookie at once and redirects to the bare `/auth/magic`: the address bar, the history and a later Referer never hold it, and Workers Logs drop query strings (§6.1).
+- **Session:** the judge JWT carries `role: JUDGE`, `eventId` and `assignmentId`. It lasts until the event's end time plus 2 hours (at most 14 h), not adonix's default 24 h, and can be refreshed only while the event is live. It sits in an httpOnly, Secure, `SameSite=Lax` cookie, and adonix checks the `Origin` header on every write. Gav-IL **verifies the token on every request** before it routes or acts on it: the HS256 signature with `GAVIL_JWT_SECRET` (adonix's `JWT_SECRET`, shared), `exp` required and capped, a good verdict cached for 60 seconds and a refusal for 10. Only development and test may ask adonix instead. A production server without the secret is a configuration error, shown to a returning judge as "This server isn't set up yet. Tell an organizer.", not as a network problem.
 - **Revocation is immediate:** every judging call checks `JudgeAssignment.revokedAt` (a single indexed read), so a JWT that is still valid stops working the moment an admin revokes it in Admin → Judges. GavIL middleware routes by role, and adonix still authorizes every call.
 - **Guessing and abuse limits:**
   - `verify` always answers "if you're on the judge list, we sent a code", so it can't be used to check who is registered.
@@ -362,6 +417,7 @@ Destructive actions need a confirm with the item's name in it: remove staff, esc
   - Limits are per email, plus a global circuit breaker. They are not per IP, because the whole venue shares one NAT address.
   - Desk staff can always issue a QR when a judge is locked out.
 - **Staff and admins:** the existing Google flow and roles. Removing someone in Settings revokes their roles in adonix.
+- **An expired session never discards a write.** Server actions answer a dead session as data (`401 SessionEnded`, or `Revoked`), never with a redirect: Next.js applies an action's redirect to the router the moment it answers, so a redirect would take the screen, and a typed evaluation with it, whether or not the phone could keep the write. The route gate lets a judge's server-action POST from a dead session through for that reason. The phone saves the write first and only then leaves for `/login` (which keeps unsent work and says "Anything saved on this phone sends once you do"); if it cannot keep the write, the screen stays and offers "Sign in again".
 - **Sign-out:** at the bottom of My notes. It asks for confirmation, sends the outbox first, then clears every note, vote and draft from the phone, so the next judge on a shared phone sees nothing. Admins can also revoke a judge from Admin → Judges.
 - **Freeze new sign-ins.** An admin switch in Settings → Judging closes `/auth/judge/verify/`, `/auth/judge/login/`, the emailed link and the link redeem, with `403 SignInsFrozen`. A frozen or revoked refusal never uses a code or a link up, and the order is fixed: the freeze is checked before a revocation. Judges already signed in keep working, and the **desk QR still works**, because staff are standing there with the judge. The reason to have it: Jury's 6-digit judge codes were brute-forced at HackUTD (issue #232), and Jury now recommends closing logins once judging starts.
 
@@ -369,7 +425,7 @@ Destructive actions need a confirm with the item's name in it: remove staff, esc
 
 ## 8. Data model (MongoDB, new judging routes inside adonix's existing `judge` service)
 
-Every collection below carries `eventId`. Every query is scoped by it, and unique indexes include it (for example `Evaluation (eventId, judgeId, projectId)` and every write's `(eventId, judgeId, clientId)`).
+Every collection below carries `eventId`. Every query is scoped by it, and unique indexes include it (for example `Evaluation (eventId, judgeId, projectId)` and every write's `(eventId, judgeId, clientId)`). An idempotency key is kept 36 hours from its first use.
 
 | Collection | Key fields |
 |---|---|
@@ -378,8 +434,8 @@ Every collection below carries `eventId`. Every query is scoped by it, and uniqu
 | `JudgeAssignment` | `userId` (JUDGE), `path` (pro/general), `room`, `round2Prize`, `conflicts[projectId]`, `checkedInAt`, `kind` (volunteer/sponsor), `revokedAt?`, `votesVoidedAt?`, `voidReason?` |
 | `JudgingProject` | `devpostId`, `name`, `path`, `tracks[]`, `prizesOptedIn[]` (MLH, company), `room`, `table`, `tableCode`, `teamMemberIds[]`, `repoUrl`, `hold` (flag ids), `mu`, `sigmaSq`, `views`, `checkedInAt`, `checkedInBy` (`team`/`staff`), `presentAt`, `absentConfirmedAt`, `recordingOptOut` |
 | `TableCheck` | `eventId`, `tableCode` → `check` (2 characters, drawn at seed time with a CSPRNG; staff-only, printed on the placards) |
-| `Evaluation` | `judgeId`, `projectId`, `notes`, `nominations[prize]`, `submittedAt`, `clientId` (idempotency), `arrivedBy` (`scan`/`typed`/`name`), `nominationsPending`, `nominationsReleasedBy`, `demoStatus`, `recording { mode, status, consentAt, durationSec }`, `memo`, `highlights[]` (kept items only), `dwellSeconds`, `phoneDwellSeconds`, `voidedAt` |
-| `Visit` | `judgeId`, `projectId`, `phase` (`en_route`/`at_table`), `leasedAt`, `leaseExpiresAt`, `nudgeAt`, `arrivedAt`, `arrivedBy`, `arrivals[] { method, at, clientId?, queued? }`, `arrivalSeenAt`, `checkMisses`, `wrongCodes`, `proofFailures`, `status` (active/done/skipped/deferred/expired/reassigned/revoked), `deferCount`, `releasedAt`. The lease that stops two judges being sent to the same table |
+| `Evaluation` | `judgeId`, `projectId`, `notes`, `nominations[prize]`, `submittedAt`, `clientId` (idempotency), `arrivedBy` (`scan`/`typed`/`name`), `nominationsPending`, `nominationsReleasedBy`, `demoStatus`, `recording { mode, status, consentAt, durationSec }`, `memo`, `highlights[]` (kept items only), `dwellSeconds`, `phoneDwellSeconds`, `revision` (compare-and-set), `voidedAt` |
+| `Visit` | `judgeId`, `projectId`, `phase` (`en_route`/`at_table`), `leasedAt`, `leaseExpiresAt`, `nudgeAt`, `arrivedAt`, `arrivedBy`, `arrivals[] { method, at, clientId?, queued?, carried? }`, `arrivalSeenAt`, `checkMisses`, `wrongCodes`, `proofFailures`, `status` (active/done/skipped/deferred/expired/reassigned/revoked), `deferCount`, `releasedAt`. The lease that stops two judges being sent to the same table |
 | `Skip` | `judgeId`, `projectId`, `reason` (absent/busy/conflict/other), `note`, `at`, `clientId`. "Can't find the table" is a deferred `Visit`, not a skip |
 | `Vote` | `judgeId`, `winnerId`, `loserId`, `createdAt`, `clientId` (sent only after the on-phone undo window), `voidedAt`, `voidReason` |
 | `Flag` | `projectId`, `kind` (`late` / `unregistered` / `path` / `size` / `duplicate`, the same keys `FlagCard` uses), `confidence` (hold/review), `evidence`, `source` + `syncedAt`, `status` (open/cleared/escalated), `decidedBy`, `decidedAt`, `reason` |
@@ -389,6 +445,8 @@ Every collection below carries `eventId`. Every query is scoped by it, and uniqu
 | `StaffTask` | `kind` (`absent`/`cant-find`/`placard`/`help`/`skip-note`), `projectId`, `judgeId`, `detail`, `actions` (`restore`/`confirm-absent`/`done`), `resolution`, `pendingNominations[]`, `nominationsClosed`, `teamCheckedInAt` |
 | `TalkQuota` | `eventId`, `judgeId`, `projectId` → `{ transcriptions, calls }` (§4.2) |
 | `TalkReceiptUse` | `eventId`, `key` (the receipt's signature) → `clientId`. One evaluation per receipt |
+| `ProjectRevision` | `eventId`, `judgeId`, `projectId` → `revision` (0 before the first write). A draft or an evaluation names the revision it last read; a stale one is refused (`409 StaleWrite`) |
+| `TalkSpend` | `eventId`, `judgeId`, `projectId`, `kind`, `mode`, `visitId`, `attemptId` → reserved for 15 minutes, then consumed once the vendor call is settled; spend nonces are kept until they expire (60 s) |
 | `AuditLog` | `actor`, `action`, `target`, `before`, `after`, `at`. Every admin edit |
 
 ---
@@ -428,7 +486,7 @@ The math is kept from the mock's `gavel.ts`. Each project has a Gaussian quality
 
 μ and σ² are never shown to judges. Admins see them only as diagnostics, for example "this room has a clear top 3" or "low confidence, add a view". A Borda tie is broken by discussion in the room and recorded by an admin with a reason.
 
-**When Round 2 opens.** Round 2 opens at Round 1's end + the 15-minute grace, the same moment a first evaluation, a judge's own proof and staff's Done on a placard task stop adding nominations. The finalist set is decided once, at that moment, and is final: a late evaluation, a late placard proof, a nomination released afterwards, a flag cleared or escalated, or a vote voided adds nobody, and the counts on the board are the ones it opened with. A finalist the staff hold after the opening stays on the board as withdrawn: it cannot win, the judge's phone does not offer it for ranking, and a ranking may list it or leave it out. Deliberation closes 60 minutes after Round 1's end by default, and the close is judged on the ranking's own time.
+**When Round 2 opens.** Round 2 opens at Round 1's end + the 15-minute grace, the same moment a first evaluation, a judge's own proof and staff's Done on a placard task stop adding nominations. The finalist set is decided once, at that moment, and is final: a late evaluation, a late placard proof, a nomination released afterwards, a flag cleared or escalated, or a vote voided adds nobody, and the counts on the board are the ones it opened with. A finalist the staff hold after the opening stays on the board as withdrawn: it cannot win, the judge's phone does not offer it for ranking, and a ranking may list it or leave it out. Deliberation closes 60 minutes after Round 1's end by default, and the close is judged on the server's receipt time: a ranking received at or after the close is `409 Round2Closed`, and the phone's `createdAt` and `sentAt` are ignored, so an offline ranking replayed after the close is refused even if it was made before (the phone cannot prove when). A first evaluation that arrives after the opening (a phone that was offline) keeps its notes but loses its nominations, and the answer says how many (`dropped.nominations`). Staff's combined ranking always lists a withdrawn finalist after every finalist still in.
 
 ## 10. Anti-cheat
 
@@ -439,7 +497,7 @@ A sync job pulls submissions from Devpost and repos from GitHub every 10 minutes
 - **Team size:** more than 4 members.
 - **Prior project:** the repo was created before the hackathon, or a known previous Devpost project.
 
-Only **high-confidence** flags hold a project out of the queue: commits more than 15 minutes after the deadline, a team over 4, and a path mismatch confirmed by registration data. **Weak signals**, such as repo age, a possible prior project or an unregistered name that may be a typo, are listed for review but never block judging. An admin clears a flag ("send to judging") or escalates it with a reason, and the decision goes in the audit log. Escalate needs a confirm. Copy leads with the evidence, not an accusation. The mock only offered "restore".
+Only **high-confidence** flags hold a project out of the queue: commits more than 15 minutes after the deadline, a team over 4, and a path mismatch confirmed by registration data. **Weak signals**, such as repo age, a possible prior project or an unregistered name that may be a typo, are listed for review but never block judging. An admin clears a flag ("send to judging") or escalates it with a reason, and the decision goes in the audit log. An escalated project stays out of judging, and stays on the Flagged tab with the flags it was escalated over, until an admin clears it. Escalate needs a confirm. Copy leads with the evidence, not an accusation. The mock only offered "restore".
 
 **Cheating by the judge** is a separate list, and it is a list of **signals, not blocks**. At HackPrinceton one judge cast 69 votes in a few minutes while others cast about 20, "judges started hitting random buttons", and the bad votes could not be deleted. So the Judges tab shows, per judge:
 
@@ -449,6 +507,7 @@ Only **high-confidence** flags hold a project out of the queue: commits more tha
 | Vote rate | 4 or more counted votes and a rate over **2× the peers' median**, or over 30 an hour | Peers never include the judge: the other judges in the room who have voted, or, in a room with fewer than 3 judges, the other judges on the same path |
 | Name check-ins | 2 or more tables checked in by the team's name instead of the placard | One table checked in by name twice counts once. This is a review signal about the check (§4.1), not about the team |
 | Implausible proofs | Placard proofs in **two different rooms under 60 s apart** with no staff room move between them, or 2 or more proofs with **no time to walk** (under 5 s after the walk began) | A photo of a placard proves only that someone saw it (§4.1). A re-leased walk is measured from its first lease, so a slow walk is never "no walk" |
+| Carried scans | A placard scan opened signed out and posted by the sign-in that followed | A weak proof of presence (§4.1). Listed for staff beside the other signals, never a judge-level flag |
 
 **Void votes.** An admin can void a judge's votes with a reason, optionally including their evaluations, which then leave the coverage count and the nomination counts. The rankings replay without them, the rooms they touched are named back to the admin, and the void is in the audit log. Revoking a judge can do the same thing in one step. Votes cast later count again, so the safety valve does not need a judge to be stopped first.
 
@@ -461,12 +520,13 @@ Only **high-confidence** flags hold a project out of the queue: commits more tha
 - The type comes from the 2027 Figma Style Guide: **Ultra** for display, **Oswald** for labels and numbers, **Manrope** for body text, and **Rye** for sign lettering.
 - Every duration and curve is a token too, so the reduced-motion block is one list of tokens rather than a hand-kept set of exceptions (§4.3).
 - `design/` holds the **OpenPencil spec sheet** (`gavil-spec.fig` and `png/`): a Figma-format sheet generated from the tokens and the current components by `scripts/make_spec_sheet.mjs`, with `--check` as its audit. It is not hand-drawn: change a token or a component, rerun the generator, and the sheet follows.
-- `assets/brand/` holds the **real 2027 art** (34 files, one row each in `assets/brand/MANIFEST.md`): the "H" mark and the lockup, the longhorns, the wooden planks, the painted sunset and night backgrounds, the characters, the wagon, the garland dividers, the neon sign and the sheriff-star progress art. Nothing is redrawn or recoloured.
-- There are 43 components plus 4 hand-written screens (the JudgePrototype, the AdminConsole, the JudgeJourney storyboard and the Cover), so 47 previews in two themes <!-- refresh -->.
-- `tests/` has the automated checks covering flows, keyboard use, offline, permissions, and composited contrast in both themes: 401 checks per theme <!-- refresh -->. The `web/` suite is 39 files and 965 tests <!-- refresh -->.
-- The Next.js app syncs tokens and CSS from `design-system/` at build time, so there is one source.
+- `assets/brand/` holds the **real 2027 art** (34 files, one row each in `assets/brand/MANIFEST.md`): the "H" mark and the lockup, the longhorns, the wooden planks, the painted sunset and night backgrounds, the characters, the wagon, the garland dividers, the neon sign and the sheriff-star progress art. Nothing is redrawn or recoloured. The screens load 18 phone-sized WebP copies of it from `assets/brand/derived/`, and every file is an `--art-*` token.
+- There are 48 components plus 4 hand-written screens (the JudgePrototype, the AdminConsole, the JudgeJourney storyboard and the Cover), so 52 previews in two themes <!-- refresh -->.
+- `tests/` has the automated checks covering flows, keyboard use, offline, permissions, tokens-only and judge-word scans, and composited contrast in both themes: 591 checks per theme <!-- refresh -->, run headless by `node scripts/run_tests.mjs`. The `web/` suite is 137 files and 2648 tests <!-- refresh -->.
+- The Next.js app syncs tokens and CSS from `design-system/` before every `dev` and `build` (`npm run sync`): `tokens.json` becomes `tokens.css`, `bundle.css` is copied without its Google Fonts import (`next/font` self-hosts the fonts), and the art is copied to `public/brand/`. The outputs are committed, so a checkout without `../design-system` still builds, and the components in `web/components/` are hand ports of `bundle.js` (same `gv-*` classes, ARIA and copy), so there is one source.
+- **Theme:** `data-theme` comes from the `gavil_theme` cookie (sunset by default). A "Night theme" switch on My notes and in the admin header writes it. The web app does not follow the phone's own colour setting, because Night is the same cream posters on a darker ground, not a dark mode.
 
-Brand assets are **exported, not redrawn**: the 2027 Figma files cannot be read through the Figma MCP server with the account we have (every read returns "you don't have edit access to this file"), so the art was exported by hand through the Figma web UI on 2026-10-21 into `design-system/assets/brand/`, and `MANIFEST.md` records each file, the Figma file and node it came from, and where it is used. Still missing from the three files: a dark "H" mark (Figma has only the white one), a standalone sheriff star and rosette, the other painted background variants, and the QR, which stays a placeholder. A re-export from Figma is the fix for anything wrong in that folder, and who owns a re-export is still open (open question 4).
+Brand assets are **exported, not redrawn**: the 2027 Figma files cannot be read through the Figma MCP server with the account we have (every read returns "you don't have edit access to this file"), so the art was exported by hand through the Figma web UI on 2026-10-21 into `design-system/assets/brand/`, and `MANIFEST.md` records each file, the Figma file and node it came from, and where it is used. Still missing from the three files: a dark "H" mark (Figma has only the white one), a standalone sheriff star and rosette, the other painted background variants, and, on the OpenPencil spec sheet only, the placard's QR (a labelled placeholder there: the apps draw real, scannable QR codes). A re-export from Figma is the fix for anything wrong in that folder, and who owns a re-export is still open (open question 4).
 
 ---
 
@@ -477,31 +537,37 @@ GavIL/
   design-system/   tokens, components, prototypes, tests   (exists)
     design/        OpenPencil spec sheet (gavil-spec.fig + png/), generated by scripts/make_spec_sheet.mjs
     assets/brand/  Real 2027 brand art exported from Figma (+ MANIFEST.md). Never redrawn
-  docs/            this doc, decisions.md, research/        (exists)
-  web/             Next.js 15 app (skeleton)
-    app/           /login, /judge/*, /admin/* routes, auth callback/magic routes, /t/[code]
+  docs/            this doc, decisions.md, reviews/ (every review round's consensus list), research/        (exists)
+  web/             Next.js 16 app on Cloudflare via OpenNext (see web/README.md)
+    app/           /login, /judge/*, /admin/*, /t/[code] and /auth/* routes, /api/health, /api/talk/*, the manifest and the error pages
     components/    TSX ports of the design-system components (same gv-* classes + ARIA)
-    lib/api/       types, generated adonix client, mock fixtures, CONTRACT.md (endpoints adonix must add)
-    lib/gavel.ts   algorithm + queue, with unit tests
+    lib/api/       types, the typed adonix client, the in-memory mock, fixtures, CONTRACT.md (endpoints adonix must add)
+    lib/gavel.ts   the algorithm, with unit tests (lib/queue.ts: which table next)
     lib/judging.ts table codes, the arrival check, placards, conflicts, eligibility
+    lib/outbox.ts  the phone's offline outbox (lib/offline.ts: the storage and the online hook)
     lib/talk/      Table talk: the rule extractor, the validator, the receipt, the vendor calls
-    middleware.ts  role gate (JUDGE → /judge, STAFF|ADMIN → /admin)
-  demo/            record.mjs + encode.sh: scripted walkthrough -> gavil-demo.mp4
+    lib/auth/      session verification, scan grants, origin checks, sign-in limits
+    lib/security/  headers, CSP, the edge wrapper, error copy, the install manifest
+    middleware.ts  security headers + nonce CSP, and the role gate (JUDGE → /judge, STAFF|ADMIN → /admin)
+    public/_headers, wrangler.jsonc, open-next.config.ts   the Cloudflare side (§6.1)
+  demo/            the silent walkthrough (record.mjs + encode.sh → gavil-demo.mp4) and the narrated ndemo demo (see demo/README.md)
   AGENTS.md / CLAUDE.md   rules for humans and coding agents
 ```
 
-`GAVIL_MOCK=1` runs the whole app on fixtures with a fake session for each role, so frontend work doesn't wait on adonix.
+`GAVIL_MOCK=1` runs the whole app on fixtures with a fake session for each role, so frontend work doesn't wait on adonix. It works only under `next dev` or vitest; a deployed build refuses to boot with it.
 
 ---
 
 ## 13. Milestones (proposed)
+
+**Where we are (2026-10-22).** The design system, the clickable prototypes and the web app on a mock adonix are built and tested (§11), and the production pass is done (§6.1). What remains is on adonix and on the floor: the routes in `CONTRACT.md`, real email delivery, the printed placards, counsel's sign-off on Table talk, and the Cloudflare confirmations in §15.
 
 | When | What |
 |---|---|
 | Oct | This doc reviewed. Design system signed off by Design. Skeleton merged to `HackIllinois/GavIL`. **Placards printed** (the codes and the checks are drawn and the run is printed), because the right-table check needs them on the tables before the doors open |
 | Nov | adonix: `JUDGE` role + judge auth, judging routes in the `judge` service (projects, assignments, visits, evaluations, votes, skips). Judge app on real data |
 | Dec | Admin console on real data. Devpost/GitHub sync + flags. **Counsel sign-off on Table talk** (open question 1) and the participant notice in the hacker guide |
-| Dec–Jan | Load test early (40 judges × 1 action every 5 s, plus Overview polling). Round 2, offline outbox that survives reloads. Judge orientation video and doc. Table talk switched on for the event, with the vendor-retention acknowledgement recorded |
+| Dec–Jan | Load test early (40 judges × 1 action every 5 s, plus Overview polling). Round 2 and the outbox against the real adonix. Judge orientation video and doc. Table talk switched on for the event, with the vendor-retention acknowledgement recorded |
 | Feb | Dry run with staff as judges and 30 fake projects; measure the noise in the judging rooms and the transcription latency on real phones; fix; freeze |
 
 ---
@@ -526,8 +592,8 @@ Read from the tools' own READMEs, docs, issues and commit histories in 2022–20
 | **Hack the North, Cal Hacks 5.0, MHacks, Devpost, Devfolio** | Four identity models for finding a table: a scheduled room with staff gatekeeping, a verbal number check, self-reported tables, and organizer-assigned tables. Devfolio lets judges search by team name and marks a project "partially judged" | Organizer-assigned tables plus a team check-in are the most reliable, and "partially judged" is the right label for our T−10 sweep list. Never let a judge pick a project by name | [HTN rules](https://hackthenorth2025.devpost.com/rules), [Devpost judging](https://help.devpost.com/article/131-setting-up-judging), [Devfolio offline judging](https://guide.devfolio.co/docs/guide/offline-judging) |
 | **Car Show Pro** | Each entry's dashcard has a QR; scanning asks for location permission and then asks the judge to confirm the entry | The commercial precedent for a placard QR that confirms the entry — the closest thing to our right-table check | [Car Show Pro](https://carshows.atlassian.net/wiki/spaces/KB/pages/129466399/Scan+the+QR+Code) |
 | **The HackIllinois attendee app** | Already has an attendee QR scanner and a staff scanner | A team checks in at its table with the app they already have (§4.1) | [mobile](https://github.com/HackIllinois/mobile) |
-| **iOS Safari** | `BarcodeDetector` is not shipped by default (caniuse: disabled through Safari iOS 26.x, WebKit bug 281848) | The scanner needs a JS or WASM decoder, and the typed code is a first-class path, not a fallback | [caniuse](https://caniuse.com/mdn-api_barcodedetector) |
-| **AI judging tools** | Trimble's "Justine", ETHGlobal's AIJudge and lablab's Verdict all **score or rank** projects from demo videos. No tool was found that turns a live table conversation into notes for a human judge | Table talk is new, and we keep the AI strictly as a note-taker: it never scores and never ranks (§4.2) | [AIJudge](https://ethglobal.com/showcase/aijudge-oeihx), [Trimble](https://hackathon.assistant.trimble.com) |
+| **iOS Safari** | `BarcodeDetector` is not shipped by default (caniuse: disabled through Safari iOS 26.x, WebKit bug 281848) | The scanner uses `BarcodeDetector` where it exists and the JavaScript decoder jsQR otherwise, and the typed code is a first-class path, not a fallback | [caniuse](https://caniuse.com/mdn-api_barcodedetector) |
+| **AI judging tools** | Trimble's "Justine", ETHGlobal's AIJudge and lablab's Verdict all **score or rank** projects from demo videos. No tool was found that turns a live table conversation into notes for a human judge | Table talk is new, and we keep the AI strictly as a note-taker: it never compares, nominates or picks a winner (§4.2) | [AIJudge](https://ethglobal.com/showcase/aijudge-oeihx), [Trimble](https://hackathon.assistant.trimble.com) |
 | **HackPrinceton (Gavel issue #22)** | One judge cast 69 votes in a few minutes while others cast about 20; "judges started hitting random buttons"; the bad votes could not be deleted and there was no undo | The fast-judging signals and the admin's power to void votes (§10). Our 8-second undo covers the mis-tap | [issue #22](https://github.com/anishathalye/gavel/issues/22) |
 | **ETHBerlin 2019** | Judging ran so long that some judges left partway through, and the points system had no fallback for departing judges | Leases expire fast, and the "available to move" recovery (§3) | [dod.ngo](https://dod.ngo/blog/2019/learnings-on-judging) |
 
@@ -544,10 +610,16 @@ Read from the tools' own READMEs, docs, issues and commit histories in 2022–20
 3. **Workers AI or a different transcription vendor?** Whisper turbo on Workers AI is about $1.30 for a whole event, but it is the wrong tool for a noisy room: measured on MuAViC at 0 dB SNR, Whisper Large goes from 2.1% to 21.3% word error rate. Deepgram Nova-3 (about $11, with keyterm prompting of the Devpost terms) and AssemblyAI (about $9) are the upgrade path, and OpenAI's `gpt-4o-mini-transcribe` is about $7.65. Decide after the February dry run, with a sound-level meter in the actual rooms. Owner: Aritro + Jacob.
 4. **Figma MCP access.** The Figma MCP server refuses every read of the 2027 Design System, Registration and Gav-IL files with "you don't have edit access to this file" for the account we have, and the draft copies of the three files sit in an education team's Drafts space that is still view-only. The art itself is no longer blocked: it was exported by hand through the Figma web UI on 2026-10-21 into `design-system/assets/brand/`, and `MANIFEST.md` lists every file, the Figma file and node it came from, and its use. What is open is read access to the files, and who owns a re-export. Owner: Jacob + the design team.
 5. **Round 1 length and judge count** (§3 math). At least 85 minutes, or more judges? (Experience)
-6. **Where admin lives:** inside GavIL (this design system), or as routes in `admin-site` (Material UI)? Recommendation: GavIL. One brand, and the permission matrix stays in one codebase.
+6. **Where admin lives:** it is built inside GavIL for now (`/admin`, on this design system); the alternative is routes in `admin-site` (Material UI), which would mean porting the console and the permission matrix. Recommendation: GavIL. One brand, and the matrix stays in one codebase.
 7. **Sponsor-run judging:** which sponsors judge their own tracks, and do they use Gav-IL? (Outreach)
 8. **Prize limits:** is there a cap on how many prizes a team can be considered for? MLH prizes can't be limited.
 9. **Hardware:** a separate Mechathon run by the sponsor (Notion suggestion), or a track?
 10. **Crowd-BT judge reliability:** worth it for v1?
 11. **Beginner:** an unofficial path in Notion. Show it only as a member level?
 12. **`Room-Setup` repo** (empty): fold seating plans into adonix `RoomPlan`?
+13. **A live challenge for the placard QR.** The QR is a weak attestation (§4.1): a photo or a forwarded link can still prove presence. The strong version is a code the team's attendee app (or staff) show and rotate every minute, typed or scanned at the table and checked by adonix. It needs the attendee app and an adonix endpoint. Until then the `carried` and implausible-proofs signals are all there is. Owner: Jacob + the attendee-app team.
+14. **Cloudflare confirmations no code can settle.** The real `namespace_id` of the `PLACARD_RATELIMIT` binding in `wrangler.jsonc` (it holds `271023`); attaching `judging.hackillinois.org` to the `gavil` Worker; the Gav-IL host in adonix's `ALLOWED_WEB_HOSTS`; a WAF rate-limit rule on `/auth/*` and `/login` (the app rate-limits only placard scans); the Workers Logs check after the first deploy (§6.1); and the trade-off of switching the per-request log off. Owner: Aritro + whoever holds the HackIllinois Cloudflare account.
+15. **What adonix must add that this pass needs.** All of `CONTRACT.md`, and in particular what changed in this pass: the Round 2 close on receipt time, `dropped.nominations`, `carried` on the arrival, per-project revisions and `StaleWrite`, `AttemptInProgress` and `settle`, `serverNow` on a transcript answer, and escalated projects in the flags list. Suggested: make the draft `PUT` an idempotent no-op (`200 { revision }`) when the words equal the stored draft and the revision is stale, which removes the last false dead letter. Owner: Jacob + Aritro.
+16. **Offline beyond the outbox.** A service worker and an IndexedDB queue are not built, so the next table still needs a connection. Owner: Aritro.
+17. **`middleware.ts` or `proxy.ts`.** Rename when OpenNext supports Node.js middleware on Cloudflare (or before a later Next.js removes `middleware`); the rename is mechanical and was verified (`web/README.md`). Owner: Aritro.
+18. **CSV export and a paper fallback** (§14, "What we owe them back"): not built. Owner: team.

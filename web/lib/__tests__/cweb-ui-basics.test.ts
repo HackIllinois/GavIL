@@ -53,11 +53,12 @@ afterEach(() => {
 })
 
 describe("Button", () => {
-    it("loading shows a spinner with the label, is busy and disabled, and swallows clicks", () => {
+    it("loading shows a spinner with the label, is busy and aria-disabled (never `disabled`: the pressed button keeps focus), and swallows clicks", () => {
         const onClick = vi.fn()
         mount(h(Button, { loading: true, onClick }, "Saving"))
         const b = $<HTMLButtonElement>("button")!
-        expect(b.disabled).toBe(true)
+        expect(b.disabled).toBe(false)
+        expect(b.getAttribute("aria-disabled")).toBe("true")
         expect(b.getAttribute("aria-busy")).toBe("true")
         expect($(".gv-spin", b)).toBeTruthy()
         expect(b.textContent).toBe("Saving")

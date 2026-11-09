@@ -1,6 +1,7 @@
 /**
  * PROD · the deploy is written down and cannot drift from the code:
- *   - package.json: `build:worker` builds with the unsupported-Next flag; preview and deploy use it;
+ *   - package.json: Next.js 16 (a supported release, so `build:worker` needs no unsupported-version
+ *     flag), the ESLint CLI as the linter; `build:worker` is what preview and deploy use;
  *   - wrangler.jsonc: a current compatibility date, Workers Logs on with query strings redacted
  *     (`redact_query_string`) and the per-request invocation log, which records the URL and so a
  *     token's query string, off as well, the two vars, and every secret the code reads named with
@@ -17,6 +18,7 @@ const read = (p: string) => fs.readFileSync(path.join(WEB, p), "utf8")
 const pkg = JSON.parse(read("package.json")) as {
     scripts: Record<string, string>
     dependencies: Record<string, string>
+    devDependencies: Record<string, string>
 }
 const wranglerText = read("wrangler.jsonc")
 /** JSONC without its comments (line comments never sit inside a string in this file). */
@@ -49,12 +51,11 @@ function sources(dir: string, out: string[] = []): string[] {
 }
 
 describe("package.json scripts", () => {
-    it("build:worker syncs the design system and builds with OpenNext, accepting Next 15.5", () => {
+    it("build:worker syncs the design system and builds with OpenNext on a supported Next.js, with no unsupported-version flag", () => {
         const s = pkg.scripts["build:worker"]
         expect(s).toMatch(/^npm run sync && /)
-        expect(s).toMatch(
-            /opennextjs-cloudflare build --dangerouslyUseUnsupportedNextVersion$/,
-        )
+        expect(s).toMatch(/opennextjs-cloudflare build$/)
+        expect(s).not.toContain("dangerouslyUseUnsupportedNextVersion")
     })
 
     it("build:worker switches mock mode off for the build: a developer's .env.local (GAVIL_MOCK=1) is baked into the Worker otherwise, and every request answers 500", () => {
@@ -63,12 +64,70 @@ describe("package.json scripts", () => {
         )
     })
 
+    it("runs on Next.js 16: next and eslint-config-next are on the same major, and the installed OpenNext accepts it", () => {
+        const major = (v: string) => Number(/(\d+)\./.exec(v)?.[1])
+        expect(major(pkg.dependencies.next)).toBeGreaterThanOrEqual(16)
+        expect(major(pkg.devDependencies["eslint-config-next"])).toBe(
+            major(pkg.dependencies.next),
+        )
+        const installed = JSON.parse(
+            read("node_modules/next/package.json"),
+        ) as { version: string }
+        expect(major(installed.version)).toBe(major(pkg.dependencies.next))
+        // OpenNext's own list of the Next.js versions it builds: it must name a 16.x release.
+        const opennext = JSON.parse(
+            read("node_modules/@opennextjs/cloudflare/package.json"),
+        ) as { peerDependencies: { next: string } }
+        expect(opennext.peerDependencies.next).toMatch(/>=16\.\d+\.\d+/)
+    })
+
+    it("lint is the ESLint CLI (Next.js 16 removed `next lint`), and no script still calls it", () => {
+        expect(pkg.scripts.lint).toBe("eslint .")
+        for (const [name, cmd] of Object.entries(pkg.scripts))
+            expect(cmd, name).not.toMatch(/next lint/)
+    })
+
+    it("`eslint .` skips every directory the scripts generate (a Worker bundle in .wrangler/tmp has thousands of findings) and still lints the source", async () => {
+        // `next lint` only looked at app/, components/ and lib/; `eslint .` walks the whole tree, so
+        // the config itself must ignore what `dev`, `build`, `build:worker`, `preview` and `deploy` write.
+        const { ESLint } = await import("eslint")
+        const eslint = new ESLint({ cwd: WEB })
+        for (const generated of [
+            ".next/server/app/page.js",
+            ".open-next/worker.js",
+            ".wrangler/tmp/dev-k63eTg/worker.js",
+            ".wrangler/tmp/bundle-UviwXz/middleware-insertion-facade.js",
+            ".wrangler/tmp/bundle-UviwXz/middleware-loader.entry.ts",
+        ])
+            expect(
+                await eslint.isPathIgnored(path.join(WEB, generated)),
+                generated,
+            ).toBe(true)
+        for (const source of [
+            "app/judge/OutboxAlert.tsx",
+            "lib/api/client.ts",
+            "middleware.ts",
+            "eslint.config.mjs",
+            "scripts/sync-design-system.mjs",
+        ])
+            expect(
+                await eslint.isPathIgnored(path.join(WEB, source)),
+                source,
+            ).toBe(false)
+    }, 30_000)
+
+    it("the dev server and the build use the Next.js 16 default bundler: no --turbopack flag to carry over", () => {
+        expect(pkg.scripts.dev).toBe("next dev")
+        expect(pkg.scripts.build).toBe("next build")
+    })
+
     it("preview and deploy go through build:worker, never a bare OpenNext build", () => {
         expect(pkg.scripts.preview).toBe(
             "npm run build:worker && opennextjs-cloudflare preview",
         )
+        // (and ends with the /api/health check, cfin-scripts.test.ts)
         expect(pkg.scripts.deploy).toBe(
-            "npm run build:worker && opennextjs-cloudflare deploy",
+            "npm run build:worker && opennextjs-cloudflare deploy && npm run check:health",
         )
         for (const k of ["preview", "deploy"])
             expect(pkg.scripts[k]).not.toMatch(/opennextjs-cloudflare build/)
@@ -163,6 +222,16 @@ describe("wrangler.jsonc", () => {
         })
     })
 
+    it("defines the placard limiter as a Workers binding with a venue-sized threshold", () => {
+        expect(wrangler.ratelimits).toEqual([
+            {
+                name: "PLACARD_RATELIMIT",
+                namespace_id: "271023",
+                simple: { limit: 600, period: 60 },
+            },
+        ])
+    })
+
     it("names every secret the code reads, each with its `wrangler secret put` instruction", () => {
         // Secrets are read as env.NAME / process.env.NAME by the app; dev-only ones (mock) and
         // adonix's own (placard) are not this Worker's.
@@ -220,10 +289,17 @@ describe("README Deploy section", () => {
             "npm run preview",
             "npm run deploy",
             "/api/health",
-            "--dangerouslyUseUnsupportedNextVersion",
             "Next.js 16",
         ])
             expect(section, needle).toContain(needle)
+        expect(section).not.toContain("dangerouslyUseUnsupportedNextVersion")
+    })
+
+    it("documents the placard scan rate limit and local fallback", () => {
+        expect(readme).toContain(
+            "600 requests per minute per verified session, or per visitor IP",
+        )
+        expect(readme).toContain("in-memory fallback")
     })
 
     it("names the settings that keep query strings out of Workers Logs, their cost, how to check them, and where the security headers live", () => {
