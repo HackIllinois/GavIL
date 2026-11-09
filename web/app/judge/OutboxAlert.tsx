@@ -8,6 +8,7 @@ import {
     signInAgainPath,
     useNotices,
     useSessionEnd,
+    useStaleBuild,
     useStorageFault,
     useWrongJudge,
 } from "@/lib/offline"
@@ -26,6 +27,10 @@ import { useJudge } from "./JudgeContext"
  * - Work the server refused for good is never dropped silently: the judge sees it, and "Show
  *   staff" opens the details a staff member needs (what, why, when, the reference). Once staff
  *   have seen it, it can be cleared from the phone, after a confirm.
+ * - "A new version is ready": a redeploy left this page behind (its server actions are gone from
+ *   the server, `isStaleBuild`). Nothing it sends can work until it is reloaded; the phone keeps
+ *   what it holds and the new page sends it. Said once, with a Reload button, and no retry timer
+ *   runs meanwhile.
  * - "This phone can't save right now": the server refused something and the phone could not keep
  *   the refusal, so the item stays queued (nothing is lost, nothing is called sent) and is tried
  *   again.
@@ -47,6 +52,7 @@ export function OutboxAlert({
         () => (me ? { eventId: me.eventId, judgeId: me.judgeId } : null),
         [me],
     )
+    const staleBuild = useStaleBuild()
     const notices = useNotices(scope)
     const storageFault = useStorageFault(scope)
     const [details, setDetails] = useState(false)
@@ -89,6 +95,33 @@ export function OutboxAlert({
                     </div>
                 </div>
             )}
+            {staleBuild && (
+                <div
+                    className="gv-alert gv-alert--warn"
+                    role="alert"
+                    data-stale-build
+                >
+                    <Icon name="alert" size={18} />
+                    <div className="gv-stack">
+                        <div>
+                            <b>A new version of Gav-IL is ready.</b>
+                            <p>
+                                This page is from the version before it, so it
+                                can’t send or check anything right now. Reload
+                                to carry on. Everything saved here stays on this
+                                phone and is sent after the reload.
+                            </p>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="lg"
+                            onClick={() => window.location.reload()}
+                        >
+                            Reload
+                        </Button>
+                    </div>
+                </div>
+            )}
             {wrongJudge && (
                 <div className="gv-alert" role="alert">
                     <Icon name="alert" size={18} />
@@ -104,7 +137,13 @@ export function OutboxAlert({
                         <Button
                             variant="secondary"
                             size="lg"
-                            onClick={() => window.location.assign("/judge")}
+                            onClick={() =>
+                                // A real page load on purpose: this phone is signed in as someone
+                                // else, so the client router's cached screens must go, which
+                                // useRouter().push() would keep.
+                                // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+                                window.location.assign("/judge")
+                            }
                         >
                             Reload
                         </Button>

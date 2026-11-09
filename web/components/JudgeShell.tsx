@@ -63,24 +63,29 @@ export function RecTag({
     onShow,
 }: NonNullable<JudgeShellProps["recording"]>) {
     const word = paused ? "Recording paused" : "Recording"
+    // The name is the words on the tag, then what only a screen reader needs (it is a memo; where
+    // the button goes): the visible text is part of the name, as WCAG 2.5.3 asks, and the ticking
+    // time is aria-hidden, so the name never changes every second.
     const kids = (
         <>
             <span className="gv-rectag__dot" aria-hidden />
             <span className="gv-rectag__w">{word}</span>
+            {(memo || onShow) && (
+                <span className="gv-sr">
+                    {(memo ? " your memo" : "") +
+                        (onShow ? ". Show the recorder" : "")}
+                </span>
+            )}
             <span className="gv-rectag__t" aria-hidden>
                 {formatTime(elapsed || 0)}
             </span>
         </>
     )
-    // The name never carries the ticking time.
     return onShow ? (
         <button
             type="button"
             className="gv-rectag"
             data-paused={paused || undefined}
-            aria-label={
-                word + (memo ? " your memo" : "") + ". Show the recorder"
-            }
             onClick={onShow}
         >
             {kids}
@@ -97,21 +102,18 @@ export function UnsentTag({
     n,
     onRetry,
 }: NonNullable<JudgeShellProps["unsent"]>) {
-    const items = n + (n === 1 ? " item" : " items")
+    // Named by its own words ("3 not sent Tap to retry"), then the rest a screen reader needs.
     return (
         <button
             type="button"
             className="gv-offline gv-offline--tag gv-unsent"
             onClick={onRetry}
-            aria-label={
-                items + " not sent yet. Saved on this phone. Retry sending"
-            }
         >
             <Icon name="alert" size="compact" />
-            <span className="gv-offline__text" aria-hidden>
-                <b>{n + " not sent"}</b>
-                <span>Tap to retry</span>
+            <span className="gv-offline__text">
+                <b>{n + " not sent"}</b> <span>Tap to retry</span>
             </span>
+            <span className="gv-sr">. Saved on this phone</span>
         </button>
     )
 }
@@ -130,7 +132,6 @@ function ShellBody({
     return (
         <main
             className={cx("gv-shell__body", enter && "gv-enter")}
-            tabIndex={-1}
             ref={mainRef}
         >
             {children}
@@ -146,6 +147,33 @@ function ShellBody({
  */
 export function JudgeShell(p: JudgeShellProps) {
     const main = useRef<HTMLElement>(null)
+    const top = useRef<HTMLElement>(null)
+    const dock = useRef<HTMLDivElement>(null)
+    // The two sticky bands hide what scrolls under them. Their heights are measured and written to
+    // --gv-top-h and --gv-dock-h, which the design system (bundle.css) turns into scroll-padding: a
+    // control reached with the keyboard (Tab, Shift+Tab) scrolls out from under them instead of
+    // staying behind one (WCAG 2.2 2.4.11), and the walk screen sizes its first screen by the top one.
+    useLayoutEffect(() => {
+        const root = document.documentElement
+        const bands: [string, HTMLElement | null][] = [
+            ["--gv-top-h", top.current],
+            ["--gv-dock-h", dock.current],
+        ]
+        const write = () => {
+            for (const [name, el] of bands)
+                if (el) root.style.setProperty(name, el.offsetHeight + "px")
+        }
+        write()
+        const ro =
+            typeof ResizeObserver === "undefined"
+                ? null
+                : new ResizeObserver(write)
+        for (const [, el] of bands) if (el) ro?.observe(el)
+        return () => {
+            ro?.disconnect()
+            for (const [name] of bands) root.style.removeProperty(name)
+        }
+    }, [])
     const prev = useRef(p.screenKey)
     const said = useRef(p.announce)
     const [live, setLive] = useState("")
@@ -209,15 +237,16 @@ export function JudgeShell(p: JudgeShellProps) {
     return (
         <div className="gv-shell" style={p.style}>
             {p.ground !== false && <div className="gv-ground" aria-hidden />}
-            <div className="gv-shell__top">
-                <header className="gv-appbar">
+            {/* The banner: the app bar and the timer under it (a timer outside any landmark is skipped by landmark navigation). */}
+            <header className="gv-shell__top" ref={top}>
+                <div className="gv-appbar">
                     {lead}
                     <div className="gv-row" style={{ gap: "var(--space-1)" }}>
                         {p.right}
                     </div>
-                </header>
+                </div>
                 {p.timer}
-            </div>
+            </header>
             <ShellBody
                 key={p.screenKey == null ? "body" : "k" + p.screenKey}
                 animate={p.screenKey != null}
@@ -228,7 +257,14 @@ export function JudgeShell(p: JudgeShellProps) {
             <span className="gv-sr gv-shell__live" role="status">
                 {live}
             </span>
-            <div className={cx("gv-dock", !p.footer && "gv-dock--bare")}>
+            <div
+                className={cx("gv-dock", !p.footer && "gv-dock--bare")}
+                ref={dock}
+                // The action bar is a landmark of its own: Submit and Skip are not "outside the page".
+                {...(p.footer
+                    ? { role: "region", "aria-label": "Actions" }
+                    : {})}
+            >
                 {p.toast !== undefined && (
                     <Toast
                         message={p.toast}

@@ -4,6 +4,7 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
     ART,
+    ART_OFF,
     art,
     ART_ROOT,
     BRAND_ALT,
@@ -80,8 +81,10 @@ describe.skipIf(!have)("it is tokens.json", () => {
         )
         expect(t, "art-" + name).toBeTruthy()
         // a themed token (the garlands) must be the same file in every theme: an <img> has no theme
-        const vals: string[] =
+        // ("none" is a theme leaving the art out: ART_OFF, checked below)
+        const vals: string[] = (
             typeof t.value === "object" ? Object.values(t.value) : [t.value]
+        ).filter((v) => v !== "none") as string[]
         const files = new Set(
             vals.map((v) => /url\("\/assets\/brand\/([^"]+)"\)/.exec(v)![1]),
         )
@@ -90,7 +93,30 @@ describe.skipIf(!have)("it is tokens.json", () => {
     }
     it("every name has its token, and the same file", () => {
         for (const name of Object.keys(ART) as ArtName[])
-            expect(ART_ROOT + tokenUrl(name)).toBe(art(name)!.src)
+            expect(ART_ROOT + tokenUrl(name)).toBe(art(name, "sunset")!.src)
+    })
+    it("ART_OFF is exactly the art each theme sets to none", () => {
+        const off: Record<string, string[]> = {}
+        for (const t of tokens.asset.tokens as {
+            name: string
+            value: unknown
+        }[]) {
+            if (!t.name.startsWith("art-") || typeof t.value !== "object")
+                continue
+            for (const [theme, v] of Object.entries(
+                t.value as Record<string, string>,
+            ))
+                if (v === "none" && isArtName(t.name.slice(4)))
+                    (off[theme] ??= []).push(t.name.slice(4))
+        }
+        const mine = Object.fromEntries(
+            Object.entries(ART_OFF).map(([k, v]) => [k, [...v].sort()]),
+        )
+        for (const k of Object.keys(off)) off[k].sort()
+        expect(mine).toEqual(off)
+        expect(art("longhorn", "plain")).toBeNull()
+        expect(art("lockup", "plain")).toBeNull() // white art on white bars: the name in type instead
+        expect(art("lockup", "sunset")).not.toBeNull()
     })
     it("and every art token that a component can draw has a name here", () => {
         const drawn = tokens.asset.tokens

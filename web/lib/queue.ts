@@ -105,6 +105,11 @@ export interface QueueJudge {
     deferred?: Deferral[]
     /** Previous evaluated project in this room: the Gavel anchor and the walking-distance origin. */
     previousId?: string
+    /**
+     * A sponsor run: the exact projects this judge is owed (any room or path), in place of the
+     * room-and-path rule.
+     */
+    scope?: string[]
 }
 
 export interface NextOptions {
@@ -148,10 +153,12 @@ export function owedProjects(
             .filter((d) => isCantFind(d) && d.count >= 2)
             .map((d) => d.projectId),
     )
+    const scope = judge.scope ? new Set(judge.scope) : null
     return projects.filter(
         (p) =>
-            p.room === judge.room &&
-            p.path === judge.path &&
+            (scope
+                ? scope.has(p.id)
+                : p.room === judge.room && p.path === judge.path) &&
             !p.held &&
             !conflicts.has(p.id) &&
             !seen.has(p.id) &&

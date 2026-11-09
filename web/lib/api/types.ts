@@ -167,6 +167,13 @@ export interface Project {
      * they may still dictate a private memo of their own voice after leaving it.
      */
     recordingOptOut?: boolean
+    /**
+     * Every team member ticked "judges may take voice notes at our table" on the submission
+     * form. The judge's phone then skips the consent question: one tap records, and the card
+     * still tells the judge to say so out loud (anyone at the table can still say stop).
+     * recordingOptOut always wins over it.
+     */
+    recordingConsent?: boolean
 }
 
 /** A team member as a judge's phone gets them: never their registration email (S11). */
@@ -284,6 +291,12 @@ export interface Judge {
     room: string
     /** Round 2 prize id. */
     round2PrizeId: string
+    /**
+     * A sponsor run this judge belongs to (SponsorRun.id). They judge only the projects opted into
+     * that run's prize, in any room, and their comparisons form the run's own ranking: they never
+     * count toward room coverage or the room rankings. Unset for everyone in the main Round 1.
+     */
+    run?: string
     checkedIn: boolean
     checkedInAt?: string
     /** Evaluations submitted. */
@@ -304,6 +317,43 @@ export interface Judge {
 }
 
 export type ConflictReason = "declared" | "member" | "own-track"
+
+/**
+ * A sponsor's own Round 1 (the 2026-11 systems meeting: "if a company wants their own instance of
+ * the algorithm"): the same queue and pairwise ranking, run only over the projects opted into one
+ * company prize and only by that company's judges. Admins (or staff, on an admin's behalf) start
+ * one in minutes from the Prizes page with the prize and the judges' emails, because sponsors often
+ * decide a week before.
+ */
+export interface SponsorRun {
+    id: string
+    prizeId: string
+    /** Prize.sponsor, e.g. "Stripe". */
+    sponsor: string
+    createdAt: string
+    /** The admin's email. */
+    createdBy: string
+}
+
+export interface SponsorRunInput {
+    /** A company prize with a sponsor. */
+    prizeId: string
+    /** The sponsor's judges. New emails become sponsor judges; existing sponsor judges join. */
+    emails: string[]
+}
+
+export interface SponsorRunSummary extends SponsorRun {
+    prizeName: string
+    /** Projects opted into the prize (held ones included, shown as held). */
+    projects: number
+    judges: { id: string; name: string; email: string; checkedIn: boolean }[]
+    /** Evaluations by the run's judges per project: the run's own coverage. */
+    views: { min: number; mean: number }
+    /** Comparisons the run's judges made. */
+    votes: number
+    /** The run's ranking (its votes only), best first. Never shown to judges. */
+    ranking: { id: string; name: string; tableCode: string; views: number }[]
+}
 
 /** Shown at check-in: "You won't be sent to Tidal (A03): a team member works at Stripe." */
 export interface ConflictNotice {
@@ -331,7 +381,7 @@ export interface RoundState {
     totalSeconds: number
     /**
      * When Round 2 deliberation closes (phase "closed" after it). Missing = open until staff close
-     * it. A ranking made offline before this still counts when replayed (within 20 min).
+     * it. Ranking writes are accepted only when the server receives them before this time.
      */
     deliberationEndsAt?: string
 }
@@ -366,6 +416,8 @@ export interface Evaluation {
     /** Phone clock when the judge tapped Submit (offline replays are judged by this). */
     createdAt?: string
     clientId?: string
+    /** Server-assigned revision for this judge's project notes and nominations. */
+    revision?: number
     /** Submitted after this judge's lease had lapsed (another judge may have been sent). */
     lateAfterLease?: boolean
     /**
@@ -406,7 +458,7 @@ export interface Evaluation {
      * items together (each says which in `mode`). An edit without `highlights` keeps them.
      */
     highlights?: KeptHighlight[]
-    /** What the judge saw of the demo (a fact, not a rating; the judge's tap always wins). */
+    /** What the judge saw of the demo (a fact, not a grade; the judge's tap always wins). */
     demoStatus?: DemoStatus
     /** Set when an admin voided this evaluation (it no longer counts toward views or nominations). */
     voidedAt?: string
@@ -716,6 +768,13 @@ export interface TranscriptResult {
     receipt: string
     /** issuedAt + 30 min. */
     receiptExpiresAt: string
+    /**
+     * The server's clock when it answered (ISO). `receiptExpiresAt` is on that clock; the phone
+     * reads how far its own is from it and reads the expiry on its own clock, so a phone that is
+     * minutes slow or fast neither keeps the room's words late nor wipes a good transcript early.
+     * Absent from an older server: the expiry is then taken as given.
+     */
+    serverNow?: string
 }
 
 /** POST /api/talk/highlights body. Never stored, never logged. */
@@ -1152,11 +1211,20 @@ export interface NextProject {
     /** Prizes this project can be nominated for (its path, plus company/MLH prizes it opted into). */
     prizes?: Prize[]
     /** Autosaved notes and nominations for this table, restored after a reload. */
-    draft?: { notes: string; nominations: string[] }
+    draft?: { notes: string; nominations: string[]; revision: number }
+    /** Current compare-and-set revision for this judge and project (0 before the first write). */
+    projectRevision?: number
     /** status "wait": seconds until the soonest table frees up. */
     waitSeconds?: number
     /** status "wait": what is keeping the owed tables (leased, cooling, deferred by this judge). */
     waiting?: WaitBreakdown
+    /**
+     * The table's room and its plan, sent only when it is not the judge's own room (a sponsor
+     * run spans rooms): directions and the placard check use them; the judge's assignment
+     * (and the staff-move watch) stays JudgeMe.room.
+     */
+    room?: Room
+    plan?: RoomPlan
 }
 
 /**
@@ -1293,8 +1361,13 @@ export interface FlaggedProject {
         "id" | "name" | "path" | "room" | "table" | "tableCode"
     >
     flags: Flag[]
-    /** True when any open flag has hold confidence. */
+    /** True when any open flag has hold confidence, or the project is escalated (it is out of judging either way). */
     held: boolean
+    /**
+     * An admin escalated it to the organizers: it stays out of judging until they decide, and an
+     * admin clears it once they have. Listed with its flags, after the held ones.
+     */
+    escalated?: boolean
 }
 
 export interface CoverageRoom {

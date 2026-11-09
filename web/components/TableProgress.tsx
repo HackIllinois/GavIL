@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type ReactNode } from "react"
 import { art } from "@/lib/art"
 import { cx } from "@/lib/format"
 
@@ -11,7 +11,7 @@ export interface TableProgressProps {
     /** The table the judge is at (a half star) while any are left. */
     current?: boolean
     /** Replaces the default "3 of 8 tables". */
-    label?: string
+    label?: ReactNode
     /** `plaque`: the plum plaque for the painted ground; paper (default) is for a card. */
     tone?: "paper" | "plaque"
     className?: string

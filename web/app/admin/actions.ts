@@ -228,6 +228,26 @@ export async function setEventSettings(patch: EventSettingsPatch) {
 }
 
 /** A team said no to recording in advance: judges can't record its table (a memo still works). */
+/**
+ * Start a sponsor's own Round 1 for one company prize (the 2026-11 systems meeting): the emails
+ * become that sponsor's judges, sent only to projects opted into the prize.
+ */
+export async function createSponsorRun(prizeId: string, emails: string[]) {
+    return guarded(
+        "prizes",
+        async () => {
+            const r = await (
+                await getApi()
+            ).admin.createSponsorRun({
+                prizeId,
+                emails,
+            })
+            return `${r.prizeName}: run started with ${r.judges.length} judge${r.judges.length === 1 ? "" : "s"} over ${r.projects} projects.`
+        },
+        "/admin/prizes",
+    )
+}
+
 export async function setRecordingOptOut(
     projectId: string,
     name: string,

@@ -15,6 +15,7 @@
   var hl=G.talk.extract(G.talk.FIXTURES.p01), items=G.talk.toItems(hl), no=function(){};
   root.render(h('div',{className:'gv-stack',style:{maxWidth:'calc(var(--space-12) * 8)'}},
     h(G.TableTalk,{state:'idle',project:'NeuralMesh',onAsk:no}),
+    h(G.TableTalk,{state:'idle',project:'EcoLens',preConsented:true,onAsk:no,onConsent:no}),
     h(G.TableTalk,{state:'starting',project:'NeuralMesh',onCancelStart:no}),
     h(G.TableTalk,{state:'recording',project:'NeuralMesh',elapsed:72,level:.72,marks:[64],onMark:no,onPause:no,onStop:no,onStopDelete:no}),
     h(G.TableTalk,{state:'paused',project:'NeuralMesh',elapsed:72,pausedReason:'screen',onResume:no,onStop:no}),

@@ -204,6 +204,8 @@ export const SEED_PROJECTS: SeedProject[] = [
         views: 0,
         commits: 131,
         tagline: "Carbon footprint of anything you point your camera at.",
+        // The whole team agreed to Table talk on the submission form: no consent sheet at this table.
+        recordingConsent: true,
         description:
             "Point your camera at any product to see its full supply-chain carbon footprint, powered by vision AI and a live emissions database.",
         team: team("Maya Chen", "Leo Brooks"),

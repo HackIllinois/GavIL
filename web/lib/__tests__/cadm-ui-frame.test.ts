@@ -794,6 +794,11 @@ describe("PlacardPrint", () => {
 describe("AutoRefresh", () => {
     it("asks the server for fresh data on its interval while the page is visible, and not while it is hidden", async () => {
         vi.useFakeTimers()
+        // (it asks /api/health first, and refreshes only when something answered: cfin-refresh.test.ts)
+        vi.stubGlobal(
+            "fetch",
+            vi.fn(async () => new Response('{"ok":true}', { status: 200 })),
+        )
         mount(h(AutoRefresh, { seconds: 30 }))
         await vi.advanceTimersByTimeAsync(30_000)
         expect(nav.refresh).toHaveBeenCalledTimes(1)
@@ -808,7 +813,9 @@ describe("AutoRefresh", () => {
             configurable: true,
         })
         document.dispatchEvent(new Event("visibilitychange"))
+        await vi.advanceTimersByTimeAsync(0)
         expect(nav.refresh).toHaveBeenCalledTimes(2)
+        vi.unstubAllGlobals()
     })
 })
 

@@ -31,6 +31,22 @@ export function clockTime(iso: string): string {
 }
 
 /**
+ * `table[key]` for a word that came from a link or a request (?toast=, ?from=, ?error=): only the
+ * table's own keys answer. A plain object also answers "constructor", "__proto__" or "toString"
+ * with a function or an object, which is neither a message nor a path, and cannot be passed on to
+ * a client screen. A key that is not a string (a repeated parameter arrives as an array) is a miss.
+ */
+export function own<T>(
+    table: Readonly<Record<string, T>>,
+    key: unknown,
+): T | undefined {
+    return typeof key === "string" &&
+        Object.prototype.hasOwnProperty.call(table, key)
+        ? table[key]
+        : undefined
+}
+
+/**
  * A link from data a phone didn't write (a project's Devpost page) that is safe to open from a
  * button: an http(s) address, or undefined. Never `javascript:`, `data:` or a relative path.
  */

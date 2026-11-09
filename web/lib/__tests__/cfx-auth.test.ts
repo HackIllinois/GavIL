@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest, NextResponse } from "next/server"
 import {
     ApiError,
+    adonixUrlProblem,
     adonixUrl,
     AdonixClient,
     googleLoginUrl,
@@ -216,10 +217,14 @@ describe("11 · adonix's URL is read when it is needed, never frozen into the bu
     it("ADONIX_URL wins, then the old NEXT_PUBLIC_ name, then the default; read on every call", () => {
         expect(adonixUrl({})).toBe("https://adonix.hackillinois.org")
         expect(
-            adonixUrl({ NEXT_PUBLIC_ADONIX_URL: "https://old.example" }),
+            adonixUrl({
+                NODE_ENV: "test",
+                NEXT_PUBLIC_ADONIX_URL: "https://old.example",
+            }),
         ).toBe("https://old.example")
         expect(
             adonixUrl({
+                NODE_ENV: "test",
                 ADONIX_URL: "https://staging.example",
                 NEXT_PUBLIC_ADONIX_URL: "https://old.example",
             }),
@@ -227,6 +232,61 @@ describe("11 · adonix's URL is read when it is needed, never frozen into the bu
         expect(adonixUrl({ ADONIX_URL: "  " })).toBe(
             "https://adonix.hackillinois.org",
         )
+    })
+
+    it("production requires HTTPS and the configured host; only localhost may use HTTP outside production", () => {
+        expect(adonixUrlProblem({ NODE_ENV: "production" })).toBeNull()
+        expect(
+            adonixUrlProblem({
+                NODE_ENV: "production",
+                ADONIX_URL: "http://adonix.hackillinois.org",
+            }),
+        ).toMatch(/HTTPS/)
+        expect(
+            adonixUrlProblem({
+                NODE_ENV: "production",
+                ADONIX_URL: "https://evil.example",
+            }),
+        ).toMatch(/allow list/)
+        expect(
+            adonixUrlProblem({
+                NODE_ENV: "production",
+                ADONIX_URL: "https://staging.example",
+                GAVIL_ADONIX_HOSTS: "adonix.hackillinois.org, staging.example",
+            }),
+        ).toBeNull()
+        expect(
+            adonixUrlProblem({
+                NODE_ENV: "development",
+                ADONIX_URL: "http://localhost:3101",
+            }),
+        ).toBeNull()
+        expect(
+            adonixUrlProblem({
+                NODE_ENV: "development",
+                ADONIX_URL: "http://evil.example",
+            }),
+        ).toMatch(/localhost/)
+        expect(() =>
+            adonixUrl({
+                NODE_ENV: "production",
+                ADONIX_URL: "http://evil.example",
+            }),
+        ).toThrow(/HTTPS/)
+    })
+
+    it("the client checks an explicit base URL before sending its bearer token", async () => {
+        vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("GAVIL_ADONIX_HOSTS", "adonix.hackillinois.org")
+        const fetch = vi.fn()
+        vi.stubGlobal("fetch", fetch)
+        await expect(
+            new AdonixClient(
+                "session-jwt",
+                "https://evil.example",
+            ).auth.roles(),
+        ).rejects.toThrow(/allow list/)
+        expect(fetch).not.toHaveBeenCalled()
     })
 
     it("a Worker variable set after the module loaded reaches the request (client, sign-in link, token check)", async () => {

@@ -5,7 +5,7 @@
  * served by Next.js); public/_headers carries them for what Cloudflare serves from its asset
  * store before any code runs. One table of values serves all three.
  *
- * - Content-Security-Policy is built per request around a fresh nonce. Next.js 15 reads the
+ * - Content-Security-Policy is built per request around a fresh nonce. Next.js reads the
  *   nonce from the REQUEST's content-security-policy header and puts it on its own scripts, so
  *   the policy needs `strict-dynamic` and no host allow-list for scripts.
  * - Permissions-Policy keeps `camera=(self)` (the placard scanner) and `microphone=(self)`
@@ -131,9 +131,9 @@ export interface CspOptions {
     /** `next dev`: React needs eval for refresh/source maps and HMR needs a WebSocket. */
     dev?: boolean
     /**
-     * `next dev --turbopack` (npm run dev): it inserts some route chunks without the nonce, which
-     * `strict-dynamic` would block, so 'self' has to count there. Webpack's dev server (`npx next
-     * dev`) and every production build keep `strict-dynamic`.
+     * `next dev` (npm run dev; Turbopack is the default bundler): it inserts some route chunks
+     * without the nonce, which `strict-dynamic` would block, so 'self' has to count there.
+     * Webpack's dev server (`next dev --webpack`) and every production build keep `strict-dynamic`.
      */
     turbopack?: boolean
     /** adonix's origin: the staff Google sign-in is a redirect through it. */

@@ -19,14 +19,22 @@ const tokens = haveDs
 const read = (p: string) => fs.readFileSync(path.join(web, p), "utf8")
 
 const body = (css: string) => css.split("\n").slice(1).join("\n")
+const havePython3 = (() => {
+    try {
+        execFileSync("python3", ["--version"], { stdio: "ignore" })
+        return true
+    } catch {
+        return false
+    }
+})()
 
 describe.skipIf(!haveDs)(
     "compileTokens is build_previews.py's compile_tokens",
     () => {
-        it("emits byte-for-byte what the design system's own build emits", () => {
-            let py: string | null = null
-            try {
-                py = execFileSync(
+        it.skipIf(!havePython3)(
+            "emits byte-for-byte what the design system's own build emits (requires python3)",
+            () => {
+                const py = execFileSync(
                     "python3",
                     [
                         "-I",
@@ -36,12 +44,9 @@ describe.skipIf(!haveDs)(
                     ],
                     { encoding: "utf8" },
                 )
-            } catch {
-                py = null // no python3 on this machine: the next tests still pin the families
-            }
-            if (py == null) return
-            expect(sync.compileTokens(tokens).css).toBe(py)
-        })
+                expect(sync.compileTokens(tokens).css).toBe(py)
+            },
+        )
 
         it("emits every family: themed color, shadow and asset; spacing, radius, size, motion; fonts; type styles", () => {
             const css: string = sync.compileTokens(tokens).css

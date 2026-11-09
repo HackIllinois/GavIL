@@ -19,7 +19,9 @@ import {
     useSyncExternalStore,
 } from "react"
 import {
+    activeWriteForThing,
     addNotice,
+    clearAsideDraft,
     clearDraft,
     clearJudge,
     clearScope,
@@ -30,12 +32,15 @@ import {
     enqueueChecked,
     exclusive,
     flushOutbox,
+    knownRevision,
     kvWorks,
     markSent,
     readDead,
+    readAsideDraft,
     readDraft,
     readNotices,
     readQueue,
+    rememberRevision,
     removeQueued,
     savedCount,
     sendTracked,
@@ -46,6 +51,8 @@ import {
     tidyNeeded,
     tidyQueueLocked,
     unsentSummary,
+    restampDraft,
+    setDraftAside,
     writeDraft,
     type ActionOutcome,
     type ActionReply,
@@ -187,7 +194,9 @@ export function enqueue(
     write: OutboxWrite,
     replaces?: string,
 ): UnsavedWhy | null {
-    const r = enqueueChecked(kv(), scope, write, replaces)
+    const store = kv()
+    const active = activeWriteForThing(store, scope.judgeId, write)
+    const r = enqueueChecked(store, scope, write, replaces ?? active, active)
     changed()
     return r.saved ? null : r.why
 }
@@ -201,8 +210,10 @@ export async function keepWrite(
     write: OutboxWrite,
     replaces?: string,
 ): Promise<UnsavedWhy | null> {
+    const store = kv()
+    const active = activeWriteForThing(store, scope.judgeId, write)
     const r = await exclusive(scope, () =>
-        enqueueChecked(kv(), scope, write, replaces),
+        enqueueChecked(store, scope, write, replaces ?? active, active),
     )
     changed()
     return r.saved ? null : r.why
@@ -218,7 +229,9 @@ export function enqueueQuietly(
     write: OutboxWrite,
     replaces?: string,
 ): UnsavedWhy | null {
-    const r = enqueueChecked(kv(), scope, write, replaces)
+    const store = kv()
+    const active = activeWriteForThing(store, scope.judgeId, write)
+    const r = enqueueChecked(store, scope, write, replaces ?? active, active)
     changed()
     return r.saved ? null : r.why
 }
@@ -364,6 +377,7 @@ export async function sendOrQueue<T>(
     })
     if (d.status === "queued" && d.why === "wrong-judge")
         flagWrongJudge(scope.judgeId)
+    if (d.status === "queued" && d.staleBuild) flagStaleBuild()
     changed()
     // The session is over (CFX 2). The write is on the phone, so the screen can go to /login now;
     // if it is not (`unsaved`), it stays with the judge's words and says so.
@@ -459,6 +473,43 @@ export function leaveForSignIn(scope: OutboxScope, end: SessionEnd): boolean {
 let leftAt = -Infinity
 const LEAVING_MS = 10_000
 
+// ── This page is older than the server ────────────────────────────────────────
+
+const STALE_BUILD = "gavil:stale-build"
+let staleBuild = false
+
+/**
+ * A redeploy left this page behind: its server actions (or chunks) are gone from the server. Said
+ * once, on every judge screen (OutboxAlert), until the page is reloaded; the phone keeps what it
+ * holds, and the new page sends it. `isStaleBuild` (lib/outbox.ts) says which errors mean this.
+ */
+export function flagStaleBuild() {
+    if (staleBuild) return
+    staleBuild = true
+    if (typeof window !== "undefined")
+        window.dispatchEvent(new Event(STALE_BUILD))
+}
+
+export function isStaleBuildFlagged(): boolean {
+    return staleBuild
+}
+
+/** Tests: forget the flag. */
+export function resetStaleBuild() {
+    staleBuild = false
+}
+
+export function useStaleBuild(): boolean {
+    return useSyncExternalStore(
+        (cb) => {
+            window.addEventListener(STALE_BUILD, cb)
+            return () => window.removeEventListener(STALE_BUILD, cb)
+        },
+        () => staleBuild,
+        () => false,
+    )
+}
+
 // ── "This phone is signed in as someone else" ─────────────────────────────────
 
 /** Judges whose screen on this page got a WrongJudge (someone else is signed in now). */
@@ -533,10 +584,12 @@ export function saveLocalDraft(
     projectId: string,
     notes: string,
     nominations: string[],
+    revision?: number,
 ) {
     writeDraft(kv(), scope, projectId, {
         notes,
         nominations,
+        ...(revision != null ? { revision } : {}),
         at: new Date().toISOString(),
     })
 }
@@ -548,8 +601,61 @@ export function localDraft(
     return readDraft(kv(), scope, projectId)
 }
 
+/** A server answer named this project's revision (see rememberRevision in lib/outbox.ts). */
+export function rememberProjectRevision(
+    judgeId: string,
+    projectId: string,
+    revision: unknown,
+    exact = false,
+) {
+    rememberRevision(kv(), judgeId, projectId, revision, exact)
+}
+
+/** The newest revision of this project any answer on this page has named, if one has. */
+export function knownProjectRevision(
+    judgeId: string,
+    projectId: string,
+): number | undefined {
+    return knownRevision(kv(), judgeId, projectId)
+}
+
 export function dropLocalDraft(scope: OutboxScope, projectId: string) {
     clearDraft(kv(), scope, projectId)
+}
+
+/** The draft is older than the server's notes: set it aside (see setDraftAside in lib/outbox.ts). */
+export function setLocalDraftAside(
+    scope: OutboxScope,
+    projectId: string,
+    keep?: LocalDraft,
+) {
+    setDraftAside(kv(), scope, projectId, keep)
+}
+
+/** The draft that was set aside for this table, or null. */
+export function olderDraft(
+    scope: OutboxScope,
+    projectId: string,
+): LocalDraft | null {
+    return readAsideDraft(kv(), scope, projectId)
+}
+
+export function dropOlderDraft(scope: OutboxScope, projectId: string) {
+    clearAsideDraft(kv(), scope, projectId)
+}
+
+/** This phone's own write was answered with `revision`: the draft is based on it (restampDraft). */
+export function restampLocalDraft(
+    scope: OutboxScope,
+    projectId: string,
+    revision: unknown,
+) {
+    if (
+        typeof revision === "number" &&
+        Number.isSafeInteger(revision) &&
+        revision >= 0
+    )
+        restampDraft(kv(), scope, projectId, revision)
 }
 
 /** The server has this vote (from its answer, so the winner is the one it kept). */
@@ -656,6 +762,9 @@ export function useOutbox(
                 // A refusal the phone couldn't save keeps its item queued: every screen says so.
                 setStorageFault(scope, !!r.storageError)
                 if (r.held) flagWrongJudge(scope.judgeId)
+                // This page is older than the server (a redeploy): the items wait, no timer runs,
+                // and every judge screen says to reload.
+                if (r.staleBuild) flagStaleBuild()
                 // The session is over (a write came back 401): the queue is untouched, and the
                 // judge signs in again, unless the phone can't keep what's on the screen.
                 if (r.signedOut && r.sessionEnd)

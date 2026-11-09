@@ -143,6 +143,8 @@ export const ADMIN_API_ROLES = {
     setAssignment: "ADMIN",
     rooms: "STAFF",
     prizes: "STAFF",
+    sponsorRuns: "STAFF",
+    createSponsorRun: "ADMIN",
     deliberations: "STAFF",
     setDeliberationOrder: "ADMIN",
     applicants: "STAFF",

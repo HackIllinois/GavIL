@@ -1,0 +1,14 @@
+<!-- @dsCard group="Inputs" height=200 -->
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>ThemeSwitch — preview</title></head>
+<body class="gv-root">
+<div id="root" class="gv-pad"></div>
+<script>
+(function(){
+  var G = window.GavIL, h = React.createElement, root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(h('div',{className:'gv-stack'},h(G.Card,{title:'On paper',icon:'notes'},h('div',{className:'gv-row'},h(G.ThemeSwitch,{defaultTheme:'sunset'}),h(G.ThemeSwitch,{defaultTheme:'night'}))),h('div',{className:'gv-wood',style:{padding:'var(--space-3)'}},h('div',{className:'gv-row'},h(G.ThemeSwitch,{defaultTheme:'sunset'}),h(G.ThemeSwitch,{defaultTheme:'night'})))));
+})();
+</script>
+</body>
+</html>

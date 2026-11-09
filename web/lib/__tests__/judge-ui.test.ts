@@ -743,6 +743,8 @@ describe("H-client fix 3 · Round 2 shows and reopens exactly the ranking that w
             kind: "refused",
             order: ["p01", "p03", "p02"],
             error: "Round 2 is over.",
+            // (the server's code travels with it: the screen reacts to Round2Closed)
+            code: "RoundOver",
         })
         // An older refusal for the prize doesn't count against this ranking.
         expect(

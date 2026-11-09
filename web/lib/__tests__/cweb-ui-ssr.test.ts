@@ -284,11 +284,19 @@ describe("server rendering", () => {
                     /id="[^"]*"|for="[^"]*"|aria-(?:labelledby|describedby|controls)="[^"]*"/g,
                     "",
                 )
-            const a = strip(renderToString(make()))
+            // Both renders run on a frozen clock, an hour apart: with the real one, a case that
+            // reads Date.now() twice (a prop built in make(), a state initialised in the render)
+            // differs by a millisecond when a loaded machine ticks in between.
             vi.useFakeTimers({ toFake: ["Date"] })
-            vi.setSystemTime(Date.now() + 3600_000)
-            const b = strip(renderToString(make()))
-            vi.useRealTimers()
+            let a: string, b: string
+            try {
+                vi.setSystemTime(Date.parse("2027-02-28T19:00:00-06:00"))
+                a = strip(renderToString(make()))
+                vi.setSystemTime(Date.parse("2027-02-28T20:00:00-06:00"))
+                b = strip(renderToString(make()))
+            } finally {
+                vi.useRealTimers()
+            }
             // a TimerBar and a recorded vote start from the props, never from the wall clock
             const timeless = a
                 .replace(/\d\d:\d\d(:\d\d)?/g, "t")

@@ -8,10 +8,11 @@ import { useAdminRun } from "./AdminRun"
 import { panel, useRecoverFocus } from "./useRecoverFocus"
 
 /**
- * Only hold-confidence flags keep a project out of the queue; review-only flags are listed but
- * never block judging. "Clear, send to judging" acts at once (an admin's main path); Escalate asks
- * first, inline under the card, and needs a reason for the organizers. Staff see the flags and no
- * buttons (`readOnly`).
+ * Only hold-confidence flags (and an escalation) keep a project out of the queue; review-only flags
+ * are listed but never block judging. Three groups: held, escalated (with the organizers; an admin
+ * clears it when they decide) and review only. "Clear, send to judging" acts at once (an admin's
+ * main path; "Clear flag" on a review-only one); Escalate asks first, inline under the card, and
+ * needs a reason for the organizers. Staff see the flags and no buttons (`readOnly`).
  */
 export function FlagList({
     flagged,
@@ -54,11 +55,20 @@ export function FlagList({
         )
     }
 
+    // One fact, three groups (design-system README, Admin rules): out of judging because of a hold
+    // flag, out of judging because an admin escalated it to the organizers, or still being judged.
     const groups = [
-        { key: "Held out of judging", items: flagged.filter((f) => f.held) },
+        {
+            key: "Held out of judging",
+            items: flagged.filter((f) => f.held && !f.escalated),
+        },
+        {
+            key: "Escalated · with the organizers",
+            items: flagged.filter((f) => f.escalated),
+        },
         {
             key: "Review only · still being judged",
-            items: flagged.filter((f) => !f.held),
+            items: flagged.filter((f) => !f.held && !f.escalated),
         },
     ].filter((g) => g.items.length)
 
@@ -68,50 +78,63 @@ export function FlagList({
                 <div className="ad-flaggrp" key={g.key}>
                     <div className="ad-flaggrp__k">{`${g.key} (${g.items.length})`}</div>
                     <div className="gv-table-wrap">
-                        {g.items.map(({ project: p, flags }) => (
-                            <Fragment key={p.id}>
-                                <FlagCard
-                                    name={p.name}
-                                    path={p.path}
-                                    table={p.tableCode}
-                                    room={p.room}
-                                    flags={flags}
-                                    readOnly={!canAct}
-                                    busy={
-                                        pending
-                                            ? busy?.id === p.id
-                                                ? busy.what
-                                                : true
-                                            : false
-                                    }
-                                    onClear={() =>
-                                        act(p.id, "clear", () =>
-                                            clearFlags(p.id, p.name),
-                                        )
-                                    }
-                                    onEscalate={() => setConfirming(p.id)}
-                                />
-                                {confirming === p.id && (
-                                    <div className="gv-flag-confirm">
-                                        <EscalateConfirm
-                                            name={p.name}
-                                            busy={pending}
-                                            onCancel={() => setConfirming(null)}
-                                            onConfirm={(reason) => {
-                                                setConfirming(null)
-                                                act(p.id, "escalate", () =>
-                                                    escalateFlags(
-                                                        p.id,
-                                                        p.name,
-                                                        reason,
-                                                    ),
-                                                )
-                                            }}
-                                        />
-                                    </div>
-                                )}
-                            </Fragment>
-                        ))}
+                        {g.items.map(
+                            ({ project: p, flags, held, escalated }) => (
+                                <Fragment key={p.id}>
+                                    <FlagCard
+                                        name={p.name}
+                                        path={p.path}
+                                        table={p.tableCode}
+                                        room={p.room}
+                                        flags={flags}
+                                        readOnly={!canAct}
+                                        busy={
+                                            pending
+                                                ? busy?.id === p.id
+                                                    ? busy.what
+                                                    : true
+                                                : false
+                                        }
+                                        // A review-only flag never left judging, so "send to judging" would be false.
+                                        clearLabel={
+                                            !held ? "Clear flag" : undefined
+                                        }
+                                        onClear={() =>
+                                            act(p.id, "clear", () =>
+                                                clearFlags(p.id, p.name),
+                                            )
+                                        }
+                                        // Already with the organizers: nothing to escalate again.
+                                        onEscalate={
+                                            escalated
+                                                ? undefined
+                                                : () => setConfirming(p.id)
+                                        }
+                                    />
+                                    {confirming === p.id && (
+                                        <div className="gv-flag-confirm">
+                                            <EscalateConfirm
+                                                name={p.name}
+                                                busy={pending}
+                                                onCancel={() =>
+                                                    setConfirming(null)
+                                                }
+                                                onConfirm={(reason) => {
+                                                    setConfirming(null)
+                                                    act(p.id, "escalate", () =>
+                                                        escalateFlags(
+                                                            p.id,
+                                                            p.name,
+                                                            reason,
+                                                        ),
+                                                    )
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </Fragment>
+                            ),
+                        )}
                     </div>
                 </div>
             ))}

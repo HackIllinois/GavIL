@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
+import { flagStaleBuild } from "@/lib/offline"
+import { isStaleBuild } from "@/lib/outbox"
 import {
     applyTalkPolicy,
     hasLiveSession,
@@ -92,8 +94,9 @@ export function TalkPolicyWatch({
                 )
                 state.current = step.next
                 if (step.refresh) tools.current.refresh()
-            } catch {
-                /* the next poll asks again */
+            } catch (e) {
+                // An old page (a redeploy) can never answer: say so, once. Anything else: the next poll asks again.
+                if (isStaleBuild(e)) flagStaleBuild()
             } finally {
                 busy = false
             }

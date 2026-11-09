@@ -1,15 +1,12 @@
 /**
- * CFX 6 · a lost answer to a Table talk spend never costs a second slot. adonix may have counted
- * the spend when the client's 15 s timeout fired; the retry signs a fresh nonce, but it carries
- * the SAME attempt id (SpendClaims.attemptId), and adonix answers an attempt it has already
- * counted with the original result.
+ * CFX 6 · one Table talk attempt id reserves one vendor call. A lost response cannot hand a second
+ * concurrent request the same grant.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError, type GavilApi } from "../api/client"
 import { TALK_STT_QUOTA } from "../api/mock"
 import { ECOLENS, GOLD } from "../talk/fixtures"
 import type { HighlightsClient } from "../talk/llm"
-import { SPEND_REPLAYS_MAX } from "../talk/policy"
 import {
     DEV_TALK_SECRET,
     newAttemptId,
@@ -85,10 +82,11 @@ describe("the mock counts one attempt once", () => {
             (v) => v.judgeId === "j1" && v.projectId === "p02",
         )!.id
         const base = { kind: "stt", mode: "table", visitId } as const
-        const ask = async (id = attemptId) =>
+        const ask = async (id = attemptId, settle = false) =>
             judge("j1").judging.talkSpend("p02", {
                 ...base,
                 consentAt: new Date().toISOString(),
+                ...(settle ? { settle: true } : {}),
                 proof: await signSpend(
                     {
                         judgeId: "j1",
@@ -102,18 +100,31 @@ describe("the mock counts one attempt once", () => {
         return { ask, visitId }
     }
 
-    it("the same attempt asked again with a new nonce gets the original result and counts nothing more", async () => {
+    it("a reserved attempt cannot grant a second vendor call", async () => {
         const { ask } = await spend("attempt-0001")
         const first = await ask()
         expect(first).toMatchObject({ granted: true, transcriptionsLeft: 1 })
         expect(first.replayed).toBeUndefined()
         expect([used(), budget()]).toEqual([1, 1])
 
-        const again = await ask()
-        expect(again).toMatchObject({
-            granted: true,
-            replayed: true,
-            transcriptionsLeft: 1,
+        expect(await rejection(ask())).toMatchObject({
+            status: 409,
+            code: "AttemptInProgress",
+        })
+        expect([used(), budget()]).toEqual([1, 1])
+    })
+
+    it("racing spends for one attempt reserve one slot and grant only one vendor call", async () => {
+        const { ask } = await spend("attempt-0001")
+        const results = await Promise.allSettled([ask(), ask()])
+        expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1)
+        expect(results.filter((r) => r.status === "rejected")).toHaveLength(1)
+        const refused = results.find(
+            (r) => r.status === "rejected",
+        ) as PromiseRejectedResult
+        expect(refused.reason).toMatchObject({
+            status: 409,
+            code: "AttemptInProgress",
         })
         expect([used(), budget()]).toEqual([1, 1])
     })
@@ -128,16 +139,6 @@ describe("the mock counts one attempt once", () => {
             "TranscriptionQuota",
         )
         expect(used()).toBe(TALK_STT_QUOTA)
-    })
-
-    it("an attempt is answered again at most SPEND_REPLAYS_MAX times, then it is a 429 (no free transcriptions)", async () => {
-        const { ask } = await spend("attempt-0001")
-        await ask()
-        for (let i = 0; i < SPEND_REPLAYS_MAX; i++)
-            expect(await ask()).toMatchObject({ replayed: true })
-        const e = await rejection(ask())
-        expect([e.status, e.code]).toEqual([429, "TranscriptionQuota"])
-        expect([used(), budget()]).toEqual([1, 1])
     })
 
     it("a proof (nonce) is still single use", async () => {
@@ -191,8 +192,8 @@ describe("the mock counts one attempt once", () => {
     })
 })
 
-describe("transcribeForJudge asks again when an answer is lost", () => {
-    /** An API whose talkSpend commits at adonix and then loses the answer `losses` times. */
+describe("transcribeForJudge retries only when the spend request never reached adonix", () => {
+    /** An API whose talkSpend reserves the slot, then loses the answer `losses` times. */
     function lossy(losses: number) {
         const real = judge("j1")
         const log = { asks: 0, attempts: new Set<string>() }
@@ -225,31 +226,32 @@ describe("transcribeForJudge asks again when an answer is lost", () => {
         return { api, log }
     }
 
-    it("the spend committed, the answer timed out: the retry costs nothing more and the recording is transcribed", async () => {
+    it("a reserved spend with a lost answer refuses a second vendor grant", async () => {
         await atEcoLens()
         const { api, log } = lossy(1)
-        const t = await transcribeForJudge(api, form(), { env: MOCK_ENV })
-        expect(t.segments.length).toBeGreaterThan(0)
+        await expect(
+            transcribeForJudge(api, form(), { env: MOCK_ENV }),
+        ).rejects.toMatchObject({ status: 409, code: "AttemptInProgress" })
         expect(log.asks).toBe(2)
-        expect(log.attempts.size).toBe(1) // one intended spend, asked twice
-        expect([used(), budget()]).toEqual([1, 1]) // (it was 2 and 2 before the fix)
+        expect(log.attempts.size).toBe(1)
+        expect([used(), budget()]).toEqual([1, 1])
     })
 
-    it("every ask lost: it gives up after SPEND_ASKS, and the phone's own retry (same attemptId) is still one spend", async () => {
+    it("a phone retry with the same reserved attempt id cannot get a second grant", async () => {
         await atEcoLens()
         const { api, log } = lossy(SPEND_ASKS)
         const attemptId = newAttemptId()
         await expect(
             transcribeForJudge(api, form({ attemptId }), { env: MOCK_ENV }),
-        ).rejects.toThrow(/fetch failed/)
+        ).rejects.toMatchObject({ status: 409, code: "AttemptInProgress" })
         expect(log.asks).toBe(SPEND_ASKS)
         expect([used(), budget()]).toEqual([1, 1])
 
-        // The judge taps again: the phone sends the same attempt id.
-        const t = await transcribeForJudge(judge("j1"), form({ attemptId }), {
-            env: MOCK_ENV,
-        })
-        expect(t.segments.length).toBeGreaterThan(0)
+        await expect(
+            transcribeForJudge(judge("j1"), form({ attemptId }), {
+                env: MOCK_ENV,
+            }),
+        ).rejects.toMatchObject({ status: 409, code: "AttemptInProgress" })
         expect([used(), budget()]).toEqual([1, 1])
 
         // A recording with no attempt id (or a new one) is a new spend.
@@ -334,12 +336,8 @@ describe("the phone's attempt id", () => {
 })
 
 /**
- * CFX 6b · a counted slot buys exactly ONE vendor call. A replayed attempt used to be answered with
- * the original `granted: true` and the server then called the speech vendor (or Claude) again, so
- * one slot could fund 1 + SPEND_REPLAYS_MAX calls and the quota and the event budget were
- * undercounted. Now, once the vendor call ran, the Gav-IL server tells adonix (a `settle` spend
- * with a fresh proof of the same attempt) and the attempt is consumed: asking again is refused.
- * A lost answer BEFORE the vendor call still replays for free (nothing was spent on the vendor).
+ * CFX 6b · one attempt id reserves exactly one vendor call. A duplicate active reservation is
+ * refused, and `settle` marks the reserved call consumed after the vendor answers.
  */
 describe("a counted slot buys exactly one vendor call", () => {
     const SECRET = "test-talk-secret-0123456789abcdef0123456789"
@@ -451,7 +449,7 @@ describe("a counted slot buys exactly one vendor call", () => {
         expect(vendor).toHaveBeenCalledTimes(1)
     })
 
-    it("a lost spend answer BEFORE the vendor call is still free: one slot, one vendor call", async () => {
+    it("a request that never reached adonix can retry and reserve one vendor call", async () => {
         await atEcoLens()
         const real = judge("j1")
         let asks = 0
@@ -463,13 +461,9 @@ describe("a counted slot buys exactly one vendor call", () => {
                     if (input.settle)
                         return real.judging.talkSpend(projectId, input)
                     asks++
-                    const answer = await real.judging.talkSpend(
-                        projectId,
-                        input,
-                    )
                     if (asks === 1)
-                        throw new TypeError("fetch failed (timeout)")
-                    return answer
+                        throw new TypeError("fetch failed before request sent")
+                    return real.judging.talkSpend(projectId, input)
                 },
             },
         }
@@ -599,12 +593,12 @@ describe("the mock's settle (adonix side)", () => {
         expect(e.code).toBe("BadSpendProof")
     })
 
-    it("an unsettled attempt keeps the bounded free replays", async () => {
+    it("an unsettled attempt cannot be reserved twice", async () => {
         const { spend } = await attempt("attempt-0001")
         await spend()
-        for (let i = 0; i < SPEND_REPLAYS_MAX; i++)
-            expect(await spend()).toMatchObject({ replayed: true })
-        expect((await rejection(spend())).code).toBe("TranscriptionQuota")
-        expect(SPEND_REPLAYS_MAX).toBeLessThanOrEqual(2)
+        expect(await rejection(spend())).toMatchObject({
+            status: 409,
+            code: "AttemptInProgress",
+        })
     })
 })

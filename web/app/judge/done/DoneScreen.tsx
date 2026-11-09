@@ -9,7 +9,7 @@ import {
     TableProgress,
     Wayfinding,
 } from "@/components"
-import type { PlacardScan } from "@/lib/judge-ui"
+import type { PlacardScan, Round2State } from "@/lib/judge-ui"
 import { JudgeScreen } from "../JudgeScreen"
 import { useJudge } from "../JudgeContext"
 import { ScanNote } from "../ScanNote"
@@ -29,6 +29,8 @@ export function DoneScreen({
     projects,
     comparisons,
     opensAt,
+    round2 = "soon",
+    dueBy,
     prize,
     scan,
     talk,
@@ -39,6 +41,10 @@ export function DoneScreen({
     comparisons: number
     /** "8:30 PM": when Round 2 opens (nominations close). */
     opensAt: string
+    /** Where Round 2 is now: this screen can stay open past the opening (default: not yet open). */
+    round2?: Round2State
+    /** "9:15 PM": when deliberation closes, if the event has set a time. */
+    dueBy?: string
     prize: { id: string; name: string; room: string }
     scan?: PlacardScan | null
     talk?: { enabled: boolean; llm: boolean; maxSeconds: number }
@@ -62,14 +68,26 @@ export function DoneScreen({
             notesFrom="done"
             footer={
                 <ActionBar>
-                    <ButtonLink
-                        href={`/judge/round2/${prize.id}`}
-                        block
-                        size="lg"
-                        iconRight="arrow"
-                    >
-                        Start Round 2
-                    </ButtonLink>
+                    {round2 === "over" ? (
+                        // Deliberation has closed: there is no board to start, only the notes.
+                        <ButtonLink
+                            href="/judge/notes?from=done"
+                            block
+                            size="lg"
+                            iconRight="arrow"
+                        >
+                            Back to My notes
+                        </ButtonLink>
+                    ) : (
+                        <ButtonLink
+                            href={`/judge/round2/${prize.id}`}
+                            block
+                            size="lg"
+                            iconRight="arrow"
+                        >
+                            Start Round 2
+                        </ButtonLink>
+                    )}
                 </ActionBar>
             }
         >
@@ -80,7 +98,13 @@ export function DoneScreen({
                 {(timeUp
                     ? "Time is up. "
                     : "You’ve seen every table in your room. ") +
-                    `${plural(projects, "project", "projects")}, ${plural(comparisons, "comparison", "comparisons")}. Thank you! Round 2 opens at ${opensAt}, when nominations close.`}
+                    `${plural(projects, "project", "projects")}, ${plural(comparisons, "comparison", "comparisons")}. Thank you! ` +
+                    (round2 === "over"
+                        ? "Round 2 has closed."
+                        : round2 === "open"
+                          ? "Round 2 is open." +
+                            (dueBy ? ` Your ranking is due by ${dueBy}.` : "")
+                          : `Round 2 opens at ${opensAt}, when nominations close.`)}
             </p>
             {projects > 0 && (
                 <TableProgress
@@ -94,7 +118,13 @@ export function DoneScreen({
                 size="hero"
                 room={prize.room}
                 label={`Round 2 · ${prize.name} deliberation`}
-                hint="Nominations close 15 minutes after Round 1 ends. Your notes come with you."
+                hint={
+                    round2 === "over"
+                        ? "Your notes and comparisons stay in My notes."
+                        : round2 === "open"
+                          ? "Rank the finalists for your prize. Your notes come with you."
+                          : "Nominations close 15 minutes after Round 1 ends. Your notes come with you."
+                }
             />
             {me && talk && (
                 <TalkFollowUp scope={me} talk={talk} engine={talkEngine} />

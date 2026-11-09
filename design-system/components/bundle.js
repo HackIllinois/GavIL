@@ -147,7 +147,10 @@
     trash: 'M3 6h18 M8 6V4h8v2 M19 6l-1 14H6L5 6',
     hourglass: 'M5 22h14 M5 2h14 M17 22v-4.2a2 2 0 0 0-.6-1.4L12 12l-4.4 4.4a2 2 0 0 0-.6 1.4V22 M7 2v4.2a2 2 0 0 0 .6 1.4L12 12l4.4-4.4a2 2 0 0 0 .6-1.4V2',
     pencil: 'M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5z',
-    zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z'
+    zap: 'M13 2 3 14h9l-1 8 10-12h-9l1-8z',
+    // The theme control: the sun is day, the moon is night (Lucide names).
+    sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M12 2v2 M12 20v2 M4.93 4.93l1.41 1.41 M17.66 17.66l1.41 1.41 M2 12h2 M20 12h2 M6.34 17.66l-1.41 1.41 M19.07 4.93l-1.41 1.41',
+    moon: 'M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'
   };
   // Icon sizes are tokens, never pixels: xs (12), compact (14), sm (16, the default), wide (18), md (20), lg (24) read
   // `--icon-<size>` from tokens.json. Anything else (a number, an unknown word) falls back to sm.
@@ -202,7 +205,9 @@
     if (typeof window.requestIdleCallback === 'function') window.requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
   }
   // The table progress tracker: one sheriff star per table (filled = judged, half = the table you are at, outline = still to come)
-  // and the count in words, which is the text equivalent (the stars are decorative). `label` replaces the default "3 of 8 tables";
+  // and the count in words, which is the text equivalent (the stars are decorative). `label` replaces the default "3 of 8 tables"; it
+  // is text, or markup that reads short ("Next table · 1 of ~4": the ~ aria-hidden, a gv-sr "about " before the number, as on the
+  // Wayfinding plank), so it is rendered as given, never joined into a string.
   // `tone="plaque"` is the plum plaque for the painted ground (paper is the default, for a card). If a star's picture does not
   // arrive, the whole row becomes plain dots in the same three states (data-art="failed"), so the row never mixes the two.
   function TableProgress(p) {
@@ -218,7 +223,12 @@
       cur && h('span', { className: 'gv-sr' }, 'Table ' + (done + 1) + ' is in progress.'));
   }
 
-  // `loading` shows a spinner with the label, sets aria-busy and stays disabled (full-strength color, not faded).
+  // `loading` shows a spinner with the label, sets aria-busy and aria-disabled (full-strength color, not faded). It is never the
+  // `disabled` attribute: the button the judge just pressed keeps focus (a disabled control drops it, and a keyboard or
+  // screen-reader judge would land on <body>). `pending` is for a screen-wide action in flight (a Submit, the admin console's
+  // run()): every button that has it is disabled for real except the one that has focus, the one that was pressed, which stays
+  // focusable and says aria-disabled instead; once focus leaves it, it is disabled too. A plain `disabled` is untouched: it
+  // means "not available", focused or not. The click guard ignores presses while busy or pending in every case.
   // `settle` ignores pointer taps for dur-settle after mount and whenever `settleKey` changes, so a double tap can never
   // land on the control that just appeared under the thumb (the next project's Submit, the Undo after Confirm). The
   // settling button absorbs that tap (it is what the finger hits), so nothing behind it gets it either.
@@ -227,6 +237,7 @@
   // (Enter repeats would otherwise run Confirm, then the Undo that focus moved to).
   function Button(p) {
     var v = p.variant || 'primary', sz = p.size || 'md', busy = !!p.loading;
+    var focused = useState(false), holding = !!p.pending && focused[0];
     var settling = useState(false), key = p.settle ? 'k' + (p.settleKey == null ? '' : String(p.settleKey)) : null;
     useLayoutEffect(function () {
       if (key == null) return;
@@ -235,15 +246,19 @@
       return function () { clearTimeout(t); };
     }, [key]);
     function onClick(e) {
-      if (busy || (settling[0] && e.detail !== 0)) { e.preventDefault(); return; }
+      if (busy || p.pending || (settling[0] && e.detail !== 0)) { e.preventDefault(); return; }
       p.onClick && p.onClick(e);
     }
     function onKeyDown(e) {
       if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault();
       p.onKeyDown && p.onKeyDown(e);
     }
-    return h('button', Object.assign({ type: 'button' }, pick(p, ['variant', 'size', 'shape', 'block', 'icon', 'iconRight', 'className', 'children', 'loading', 'settle', 'settleKey', 'btnRef', 'onClick', 'onKeyDown']), {
-      ref: p.btnRef, onClick: onClick, onKeyDown: onKeyDown, disabled: p.disabled || busy, 'aria-busy': busy || undefined, 'data-settling': settling[0] ? '' : undefined,
+    return h('button', Object.assign({ type: 'button' }, pick(p, ['variant', 'size', 'shape', 'block', 'icon', 'iconRight', 'className', 'children', 'loading', 'pending', 'settle', 'settleKey', 'btnRef', 'onClick', 'onKeyDown', 'onFocus', 'onBlur']), {
+      ref: p.btnRef, onClick: onClick, onKeyDown: onKeyDown,
+      onFocus: function (e) { focused[1](true); p.onFocus && p.onFocus(e); },
+      onBlur: function (e) { focused[1](false); p.onBlur && p.onBlur(e); },
+      disabled: !!p.disabled || (!!p.pending && !focused[0]) || undefined,
+      'aria-disabled': busy || holding || undefined, 'aria-busy': busy || undefined, 'data-settling': settling[0] ? '' : undefined,
       className: cx('gv-btn', 'gv-btn--' + v, sz !== 'md' && 'gv-btn--' + sz, p.shape && p.shape !== 'chamfer' && 'gv-btn--' + p.shape, p.block && 'gv-btn--block', p.className)
     }), busy ? h('span', { className: 'gv-spin', 'aria-hidden': true }) : p.icon && h(Icon, { name: p.icon }), p.children, !busy && p.iconRight && h(Icon, { name: p.iconRight }));
   }
@@ -260,6 +275,18 @@
       type: 'button', className: 'gv-chip', 'aria-pressed': on, disabled: p.disabled,
       onClick: function () { if (p.disabled) return; if (!ctl) st[1](!on); p.onChange && p.onChange(!on); }
     }, h('span', { className: 'gv-chip__mark' }, h(Icon, { name: 'plus', className: 'gv-chip__plus' }), h(Icon, { name: 'check', className: 'gv-chip__check', strokeWidth: 2.5 })), p.children);
+  }
+
+  // Day or night, one tap: a toggle chip whose mark is the sun (day) or the moon (night). The label stays "Night theme" and aria-pressed
+  // says whether it is on; the plum ring, the wash and the moon say it too, so it is never colour alone. Night is the same cream posters on a
+  // darker ground, for a dim room: it is not a dark mode, so nothing here follows the phone's own colour setting. The host applies the
+  // choice (the web app writes a cookie and data-theme on <html>); `onChange(theme)` says which. Controlled with `theme`, or `defaultTheme`.
+  function ThemeSwitch(p) {
+    var ctl = p.theme !== undefined, st = useState(p.defaultTheme === 'night' ? 'night' : 'sunset'), night = (ctl ? p.theme : st[0]) === 'night';
+    function toggle() { var next = night ? 'sunset' : 'night'; if (!ctl) st[1](next); p.onChange && p.onChange(next); }
+    return h('button', { type: 'button', className: cx('gv-chip', 'gv-themeswitch', p.className), 'aria-pressed': night, onClick: toggle },
+      h('span', { className: 'gv-chip__mark', 'aria-hidden': true }, h(Icon, { name: 'sun', className: 'gv-themeswitch__sun' }), h(Icon, { name: 'moon', className: 'gv-themeswitch__moon' })),
+      p.label || 'Night theme');
   }
 
   // Single choice as chips: an APG radiogroup (one tab stop; arrows move and select). `disabled` keeps it readable.
@@ -347,7 +374,7 @@
     function onA(e) { if (p.onMap && !(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0)) { e.preventDefault(); p.onMap(e); } }
     return p.mapHref ? h('a', { className: cx('gv-link', cls), href: p.mapHref, onClick: onA }, kids) : h('button', { type: 'button', className: cx('gv-link', cls), onClick: p.onMap }, kids);
   }
-  // Inline: an arrow plank; the value is the table ("Table A12", one line); the room rides in the label ("Room 4217 · 1 of 4").
+  // Inline: an arrow plank; the value is the table ("Table A12", one line); the room rides in the label ("Room 4217 · 1 of ~4").
   // Hero: the signpost (art-signpost) lettered with live text: the label on the top board, the noun and the value ("Room 4217") on
   // the arrows, the floor plan on the second arrow, `board` (with `boardLabel` above it: "Look for" / "NeuralMesh") on the last board
   // (blank without it), and the hint under it. The signs' text is real text, never part of the picture.
@@ -377,7 +404,8 @@
   }
   function Wayfinding(p) {
     if (p.size === 'hero') return h(HeroSign, p);
-    var k = p.table ? ['Room ' + p.room, p.label].filter(Boolean).join(' · ') : (p.label || 'Go to');
+    // `label` is text, or markup that reads short ("1 of ~4": see the guide), so it is never joined into a string.
+    var k = p.table ? h(R.Fragment, null, 'Room ' + p.room, p.label ? h(R.Fragment, null, ' · ', p.label) : null) : (p.label != null ? p.label : 'Go to');
     return h('div', { className: 'gv-way' },
       h('span', { className: 'gv-way__icon' }, h(Icon, { name: p.icon || 'pin', size: 'wide' })),
       h('div', { className: 'gv-way__text' },
@@ -507,10 +535,16 @@
     // `recall` ({does, demo, standout, open}, from what the judge kept) replaces the one-line note and the Devpost line:
     // the same four rows, in the same order, on both cards, so the eye reads across.
     var rec = pr.recall || null;
-    var hasMine = !!(pr.notes || noms.length > 0 || rec);
+    // A project with nothing kept has empty rows only to line up with the other card; if the judge typed notes there, those
+    // are the memory ("Nothing noted" would be false). RECALL is hoisted (declared further down the bundle).
+    var bare = !!rec && ['does', 'demo', 'standout', 'open'].every(function (k) { return !rec[k]; });
+    var rows = bare && pr.notes ? null : rec;
+    var hasMine = !!(pr.notes || noms.length > 0 || rows);
+    // The Devpost one-liner always shows under the name; without one the long description stands in (two lines, cut).
+    var summary = pr.tagline || pr.description || null;
     return h('div', { role: 'radio', 'aria-checked': !!p.selected, 'aria-disabled': off || undefined, tabIndex: off ? -1 : p.tabIndex == null ? 0 : p.tabIndex, className: 'gv-compare', ref: p.btnRef,
       'aria-label': [pr.name, pr.table ? 'table ' + pr.table : '', p.order ? String(p.order).toLowerCase() : ''].filter(Boolean).join(', '),
-      'aria-describedby': [pr.description && !rec ? did : '', hasMine ? mid : ''].filter(Boolean).join(' ') || undefined,
+      'aria-describedby': [summary ? did : '', hasMine ? mid : ''].filter(Boolean).join(' ') || undefined,
       onClick: function (e) { if (off || !p.onSelect || (e.detail > 0 && now() - born.current < tokenMs('dur-settle', 450))) return; p.onSelect(e); },
       onKeyDown: function (e) { if (!off && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); p.onSelect && p.onSelect(e); } p.onKeyDown && p.onKeyDown(e); } },
       p.order && h('span', { className: 'gv-compare__order', 'aria-hidden': true }, p.order),
@@ -518,11 +552,11 @@
         h('div', { className: 'gv-row' }, h(PathBadge, { path: pr.path }), h(Badge, { mono: true, icon: 'table' }, 'Table ' + pr.table)),
         h('span', { className: 'gv-compare__radio' }, h(Icon, { name: 'check', size: 'compact', strokeWidth: 3 }))),
       h('div', { className: 'gv-compare__name', 'aria-hidden': true }, pr.name),
-      pr.description && !rec && h('p', { className: 'gv-compare__desc', id: did }, pr.description),
+      summary && h('p', { className: 'gv-compare__desc', id: did }, summary),
       hasMine ? h('div', { className: 'gv-compare__mine', id: mid },
-        h('div', { className: 'gv-compare__mine-top' }, h('span', { className: 'gv-compare__k' }, rec ? 'Your recall' : 'Your notes'),
+        h('div', { className: 'gv-compare__mine-top' }, h('span', { className: 'gv-compare__k' }, rows ? 'Your recall' : 'Your notes'),
           noms.length > 0 && h('span', { className: 'gv-compare__noms' }, noms.map(function (n) { return h(Badge, { key: n, tone: 'brand', icon: 'star' }, n); }))),
-        rec ? h(RecallBlock, { rows: rec, compact: true }) : pr.notes ? h('p', { className: 'gv-compare__note' }, '“' + pr.notes + '”') : null) : null);
+        rows ? h(RecallBlock, { rows: rows, compact: true }) : pr.notes ? h('p', { className: 'gv-compare__note' }, '“' + pr.notes + '”') : null) : null);
   }
 
   // Radiogroup per WAI-ARIA APG: arrows move and select, one tab stop. Confirm is pinned flush to the bottom.
@@ -608,6 +642,9 @@
       h('div', { className: 'gv-pair__cards', role: 'radiogroup', 'aria-labelledby': qid },
         h(CompareCard, { project: p.a, order: p.orderA || 'Earlier', selected: sel === 'a', disabled: !!chosen, tabIndex: sel === 'b' ? -1 : 0, btnRef: refs[0], onKeyDown: onKey(0), onSelect: select(0) }),
         h(CompareCard, { project: p.b, order: p.orderB || 'Just now', selected: sel === 'b', disabled: !!chosen, tabIndex: sel === 'b' ? 0 : -1, btnRef: refs[1], onKeyDown: onKey(1), onSelect: select(1) })),
+      // "Full notes": the parent opens both projects' whole notes in a sheet on the same page. Before the vote only: once it
+      // is recorded the undo window runs, and a sheet over Undo would let it commit unseen.
+      p.onOpenNotes && !chosen && h(Button, { variant: 'secondary', block: true, icon: 'doc', settle: true, onClick: function (e) { e.currentTarget.focus({ preventScroll: true }); p.onOpenNotes(); } }, 'Full notes'),
       p.showConfirm !== false && h('div', { className: 'gv-pair__confirm' },
         p.toast !== undefined && h(Toast, { message: p.toast, id: p.toastId }),
         chosen ? h('div', { className: 'gv-recorded', style: { '--undo': secs + 's' } },
@@ -796,20 +833,25 @@
 
   // While Table talk records, the app bar says so on every screen: a red "Recording" tag with its time takes the
   // wordmark's place (beside the offline tag when offline), so the team can always see it and scrolling never hides it.
-  // With `onShow` it is a 48px button that brings the recorder back; its name never carries the ticking time.
+  // With `onShow` it is a 48px button that brings the recorder back. Its name is the words on the tag, then what only a screen reader
+  // needs (it is a memo; where the button goes), with no aria-label: the visible text is part of the name (WCAG 2.5.3), and the
+  // ticking time is aria-hidden, so the name never changes every second.
   function RecTag(r) {
     var paused = !!r.paused, word = paused ? 'Recording paused' : 'Recording';
-    var kids = [h('span', { key: 'd', className: 'gv-rectag__dot', 'aria-hidden': true }), h('span', { key: 'w', className: 'gv-rectag__w' }, word), h('span', { key: 't', className: 'gv-rectag__t', 'aria-hidden': true }, fmt(r.elapsed || 0))];
+    var kids = [h('span', { key: 'd', className: 'gv-rectag__dot', 'aria-hidden': true }), h('span', { key: 'w', className: 'gv-rectag__w' }, word),
+      (r.memo || r.onShow) && h('span', { key: 's', className: 'gv-sr' }, (r.memo ? ' your memo' : '') + (r.onShow ? '. Show the recorder' : '')),
+      h('span', { key: 't', className: 'gv-rectag__t', 'aria-hidden': true }, fmt(r.elapsed || 0))];
     return r.onShow
-      ? h('button', { type: 'button', className: 'gv-rectag', 'data-paused': paused || undefined, 'aria-label': word + (r.memo ? ' your memo' : '') + '. Show the recorder', onClick: r.onShow }, kids)
+      ? h('button', { type: 'button', className: 'gv-rectag', 'data-paused': paused || undefined, onClick: r.onShow }, kids)
       : h('span', { className: 'gv-rectag', 'data-paused': paused || undefined }, kids);
   }
   // Back online with work the server didn't take: a paper tag in the app bar says how much is still on the phone and
   // retries it. It stays until everything is sent (a failed item is never dropped).
+  // Named by its own words ("3 not sent Tap to retry"), then the rest a screen reader needs; no aria-label.
   function UnsentTag(u) {
-    var n = u.n, items = n + (n === 1 ? ' item' : ' items');
-    return h('button', { type: 'button', className: 'gv-offline gv-offline--tag gv-unsent', onClick: u.onRetry, 'aria-label': items + ' not sent yet. Saved on this phone. Retry sending' },
-      h(Icon, { name: 'alert', size: 'compact' }), h('span', { className: 'gv-offline__text', 'aria-hidden': true }, h('b', null, n + ' not sent'), h('span', null, 'Tap to retry')));
+    var n = u.n;
+    return h('button', { type: 'button', className: 'gv-offline gv-offline--tag gv-unsent', onClick: u.onRetry },
+      h(Icon, { name: 'alert', size: 'compact' }), h('span', { className: 'gv-offline__text' }, h('b', null, n + ' not sent'), ' ', h('span', null, 'Tap to retry')), h('span', { className: 'gv-sr' }, '. Saved on this phone'));
   }
   // A region that scrolls has to be reachable by keyboard (axe: scrollable-region-focusable; Safari and a switch user agree). One
   // with a tab stop inside (a button, a link, a field) is: Tab lands on the control and the browser scrolls it into view. A screen of
@@ -852,7 +894,18 @@
   // one polite live region says the new title instead. `announce` speaks a later change on the same screen
   // (the project finished loading). Never every tick.
   function JudgeShell(p) {
-    var main = useRef(), prev = useRef(p.screenKey), live = useState(''), said = useRef(p.announce);
+    var main = useRef(), top = useRef(), dock = useRef(), prev = useRef(p.screenKey), live = useState(''), said = useRef(p.announce);
+    // The two sticky bands hide what scrolls under them. Their heights are measured and written to --gv-top-h and --gv-dock-h,
+    // which the stylesheet turns into scroll-padding: a control reached with the keyboard (Tab, Shift+Tab) scrolls out from
+    // under them instead of staying behind one (WCAG 2.2, 2.4.11), and a screen that sizes its first view (the walk) reads the top one.
+    useLayoutEffect(function () {
+      var root = document.documentElement, bands = [['--gv-top-h', top.current], ['--gv-dock-h', dock.current]];
+      function write() { bands.forEach(function (b) { if (b[1]) root.style.setProperty(b[0], b[1].offsetHeight + 'px'); }); }
+      write();
+      var ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(write);
+      bands.forEach(function (b) { if (b[1] && ro) ro.observe(b[1]); });
+      return function () { if (ro) ro.disconnect(); bands.forEach(function (b) { root.style.removeProperty(b[0]); }); };
+    }, []);
     useLayoutEffect(function () {
       if (prev.current === p.screenKey) return;
       prev.current = p.screenKey; said.current = p.announce;
@@ -881,17 +934,19 @@
     if (p.recording) lead = h('div', { className: 'gv-appbar__lead' }, h(RecTag, p.recording), (p.offline || (p.unsent && p.unsent.n > 0)) && lead);
     return h('div', { className: 'gv-shell', style: p.style },
       p.ground !== false && h('div', { className: 'gv-ground', 'aria-hidden': true }),
-      h('div', { className: 'gv-shell__top' },
-        h('header', { className: 'gv-appbar' },
+      // The banner: the app bar and the timer under it (a timer outside any landmark is skipped by landmark navigation).
+      h('header', { className: 'gv-shell__top', ref: top },
+        h('div', { className: 'gv-appbar' },
           lead,
           h('div', { className: 'gv-row', style: { gap: 'var(--space-1)' } }, p.right)),
         p.timer),
       h(ShellBody, { key: p.screenKey == null ? 'body' : 'k' + p.screenKey, animate: p.screenKey != null, mainRef: main }, p.children),
       h('span', { className: 'gv-sr gv-shell__live', role: 'status' }, live[0]),
-      h('div', { className: cx('gv-dock', !p.footer && 'gv-dock--bare') }, p.toast !== undefined && h(Toast, { message: p.toast, id: p.toastId, tone: p.toastTone }), p.footer));
+      // The action bar is a landmark of its own: Submit and Skip are not "outside the page".
+      h('div', Object.assign({ className: cx('gv-dock', !p.footer && 'gv-dock--bare'), ref: dock }, p.footer ? { role: 'region', 'aria-label': 'Actions' } : {}), p.toast !== undefined && h(Toast, { message: p.toast, id: p.toastId, tone: p.toastTone }), p.footer));
   }
 
-  // Admissions only (judges never score). APG radiogroup: arrows and Home/End move and select; focus follows the keyboard
+  // Admissions only (it never appears on a judge screen). APG radiogroup: arrows and Home/End move and select; focus follows the keyboard
   // only (a tap never paints a focus ring). With `label={false}` the group is named by `ariaLabel` (default "Score").
   function ScoreBar(p) {
     var ctl = p.value !== undefined, st = useState(p.defaultValue != null ? p.defaultValue : null), v = ctl ? p.value : st[0], id = R.useId(), refs = useRef([]);
@@ -996,7 +1051,7 @@
   // Clearing is the admin's main path (primary); Escalate is a danger-text trigger that opens an InlineConfirm.
   // `settleKey`: when a card goes, the one below slides up under the pointer, and the second click of a double click would clear it too.
   // Pass a key that changes whenever the list does (its ids and levels, in order): both buttons then ignore pointer taps for dur-settle
-  // (keys and assistive tech are never held back). `busy` covers the card whose request is in flight; this covers the cards that moved.
+  // (keys and assistive tech are never held back). `busy` covers the card whose request is in flight (its pressed button keeps focus: Button `pending`); this covers the cards that moved.
   function FlagCard(p) {
     return h('div', { className: 'gv-flag' },
       h('div', { className: 'gv-flag__main' },
@@ -1008,8 +1063,8 @@
         }))),
       // An action renders only with its handler (never a button that does nothing); readOnly shows none.
       !p.readOnly && (p.onClear || p.onEscalate) && h('div', { className: 'gv-flag__actions' },
-        p.onClear && h(Button, { size: 'sm', variant: 'primary', icon: 'check', onClick: p.onClear, loading: p.busy === 'clear', disabled: !!p.busy, settle: p.settleKey != null, settleKey: p.settleKey }, p.clearLabel || 'Clear, send to judging'),
-        p.onEscalate && h(Button, { size: 'sm', variant: 'ghost-danger', icon: 'flag', onClick: p.onEscalate, disabled: !!p.busy, settle: p.settleKey != null, settleKey: p.settleKey }, 'Escalate')));
+        p.onClear && h(Button, { size: 'sm', variant: 'primary', icon: 'check', onClick: p.onClear, loading: p.busy === 'clear', pending: !!p.busy, settle: p.settleKey != null, settleKey: p.settleKey }, p.clearLabel || 'Clear, send to judging'),
+        p.onEscalate && h(Button, { size: 'sm', variant: 'ghost-danger', icon: 'flag', onClick: p.onEscalate, loading: p.busy === 'escalate', pending: !!p.busy, settle: p.settleKey != null, settleKey: p.settleKey }, 'Escalate')));
   }
 
   function CoverageMeter(p) {
@@ -1160,7 +1215,7 @@
       'Best Social Impact': ['climate', 'carbon', 'emissions', 'sustainab', 'disaster', 'community', 'nonprofit', 'non-profit', 'underserved', 'low-income', 'food bank', 'homeless', 'mental health', 'disabilit', 'blind', 'deaf', 'elderly', 'students', 'patients', 'rural', 'farmers', 'talked to the', 'partnered with'],
       'Most Useless': ['useless', 'pointless', 'for no reason', 'nobody needs', 'joke', 'meme', 'absurd', 'over-engineered', 'overengineered', 'just because', 'rube goldberg']
     };
-    // Judge-voice text never carries scoring or verdict language. Built at run time: the look-behind (technical compounds
+    // Judge-voice text never carries verdict language (a grade, a pick of the winner). Built at run time: the look-behind (technical compounds
     // like "sample rate", "F1 score") needs a modern engine; without it the plain list still guards.
     var BANNED_PARTS = [
       '\\b\\d+(\\.\\d+)?\\s*\\/\\s*(5|10|100)\\b', '\\bout of (5|10|100|five|ten)\\b', '\\b(\\d|one|two|three|four|five) stars?\\b',
@@ -1767,7 +1822,7 @@
       h('form', { className: 'gv-tc__form', noValidate: true, onSubmit: submit },
         h('label', { className: 'gv-field__label', htmlFor: fid }, 'Placard code'),
         h('div', { className: 'gv-tc__row' },
-          h('input', { id: fid, ref: field, className: 'gv-tc__code', value: codeDisplay(raw), onChange: onChange, disabled: locked || busy, inputMode: 'text', autoCapitalize: 'characters', autoComplete: 'off', autoCorrect: 'off', spellCheck: false, enterKeyHint: 'go', 'aria-describedby': hid, 'aria-invalid': tone === 'danger' || state === 'mismatch' || undefined }),
+          h('input', { id: fid, ref: field, className: 'gv-tc__code', value: codeDisplay(raw), onChange: onChange, disabled: locked, readOnly: busy, inputMode: 'text', autoCapitalize: 'characters', autoComplete: 'off', autoCorrect: 'off', spellCheck: false, enterKeyHint: 'go', 'aria-describedby': hid, 'aria-invalid': tone === 'danger' || state === 'mismatch' || undefined }),
           h(Button, { type: 'submit', variant: 'secondary', size: 'lg', disabled: !raw || locked, loading: busy }, busy ? 'Checking' : 'Check')),
         h('p', { className: cx('gv-tc__help', tone && 'gv-tc__help--' + tone), id: hid, role: tone ? 'alert' : undefined }, tone && h(Icon, { name: 'alert', size: 'compact' }), msg)),
       state === 'mismatch' && h('div', { className: 'gv-alert gv-tc__alert', role: 'alert' }, h(Icon, { name: 'alert', size: 'wide' }),
@@ -1935,7 +1990,7 @@
   function hlSame(a, b) { var n = function (x) { return String(x || '').toLowerCase().replace(/\b(um+|uh+|like|so|okay|and|yeah)\b/g, ' ').replace(/[^a-z0-9]+/g, ''); }; var x = n(a), y = n(b); return !!x && !!y && (x.indexOf(y.slice(0, 40)) >= 0 || y.indexOf(x.slice(0, 40)) >= 0); }
   function hlLabel(it) { if (it.kind === 'demo' && it.demoStatus) return 'Demo · ' + demoLabel(it.demoStatus); if (it.kind === 'concern') return talk.CONCERN_LABEL[it.concernKind] || 'Note'; return HL_KIND[it.kind] || 'Note'; }
   // Suggestions from what was said. Each row: what it is, the verbatim quote with its time, heard or "Not sure", and
-  // Keep / Edit / Remove (Remove leaves an Undo in place). Never a score, a rank or a winner: rows that read as a
+  // Keep / Edit / Remove (Remove leaves an Undo in place). Highlights describe: they never compare, nominate or pick a winner; rows that read as a
   // verdict are dropped before they render, and an edit that reads as one is refused. A prize suggestion is a separate
   // card: never pre-selected, it nominates only when the judge taps Nominate. Controlled with `items` (+ callbacks), or
   // `defaultItems`. `fallback` is the Devpost tagline when no one-liner was heard: shown as a note outside the quoted list.
@@ -1950,7 +2005,7 @@
     function startEdit(it) { draft[1](it.text); err[1](''); editing[1](it.id); }
     function save(it) {
       var t = draft[0].trim(); if (!t) return;
-      // The judge's own words, but a highlight still describes: a verdict (score, rank, winner) or a line aimed at the note-taker is refused.
+      // The judge's own words, but a highlight still describes: a verdict (a line that compares projects or picks a winner) or a line aimed at the note-taker is refused.
       if (talk.isBanned(t) || talk.INJECTION.test(t)) { err[1]('That reads like a verdict. Say what was shown or said instead.'); haptic('error'); area.current && area.current.focus({ preventScroll: true }); return; }
       err[1](''); patch(it.id, { text: t, state: 'edited' }); editing[1](null); p.onEdit && p.onEdit(it.id, t); G_focus(it.id, 'edit');
     }
@@ -2129,6 +2184,12 @@
     if (p.disabled) body = msg('lock', null, p.lockedReason || 'Check the table first: scan its placard or type its code.', null);
     else if (blocked) body = msg('lock', null, blocked.reason, blocked.sub || 'Type notes instead.');
     else if (p.supported === false || s === 'unsupported') body = msg('mic-off', null, 'This browser can’t take voice notes.', 'Type notes instead.');
+    // The whole team agreed on the submission form (preConsented): no consent sheet. One tap records, inside the tap
+    // (the consent time is the tap's), and the card tells the judge to say it out loud first.
+    else if (p.preConsented && (s === 'idle' || s === 'consent')) body = h(R.Fragment, null,
+      h('p', { className: 'gv-tt__lede' }, 'The team agreed to voice notes when they submitted. Say you’re recording, and tap only once everyone at the table is okay with it. The audio isn’t kept.'),
+      h(Button, { variant: 'secondary', size: 'lg', block: true, icon: 'mic', onClick: function () { p.onAsk && p.onAsk(); p.onConsent && p.onConsent(); } }, 'Everyone’s okay · record'),
+      h('p', { className: 'gv-tt__fine' }, 'Anyone at the table can still say no: tap Stop and delete. One recording and one retry per table.'));
     else if (s === 'idle' || s === 'consent' || (s === 'starting' && leaving[0])) body = h(R.Fragment, null,
       h('p', { className: 'gv-tt__lede' }, 'Your phone takes notes while the team demos. Ask them first. The audio isn’t kept.'),
       ask('Ask and record'),
@@ -2202,7 +2263,7 @@
       head, body, h('span', { className: 'gv-sr', role: 'status' }, live[0]));
   }
 
-  var api = { Button: Button, Badge: Badge, PathBadge: PathBadge, Icon: Icon, ToggleChip: ToggleChip, ChoiceChips: ChoiceChips, NominationPicker: NominationPicker, Card: Card, TimerBar: TimerBar, Wayfinding: Wayfinding, ProjectHeader: ProjectHeader, ProjectSkeleton: ProjectSkeleton, Disclosure: Disclosure, NotesField: NotesField, ActionBar: ActionBar, Toast: Toast, CompareCard: CompareCard, ComparePair: ComparePair, JudgeShell: JudgeShell, Sheet: Sheet, SkipSheet: SkipSheet, InlineConfirm: InlineConfirm, ScoreBar: ScoreBar, StatusBadge: StatusBadge, Tabs: Tabs, AdmissionsTable: AdmissionsTable, FlagCard: FlagCard, CoverageMeter: CoverageMeter, StatTile: StatTile, DeliberationBoard: DeliberationBoard, EmptyState: EmptyState, OfflineBanner: OfflineBanner,
+  var api = { Button: Button, Badge: Badge, PathBadge: PathBadge, Icon: Icon, ToggleChip: ToggleChip, ThemeSwitch: ThemeSwitch, ChoiceChips: ChoiceChips, NominationPicker: NominationPicker, Card: Card, TimerBar: TimerBar, Wayfinding: Wayfinding, ProjectHeader: ProjectHeader, ProjectSkeleton: ProjectSkeleton, Disclosure: Disclosure, NotesField: NotesField, ActionBar: ActionBar, Toast: Toast, CompareCard: CompareCard, ComparePair: ComparePair, JudgeShell: JudgeShell, Sheet: Sheet, SkipSheet: SkipSheet, InlineConfirm: InlineConfirm, ScoreBar: ScoreBar, StatusBadge: StatusBadge, Tabs: Tabs, AdmissionsTable: AdmissionsTable, FlagCard: FlagCard, CoverageMeter: CoverageMeter, StatTile: StatTile, DeliberationBoard: DeliberationBoard, EmptyState: EmptyState, OfflineBanner: OfflineBanner,
     EnRoute: EnRoute, TableCheck: TableCheck, TablePlacard: TablePlacard, PlacardSheet: PlacardSheet, Switch: Switch, DemoStatus: DemoStatus, RecallBlock: RecallBlock, HighlightList: HighlightList, ConsentSheet: ConsentSheet, LevelMeter: LevelMeter, TableTalk: TableTalk,
     Brand: Brand, Garland: Garland, Prop: Prop, TableProgress: TableProgress, art: art, prefetchArt: prefetchArt,
     QR: QR, talk: talk, parseTableCode: parseTableCode, placardUrl: placardUrl, recallOf: recallOf, demoLabel: demoLabel, highlightLabel: hlLabel, checkHint: checkHint, ROOM_COLORS: ROOM_COLORS, mockServer: mockServer,

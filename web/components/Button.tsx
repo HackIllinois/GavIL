@@ -37,8 +37,8 @@ interface Common {
 export type ButtonProps = Common &
     Omit<ButtonHTMLAttributes<HTMLButtonElement>, "className" | "children"> & {
         /**
-         * Shows a spinner with the label, sets aria-busy and stays disabled (full-strength color,
-         * not faded).
+         * Shows a spinner with the label, sets aria-busy and aria-disabled (full-strength colour, not
+         * faded). Never the `disabled` attribute: the button the judge just pressed keeps focus.
          */
         loading?: boolean
         /**
@@ -50,6 +50,11 @@ export type ButtonProps = Common &
          * move it there on purpose, so a press on it is deliberate. A held key is not: its
          * auto-repeat never activates a button.
          */
+        /**
+         * A screen-wide action is running (the admin console's run(), a Submit): the button is
+         * disabled, except the one the person pressed, which keeps focus (aria-disabled).
+         */
+        pending?: boolean
         settle?: boolean
         settleKey?: string | number
         /** React 19: ref is a plain prop. `btnRef` is the same, under the design system's name. */
@@ -69,16 +74,27 @@ export function Button({
     children,
     type = "button",
     loading,
+    pending,
     settle,
     settleKey,
     btnRef,
     ref,
     onClick,
     onKeyDown,
+    onFocus,
+    onBlur,
     disabled,
     ...rest
 }: ButtonProps) {
     const busy = !!loading
+    // The button the person pressed has focus. If the screen then disables everything while its
+    // action runs (`pending`), a disabled control would drop focus on <body> (keyboard and
+    // screen-reader users lose their place). So while it has focus it stays focusable and says
+    // aria-disabled instead (`loading` does the same, always); every other button is disabled for
+    // real, and so is this one once focus has left it. The click guard below ignores presses in
+    // every case. A plain `disabled` is untouched: it means "not available", focused or not.
+    const [focused, setFocused] = useState(false)
+    const holding = !!pending && focused
     const [settling, setSettling] = useState(false)
     const key = settle
         ? "k" + (settleKey == null ? "" : String(settleKey))
@@ -93,7 +109,7 @@ export function Button({
         return () => clearTimeout(t)
     }, [key])
     function click(e: MouseEvent<HTMLButtonElement>) {
-        if (busy || (settling && e.detail !== 0)) {
+        if (busy || pending || (settling && e.detail !== 0)) {
             e.preventDefault()
             return
         }
@@ -111,7 +127,16 @@ export function Button({
             ref={ref ?? btnRef}
             onClick={click}
             onKeyDown={keydown}
-            disabled={disabled || busy}
+            onFocus={(e) => {
+                setFocused(true)
+                onFocus?.(e)
+            }}
+            onBlur={(e) => {
+                setFocused(false)
+                onBlur?.(e)
+            }}
+            disabled={!!disabled || (!!pending && !focused) || undefined}
+            aria-disabled={busy || holding || undefined}
             aria-busy={busy || undefined}
             data-settling={settling ? "" : undefined}
             className={buttonClass({ variant, size, shape, block, className })}

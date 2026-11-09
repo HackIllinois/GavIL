@@ -130,8 +130,8 @@ interface WhisperResult {
 
 /**
  * The vendor's `result`, shape-checked: an object; `segments`, when present, a list of objects
- * whose `text` is a string and whose times and scores are finite numbers; `text` a string;
- * `transcription_info.duration` a number. null for anything else (the caller answers 502
+ * whose `text` is a string and whose times and confidence figures are finite numbers; `text` a
+ * string; `transcription_info.duration` a number. null for anything else (the caller answers 502
  * TranscriptionFailed: the transcription was spent, so it gets a failure receipt). Absent and
  * null fields are fine; nothing is ever coerced.
  */

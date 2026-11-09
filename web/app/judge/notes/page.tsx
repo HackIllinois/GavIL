@@ -8,6 +8,7 @@ import {
     RecallBlock,
 } from "@/components"
 import { getApi } from "@/lib/api/server"
+import { own } from "@/lib/format"
 import { SKIP_LABEL } from "@/lib/copy"
 import { mockEnabled } from "@/lib/env"
 import { safeNext } from "@/lib/auth/session"
@@ -15,6 +16,7 @@ import { talkLine } from "@/lib/judge-ui"
 import { GRACE_SECONDS } from "@/lib/judging"
 import { recallOf } from "@/lib/talk/highlights"
 import { JudgeScreen } from "../JudgeScreen"
+import { ThemeSwitch } from "../../ThemeSwitch"
 import { SignOut } from "../SignOut"
 import { FollowUp } from "../TalkFollowUp"
 
@@ -34,7 +36,8 @@ export default async function NotesPage({
     searchParams: Promise<{ from?: string }>
 }) {
     const { from } = await searchParams
-    const back = BACK[from ?? ""] ?? safeNext(from) ?? "/judge/evaluate"
+    // ?from= is a word or a path from the link: a screen of the table, else a path on this site.
+    const back = own(BACK, from) ?? safeNext(from) ?? "/judge/evaluate"
     const api = await getApi()
     const [{ items, votes }, me] = await Promise.all([
         api.judging.notes(),
@@ -142,6 +145,7 @@ export default async function NotesPage({
                 />
             )}
             <div className="gj-stack-end">
+                <ThemeSwitch />
                 <SignOut />
             </div>
         </JudgeScreen>

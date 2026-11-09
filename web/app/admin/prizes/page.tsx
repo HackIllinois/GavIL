@@ -5,6 +5,7 @@ import type { PrizeKind } from "@/lib/api/types"
 import { canEditArea } from "@/lib/permissions"
 import { adminContext } from "../session"
 import { LockFoot, Section } from "../ui"
+import { SponsorRuns } from "./SponsorRuns"
 
 export const metadata: Metadata = { title: "Prizes & paths" }
 
@@ -17,7 +18,11 @@ const KIND: Record<PrizeKind, string> = {
 
 export default async function PrizesPage() {
     const { role } = await adminContext()
-    const prizes = await (await getApi()).admin.prizes()
+    const api = await getApi()
+    const [prizes, runs] = await Promise.all([
+        api.admin.prizes(),
+        api.admin.sponsorRuns(),
+    ])
     return (
         <>
             <Section
@@ -75,6 +80,15 @@ export default async function PrizesPage() {
                 </table>
                 {!canEditArea(role, "prizes") && <LockFoot />}
             </div>
+            <Section
+                title="Sponsor runs"
+                sub="A sponsor’s own Round 1: their judges, only the projects opted into their prize, ranked on their own"
+            />
+            <SponsorRuns
+                runs={runs}
+                prizes={prizes}
+                canEdit={canEditArea(role, "prizes")}
+            />
         </>
     )
 }

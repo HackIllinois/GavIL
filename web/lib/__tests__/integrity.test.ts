@@ -9,6 +9,7 @@ import { CANONICAL_CHECKS, TABLE_CHECKS } from "../api/fixtures"
 import { mockPlacard, resetMockStore } from "../api/mock"
 import type { ArrivalInput } from "../api/types"
 import { mulberry32 } from "../gavel"
+import { ROUND2_CLOSED } from "../copy"
 import {
     CHECK_ALPHABET,
     CHECK_TRIES,
@@ -754,6 +755,66 @@ describe("saveDraft is validated like an evaluation", () => {
         expect(store().perJudge.get("j1")!.drafts.get("p01")).toEqual({
             notes: "ok",
             nominations: ["ux", "modal"],
+            revision: 1,
+        })
+    })
+
+    it("project revisions reject stale drafts and evaluation edits", async () => {
+        const j1 = judge("j1")
+        await goToNext("j1")
+        const save = j1.judging.saveDraft as unknown as (
+            projectId: string,
+            notes: string,
+            nominations: string[],
+            scope: { judgeId: string },
+            revision: number,
+        ) => Promise<{ revision: number }>
+        const first = await save("p01", "first", [], { judgeId: "j1" }, 0)
+        expect(first).toEqual({ revision: 1 })
+        expect(
+            await rejection(
+                save("p01", "stale draft", [], { judgeId: "j1" }, 0),
+            ),
+        ).toMatchObject({
+            status: 409,
+            code: "StaleWrite",
+            details: { revision: 1 },
+        })
+        const second = await save(
+            "p01",
+            "latest draft",
+            [],
+            { judgeId: "j1" },
+            1,
+        )
+        expect(second).toEqual({ revision: 2 })
+        expect(await j1.judging.next()).toMatchObject({
+            projectRevision: 2,
+            draft: { notes: "latest draft", revision: 2 },
+        })
+
+        const submitted = await j1.judging.submitEvaluation({
+            clientId: cid(),
+            projectId: "p01",
+            notes: "submitted",
+            nominations: [],
+            revision: 2,
+        } as Parameters<typeof j1.judging.submitEvaluation>[0])
+        expect(submitted.evaluation.revision).toBe(3)
+        expect(
+            await rejection(
+                j1.judging.submitEvaluation({
+                    clientId: cid(),
+                    projectId: "p01",
+                    notes: "stale submit",
+                    nominations: [],
+                    revision: 2,
+                } as Parameters<typeof j1.judging.submitEvaluation>[0]),
+            ),
+        ).toMatchObject({
+            status: 409,
+            code: "StaleWrite",
+            details: { revision: 3 },
         })
     })
 
@@ -772,6 +833,7 @@ describe("saveDraft is validated like an evaluation", () => {
         expect(store().perJudge.get("j1")!.drafts.get(a.project!.id)).toEqual({
             notes: "they came back",
             nominations: ["ux"],
+            revision: 1,
         })
         await judge("j1").judging.submitEvaluation({
             clientId: cid(),
@@ -1241,7 +1303,7 @@ describe("time at the table for the fast-judging signals is the server's", () =>
     })
 })
 
-describe("Round 2 honours createdAt within the same bounds", () => {
+describe("Round 2 uses server receipt time", () => {
     async function board(deliberationMinutes: number) {
         resetMockStore({
             allCheckedIn: true,
@@ -1255,38 +1317,76 @@ describe("Round 2 honours createdAt within the same bounds", () => {
         return b.nominees.filter((n) => !n.recused).map((n) => n.id)
     }
 
-    it("a ranking made before deliberation closed counts when it arrives after (within 20 min)", async () => {
+    it("accepts a ranking before close and stamps it with server receipt time", async () => {
         const order = await board(30)
-        advance(25)
-        const madeAt = nowIso() // ranked at minute 25 of 29 (offline)
-        advance(10) // deliberation closed meanwhile; sent 10 min later
+        advance(28) // 44 minutes after Round 1 ended; deliberation closes at minute 45
+        const receivedAt = nowIso()
         const r = await judge("j1").judging.submitRound2("ux", {
             clientId: cid(),
             order,
-            createdAt: madeAt,
-            sentAt: nowIso(),
+            createdAt: new Date(
+                Date.parse(receivedAt) - 10 * MIN,
+            ).toISOString(),
+            sentAt: receivedAt,
         } as Parameters<ReturnType<typeof judge>["judging"]["submitRound2"]>[1])
-        expect(r.submittedAt).toBe(madeAt)
+        expect(r.submittedAt).toBe(receivedAt)
     })
 
-    it("one made after it closed (or claimed too old) is 409 RoundOver; one before Round 2 is 400", async () => {
+    it("ignores a phone timestamp before Round 2 when the server receives the ranking after it opens", async () => {
         const order = await board(30)
-        advance(31)
-        const late = await rejection(
-            judge("j1").judging.submitRound2("ux", { clientId: cid(), order }),
+        const receivedAt = nowIso()
+        const preOpen = Date.parse(store().round.endsAt) + 60 * 1000
+        expect(preOpen).toBeLessThan(
+            Date.parse(store().round.endsAt) + 15 * MIN,
         )
-        expect(late.code).toBe("RoundOver")
-        const early = await rejection(
+        const r = await judge("j1").judging.submitRound2("ux", {
+            clientId: cid(),
+            order,
+            createdAt: new Date(preOpen).toISOString(),
+            sentAt: receivedAt,
+        } as Parameters<ReturnType<typeof judge>["judging"]["submitRound2"]>[1])
+        expect(r.submittedAt).toBe(receivedAt)
+    })
+
+    it("rejects a forged pre-close timestamp five minutes after close", async () => {
+        const order = await board(30)
+        advance(34) // 50 minutes after Round 1 ended: five minutes after deliberation closes
+        const closeAt = Date.parse(store().round.deliberationEndsAt!)
+        const late = await rejection(
             judge("j1").judging.submitRound2("ux", {
                 clientId: cid(),
                 order,
-                createdAt: new Date(Date.now() - 40 * MIN).toISOString(),
+                createdAt: new Date(closeAt - 1000).toISOString(),
                 sentAt: nowIso(),
             } as Parameters<
                 ReturnType<typeof judge>["judging"]["submitRound2"]
             >[1]),
         )
-        expect(["BadTime", "RoundOver"]).toContain(early.code)
+        expect(late).toMatchObject({
+            status: 409,
+            code: "Round2Closed",
+            message: ROUND2_CLOSED,
+        })
+    })
+
+    it("does not allow a post-close request through a receipt grace without a server permit", async () => {
+        const order = await board(30)
+        advance(29) // exactly at the 45-minute close
+        const late = await rejection(
+            judge("j1").judging.submitRound2("ux", {
+                clientId: cid(),
+                order,
+                createdAt: new Date(Date.now() - 60_000).toISOString(),
+                sentAt: nowIso(),
+            } as Parameters<
+                ReturnType<typeof judge>["judging"]["submitRound2"]
+            >[1]),
+        )
+        expect(late).toMatchObject({
+            status: 409,
+            code: "Round2Closed",
+            message: ROUND2_CLOSED,
+        })
     })
 
     it("another judge's ranking on this phone is 409 WrongJudge", async () => {

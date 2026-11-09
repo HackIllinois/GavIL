@@ -232,10 +232,13 @@ function hasControlOrBackslash(s: string): boolean {
  *
  * Every value is parsed (also one with no `?`), and refused unless it stays on this site and its
  * path does not start with "//" after parsing. Percent-encoded text such as "%0A" is not a raw
- * control character and does not change the origin, so it is left as it is.
+ * control character and does not change the origin, so it is left as it is. Only a string can be
+ * a place: a repeated parameter (?next=/a&next=/b) reaches a page as an array, which is refused
+ * like any other value that is not a path.
  */
-export function safeNext(next: string | null | undefined): string | null {
+export function safeNext(next: unknown): string | null {
     if (
+        typeof next !== "string" ||
         !next ||
         !next.startsWith("/") ||
         next.startsWith("//") ||

@@ -77,6 +77,12 @@ const CALLS: Record<keyof Admin, (a: Admin) => Promise<unknown>> = {
     setAssignment: (a) => a.setAssignment("j6", "4217"),
     rooms: (a) => a.rooms(),
     prizes: (a) => a.prizes(),
+    sponsorRuns: (a) => a.sponsorRuns(),
+    createSponsorRun: (a) =>
+        a.createSponsorRun({
+            prizeId: "stripe",
+            emails: ["new.judge@stripe.com"],
+        }),
     deliberations: (a) => a.deliberations(),
     setDeliberationOrder: async (a) => {
         const d = (

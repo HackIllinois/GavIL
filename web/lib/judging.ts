@@ -800,3 +800,12 @@ export function checkCreatedAt(
     if (t > Date.parse(round.endsAt) + GRACE_SECONDS * 1000) return "late"
     return "ok"
 }
+
+/** Round 2 writes use server receipt time; the phone cannot prove when an offline ranking was made. */
+export function round2WriteTime(
+    nowMs: number,
+    deliberationEndsAt: number | undefined,
+): { at: number } | "late" {
+    if (deliberationEndsAt != null && nowMs >= deliberationEndsAt) return "late"
+    return { at: nowMs }
+}

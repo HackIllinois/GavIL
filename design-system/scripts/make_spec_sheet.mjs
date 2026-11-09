@@ -895,10 +895,10 @@ function Badge(label, tone = 'neutral', o = {}) {
   return F({ name: `Badge / ${nm}`, flex: 'row', items: 'center', gap: sp(1), h: sp(6), px: sp(2), rounded: NUM['radius-pill'], fill: bg }, o.icon ? Ic(o.icon, 12, fg) : null, o.mono ? T(label, 'caps', fg, { upper: true }) : T(label, 'label', fg));
 }
 function Chip(label, o = {}) {   // ToggleChip (a nomination or prize) and ChoiceChips (a radio dot)
-  const { selected = false, disabled = false, focus = false, radio = false, tag } = o;
+  const { selected = false, disabled = false, focus = false, radio = false, tag, mark: markIcon } = o;   // markIcon: a named icon in place of the plus/check (ThemeSwitch: sun, moon)
   const base = selected ? { tok: 'select-tint', over: 'surface' } : disabled ? 'surface' : 'surface-sunken';
   const stroke = selected ? 'select' : disabled ? 'line' : 'line-strong', sw = selected ? 2 : 1, color = selected ? 'select' : disabled ? 'ink-soft' : 'ink';
-  const mark = radio
+  const mark = markIcon ? Ic(markIcon, 16, color, { sw: 2 }) : radio
     ? F({ name: 'Option dot', w: 16, h: 16, flex: 'row', justify: 'center', items: 'center', rounded: 9999, fill: selected ? 'select' : 'surface', stroke: selected ? undefined : 'line-strong', sw: 2 }, selected ? El({ name: 'Dot center', w: 6, h: 6, fill: 'surface' }) : null)
     : Ic(selected ? 'check' : 'plus', 16, color, { sw: selected ? 2.5 : 2 });
   const rings = focus ? (selected ? [[0, 3, 'focus'], [3, 2, 'surface'], [5, 2, 'select']] : [[0, 3, 'focus']]).map(([inset, w, tok], i) => ({ kind: 'rrect', a: { r: RSM }, ring: { inset, w, tok }, name: `Focus ring ${i + 1}` })) : [];
@@ -1308,7 +1308,7 @@ function EnRouteParts(lost, progress = true) {
     T(`Team: ${firstNames(NM.team).join(', ')}`, 'body', 'on-ground-soft', { align: 'center', w: 'fill' }),
     T(S('Facing a placard, higher numbers are to your left.'), 'body', 'on-ground-soft', { align: 'center', w: 'fill' }),
     T(S('At the table, scan the QR on its placard, or type the table code and the 2 characters after the dot.'), 'body', 'on-ground-soft', { align: 'center', w: 'fill' }));
-  return [progress ? TableProgress({ total: 4, done: 0, current: true, tone: 'plaque', label: 'Next table · 1 of 4' }) : null,
+  return [progress ? TableProgress({ total: 4, done: 0, current: true, tone: 'plaque', label: 'Next table · 1 of ~4' }) : null,
     Signpost({ label: S('Room 4217 · Siebel Center, 4th floor'), noun: 'Table', room: 'A12', map: S('Floor plan'), boardLabel: S('Look for'), board: NM.name }), look,
     lost ? alertBox('warn', 'Can’t find it?', 'Tables count up from the door. Open the floor plan, or ask staff and they’ll come to you.', [Btn({ label: 'Floor plan', variant: 'secondary', icon: 'map' }), Btn({ label: 'Ask staff', variant: 'ghost', icon: 'users' })]) : null];
 }
@@ -1630,7 +1630,7 @@ const titleBlock = (kicker, title, note) => col({ name: 'Header', w: 'fill', gap
 
 // ---- Buttons: every variant x state at the default and sm sizes, both themes
 const STATES = ['default', 'pressed', 'disabled', 'loading', 'focus'];
-const STATE_NOTE = { default: 'at rest', pressed: 'scale 0.96, fill darker or washed', disabled: 'sunken plate, never faded', loading: 'keeps the fill, spinner + label', focus: '3px inset ring, not an outline' };
+const STATE_NOTE = { default: 'at rest', pressed: 'scale 0.96, fill darker or washed', disabled: 'sunken plate, never faded (held: the pressed button wears it with its ring)', loading: 'keeps the fill, spinner + label; aria-disabled, never disabled', focus: '3px inset ring, not an outline' };
 const BW = 240;
 function pageButtons(pg) {
   for (const theme of THEMES) {
@@ -1689,6 +1689,7 @@ function pageInputs(pg) {
     const st = themedStage(pg, theme, { name: 'Inputs and chips', kicker: 'Inputs and chips', title: 'Chips, fields and notes', note: 'Controls on paper: chips and fields are radius-sm outlined controls (a chamfer would cut the outline). Focus is a 3px inset ring in ink; selection is plum with a sun-glare wash; errors are danger with an icon and words.' });
     put(st, NominationCard(['Most Creative']), { caption: 'ToggleChip · nominate for prizes (Most Popular is never suggested by AI)' });
     put(st, Card({ name: 'ToggleChip states', gap: sp(3) }, specLabel('Default, selected, disabled, focus'), row({ w: 'fill', gap: sp(2), wrap: true, rowGap: sp(2) }, Chip('Best UI/UX'), Chip('Most Creative', { selected: true }), Chip('Most Useless', { disabled: true }), Chip('Modal', { focus: true }), Chip('Best Social Impact', { selected: true, focus: true }))), { caption: 'ToggleChip · states' });
+    put(st, Card({ name: 'ThemeSwitch', gap: sp(3) }, specLabel('Day, Night (pressed), Night with focus'), row({ w: 'fill', gap: sp(2), wrap: true, rowGap: sp(2) }, Chip('Night theme', { mark: 'sun' }), Chip('Night theme', { mark: 'moon', selected: true }), Chip('Night theme', { mark: 'moon', selected: true, focus: true }))), { caption: 'ThemeSwitch · the sun is day, the moon is night; the pressed look is the chip\u2019s own (plum ring and wash), the label never changes' });
     put(st, Card({ name: 'ChoiceChips', gap: sp(3) }, T('Admission status', 'body-sm', 'ink', { weight: 600 }), row({ w: 'fill', gap: sp(2), wrap: true, rowGap: sp(2) }, ['In Review', 'Admitted', 'Waitlisted', 'Rejected'].map((l) => Chip(l, { radio: true, selected: l === 'Admitted' }))), specLabel('Read-only (a role that cannot edit)'), row({ w: 'fill', gap: sp(2), wrap: true, rowGap: sp(2) }, ['In Review', 'Admitted'].map((l) => Chip(l, { radio: true, selected: l === 'Admitted', disabled: true })))), { caption: 'ChoiceChips · a radiogroup, one tab stop' });
     put(st, Card({ name: 'Table code field states', gap: sp(3) },
       ...[['Empty', Field({ value: '', state: 'default' }), 'The table code, then the 2 characters after the dot.', null], ['Typing a code', Field({ value: 'A12', state: 'default' }), 'The table code, then the 2 characters after the dot.', null], ['Code and check', Field({ value: 'A12 · K7', state: 'default' }), 'The table code, then the 2 characters after the dot.', null], ['Focus', Field({ value: 'A12 · K', state: 'focus' }), 'The table code, then the 2 characters after the dot.', null],
@@ -1718,7 +1719,7 @@ function pageJudge(pg) {
     const st = themedStage(pg, theme, { name: 'Judge components', kicker: 'Judge components', title: 'The walk, the table check, the compare', note: 'A visit has two phases: en route (signpost, who to look for) and at the table (ask the team, scan or type the placard). Notes, nominations, Table talk and Submit stay locked until the table matches; Skip never locks.' });
     put(st, EnRoute(false), { caption: 'EnRoute · the real signpost art lettered with live text; the last board says who to look for' });
     put(st, EnRoute(true), { caption: 'EnRoute · after 3 minutes: Can’t find it? (dur-cant-find)' });
-    put(st, col({ name: 'Wayfinding', gap: sp(3) }, WayPlank({ k: 'Room 4217 · 1 of 4', v: 'Table A12' }), WayPlank({ k: S('Round 2 · Best UI/UX deliberation'), v: 'Room 2405' })), { caption: 'Wayfinding · inline arrow plank' });
+    put(st, col({ name: 'Wayfinding', gap: sp(3) }, WayPlank({ k: 'Room 4217 · 1 of ~4', v: 'Table A12' }), WayPlank({ k: S('Round 2 · Best UI/UX deliberation'), v: 'Room 2405' })), { caption: 'Wayfinding · inline arrow plank' });
     for (const [s, cap] of [['idle', 'idle'], ['scanning', 'scanning (camera viewfinder)'], ['checking', 'checking'], ['matched', 'matched by a scan (stamps in)'], ['matched-code', 'matched by the typed code'], ['mismatch', 'mismatch (names the project at that code)'], ['mismatch-none', 'mismatch, no project at that code'], ['mismatch-offline', 'mismatch while offline (cannot name the other team)'], ['not-found', 'not found'], ['needs-check', 'check code required'], ['wrong-check', 'wrong check (no penalty until the 5th)'], ['look-alike', 'wrong check, look-alike hint'], ['offline', 'offline (verified on reconnect)'], ['name', 'name fallback: confirmed by name'], ['name-open', 'name fallback: the first question'], ['name-ask', 'name fallback: the second question'], ['locked', 'locked after 5 wrong checks'], ['no-camera', 'camera blocked'], ['failed', 'failed']])
       put(st, TableCheck(s), { caption: `TableCheck · ${cap}` });
     put(st, CompareCard({ state: 'idle', name: NM.name, table: NM.table, order: 'Earlier', recall: NM_RECALL, noms: ['Most Creative'] }), { caption: 'CompareCard · idle, with Recall rows', capGap: 24 });
@@ -1746,7 +1747,7 @@ function pageJudge(pg) {
     put(st, col({ name: 'Disclosure rows', gap: sp(2) }, DisclosureRow('doc', 'Devpost description'), DisclosureRow('users', 'Team', '3 members'), DisclosureRow('doc', 'Devpost description', null, NM.description)), { caption: 'Disclosure · closed rows with a meta word, and one open' });
     put(st, Signpost({ label: 'Head to your room', noun: 'Room', room: '4217', map: 'Floor plan & seating', hint: 'Siebel Center, 4th floor. Tables A01–A28.' }), { caption: 'Wayfinding hero · the countdown sign (the last board stays blank without a board)' });
     put(st, Signpost({ label: S('Room 4217 · Siebel Center, 4th floor'), noun: 'Table', room: 'A12', map: S('Floor plan'), boardLabel: S('Look for'), board: NM.name, state: 'failed' }), { caption: 'Wayfinding hero · the art has not arrived (loading past dur-delay, or failed): the same five boxes become flat wood plates, so the table is readable at any moment' });
-    put(st, col({ name: 'TableProgress', gap: sp(3), items: 'start' }, TableProgress({ total: 8, done: 3 }), TableProgress({ total: 4, done: 2, current: true }), TableProgress({ total: 4, done: 4 }), TableProgress({ total: 4, done: 0, current: true, tone: 'plaque', label: 'Next table · 1 of 4' })), { caption: 'TableProgress · sheriff stars: judged, the table you are at (half), still to come; the count is always in words' });
+    put(st, col({ name: 'TableProgress', gap: sp(3), items: 'start' }, TableProgress({ total: 8, done: 3 }), TableProgress({ total: 4, done: 2, current: true }), TableProgress({ total: 4, done: 4 }), TableProgress({ total: 4, done: 0, current: true, tone: 'plaque', label: 'Next table · 1 of ~4' })), { caption: 'TableProgress · sheriff stars: judged, the table you are at (half), still to come; the count is always in words' });
     put(st, col({ name: 'App bars', gap: sp(3) }, AppBar({ stripe: true }), AppBar({ recording: '01:12' }), AppBar({ recording: '01:12', paused: true }), AppBar({ offline: 2 }), AppBar({ recording: '01:12', offline: 2 }), AppBar({ unsent: 2 })), { w: 390, caption: 'JudgeShell app bar, 390 wide as on the phone · lockup (with the sky stripe) / Recording / Recording paused / Offline / Recording beside Offline / n not sent' });
   }
 }
@@ -1779,7 +1780,7 @@ function auditCardOverflow(st) {
 }
 function pageTalk(pg) {
   for (const theme of THEMES) {
-    const st = themedStage(pg, theme, { name: 'Table talk', kicker: 'Table talk', title: 'Recorder, consent and highlights', note: 'Judge-private notes, only after the team agrees: spoken consent, no stored audio, no voice identification, off per event until counsel signs off. The recorder is a premium control (72px, calm red pulse); every failure is designed. Highlights describe, never score or rank.' });
+    const st = themedStage(pg, theme, { name: 'Table talk', kicker: 'Table talk', title: 'Recorder, consent and highlights', note: 'Judge-private notes, only after the team agrees: spoken consent, no stored audio, no voice identification, off per event until counsel signs off. The recorder is a premium control (72px, calm red pulse); every failure is designed. Highlights describe: they never compare, nominate or pick a winner.' });
     // Every state bundle.js documents for TableTalk (plus `locked`, the disabled prop). checkStateCoverage() reports a state that has no specimen here.
     const states = ['idle', 'locked', 'starting', 'recording', 'paused', 'processing', 'ready', 'declined', 'retry', 'used-up', 'memo', 'unsupported', 'denied', 'mic-busy', 'offline-queued', 'too-noisy', 'failed', 'locked-by-admin'];
     const caps = { idle: 'idle: Ask and record', locked: 'locked until the table check matches (the disabled prop)', starting: 'starting: waiting for the microphone', recording: 'recording: Recording word, red dot, timer, level, Pause / Stop / Mark this', paused: 'paused: the microphone is off', processing: 'processing: pulling out highlights', ready: 'ready: Keep, Edit, Remove', declined: 'declined: the team said no', retry: 'retry: one more try, ask the team again', 'used-up': 'used-up: the recording and its retry are spent', memo: 'memo: after leaving a table', unsupported: 'unsupported browser', denied: 'denied: microphone blocked', 'mic-busy': 'mic busy (no try used)', 'offline-queued': 'offline: queued on the phone', 'too-noisy': 'too noisy', failed: 'failed: could not transcribe', 'locked-by-admin': 'locked by admin (event switch or team opt-out)' };
@@ -1806,7 +1807,7 @@ function pageTalk(pg) {
     put(st, col({ name: 'Prize suggestion', gap: sp(4) }, PrizeCard(false), PrizeCard(true)), { caption: 'Prize suggestion · quote + your tap; Most Popular is never suggested' });
     put(st, col({ name: 'Highlight removed', gap: sp(2) }, Card({ name: 'Removed row', gap: sp(2) }, row({ w: 'fill', justify: 'between' }, col({ w: 'fill' }, eyebrow('Removed'), T('Asked what happens with a hundred nodes', 'body-sm', 'ink-muted', { weight: 400, w: 'fill', clamp: 1 })), Btn({ label: 'Undo', variant: 'ghost', icon: 'rotate-ccw' })))), { caption: 'HighlightList · Removed · Undo' });
     put(st, DemoStatus({ suggested: 'ran_live' }), { caption: 'DemoStatus · Table talk suggests, the judge’s tap decides' });
-    put(st, DemoStatus({ selected: 'partly_ran' }), { caption: 'DemoStatus · selected (a fact, never a rating)' });
+    put(st, DemoStatus({ selected: 'partly_ran' }), { caption: 'DemoStatus · selected (a fact, never a verdict)' });
     put(st, DemoStatus({ locked: true }), { caption: 'DemoStatus · locked until the table check matches' });
     put(st, col({ name: 'Level meter', gap: sp(3) }, Card({ name: 'LevelMeter bars' }, specLabel('Hearing speech'), LevelMeter(0.9)), Card({ name: 'LevelMeter quiet' }, specLabel('Quiet'), LevelMeter(0.12)), Card({ name: 'LevelMeter reduced motion' }, specLabel('Reduced motion: words, not bars'), T('Hearing speech', 'label', 'select', { weight: 600, spec: true }))), { caption: 'LevelMeter · decorative; reduced motion shows words' });
     st.measureHook = () => auditCardOverflow(st);
@@ -2005,9 +2006,9 @@ function pageScreens(pg) {
     // 3 · En route
     put(st, P('Screen / En route', {}, EnRouteParts(false), ActionBar(SKIP(), Btn({ label: S('I’m at the table'), size: 'lg', iconRight: 'arrow', w: 'fill', ctx: 'wood' }))), { caption: '3 · En route: the signpost names Table A12 and who to look for' });
     // 4 · The table check
-    put(st, P('Screen / Table check', {}, [WayPlank({ k: 'Room 4217 · 1 of 4', v: 'Table A12' }), TableCheck('idle'), ProjectPoster({ eyebrow: 'Now judging', meta: false })], ActionBar(SKIP(), Btn({ label: 'Submit evaluation', size: 'lg', iconRight: 'arrow', w: 'fill', state: 'disabled', ctx: 'wood' }))), { caption: '4 · At the table: ask the team, scan or type the placard (Submit stays locked)' });
+    put(st, P('Screen / Table check', {}, [WayPlank({ k: 'Room 4217 · 1 of ~4', v: 'Table A12' }), TableCheck('idle'), ProjectPoster({ eyebrow: 'Now judging', meta: false })], ActionBar(SKIP(), Btn({ label: 'Submit evaluation', size: 'lg', iconRight: 'arrow', w: 'fill', state: 'disabled', ctx: 'wood' }))), { caption: '4 · At the table: ask the team, scan or type the placard (Submit stays locked)' });
     // 5 · Evaluate with Table talk recording
-    put(st, P('Screen / Evaluate with Table talk', { recording: '00:14', scrolled: true }, [WayPlank({ k: 'Room 4217 · 1 of 4', v: 'Table A12' }), TableCheck('matched'), ProjectPoster({ eyebrow: 'Now judging', meta: false, compact: false }),
+    put(st, P('Screen / Evaluate with Table talk', { recording: '00:14', scrolled: true }, [WayPlank({ k: 'Room 4217 · 1 of ~4', v: 'Table A12' }), TableCheck('matched'), ProjectPoster({ eyebrow: 'Now judging', meta: false, compact: false }),
       DisclosureRow('doc', 'Devpost description'), DisclosureRow('users', 'Team', '3 members'), DisclosureRow('code', 'GitHub repository', `${NM.commits} commits`), GarlandArt('ground', 358), TableTalk('recording', { elapsed: '00:14', mark: '00:09' })], ActionBar(SKIP(), Btn({ label: 'Submit evaluation', size: 'lg', iconRight: 'arrow', w: 'fill', ctx: 'wood' }))), { caption: '5 · Evaluate with Table talk recording, scrolled to the recorder (the red tag with the same 00:14 stays in the app bar; the page scrolls under the bars)' });
     // 6 · Compare with recall, one project picked
     put(st, P('Screen / Compare with recall', { frac: 0.45 }, [stepPlaque('Comparison 1 · your last two projects'), F({ name: 'Compare question', w: 'fill', flex: 'col', pb: sp(2) }, T('Which was stronger overall?', 'display-sm', 'on-ground', { fx: ['shadow-title'], w: 'fill', balance: true })),

@@ -15,14 +15,17 @@ import { spawn } from 'node:child_process';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const args = Object.fromEntries(process.argv.slice(2).map(a => { const m = /^--([a-z]+)(?:=(.*))?$/.exec(a); return m ? [m[1], m[2] ?? true] : ['?', a]; }));
 const known = new Set(['theme', 'only', 'fresh', 'timeout', 'throttle', 'port']);
 const stray = Object.keys(args).filter(k => !known.has(k));
-if (stray.length) { console.error('run_tests: unknown argument(s) ' + stray.join(', ') + '\nusage: node scripts/run_tests.mjs [--theme=sunset|night] [--only=<suite text> [--fresh]] [--timeout=<seconds>] [--throttle=<n>] [--port=<n>]'); process.exit(2); }
-const themes = args.theme ? [String(args.theme)] : ['sunset', 'night'];
-if (themes.some(t => !['sunset', 'night'].includes(t))) { console.error('run_tests: --theme is sunset or night'); process.exit(2); }
+if (stray.length) { console.error('run_tests: unknown argument(s) ' + stray.join(', ') + '\nusage: node scripts/run_tests.mjs [--theme=<a tokens.json theme>] [--only=<suite text> [--fresh]] [--timeout=<seconds>] [--throttle=<n>] [--port=<n>]'); process.exit(2); }
+// Every theme tokens.json defines (a new year's theme is picked up with no edit here).
+const allThemes = JSON.parse(readFileSync(resolve(root, 'tokens.json'), 'utf8')).color.themes.map(t => t.id);
+const themes = args.theme ? [String(args.theme)] : allThemes;
+if (themes.some(t => !allThemes.includes(t))) { console.error('run_tests: --theme is one of ' + allThemes.join(', ')); process.exit(2); }
 const timeout = (Number(args.timeout) || 600) * 1000, throttle = Number(args.throttle) || 1;
 
 async function playwright() {
@@ -45,7 +48,7 @@ let bad = 0;
 for (const theme of themes) {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } }), page = await ctx.newPage();
   if (throttle > 1) { const c = await ctx.newCDPSession(page); await c.send('Emulation.setCPUThrottlingRate', { rate: throttle }); }
-  const q = [theme === 'night' ? 'theme=night' : '', args.only ? 'only=' + encodeURIComponent(String(args.only)) : '', args.only && args.fresh ? 'fresh=1' : ''].filter(Boolean).join('&');
+  const q = [theme !== 'sunset' ? 'theme=' + theme : '', args.only ? 'only=' + encodeURIComponent(String(args.only)) : '', args.only && args.fresh ? 'fresh=1' : ''].filter(Boolean).join('&');
   const t0 = Date.now();
   await page.goto(`http://localhost:${port}/tests/${q ? '?' + q : ''}`);
   let title;

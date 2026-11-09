@@ -5,8 +5,8 @@
  * randomness, no network.
  *
  * It describes, never judges: what the project does, how it works, what the demo showed, what
- * stood out and what is still open, each with a verbatim quote. It never scores, never ranks,
- * never nominates. A prize suggestion (at most one, never Most Popular) is only ever a
+ * stood out and what is still open, each with a verbatim quote. It never compares, nominates or
+ * picks a winner. A prize suggestion (at most one, never Most Popular) is only ever a
  * suggestion the judge may tap; it is never pre-selected.
  *
  * Additions to the research version: a prompt-injection and self-advocacy filter (a team saying
@@ -616,8 +616,9 @@ const verdictMemo = new Map<string, boolean>()
 const steeringMemo = new Map<string, boolean>()
 
 /**
- * True when text reads as a score, rank or verdict (after foldText). `priorWork`: the text is a
- * prior-work concern, so the past win it reports is not a verdict.
+ * True when text reads as a verdict (marks out of ten, stars, a grade, a ranking, praise that
+ * judges), after foldText. `priorWork`: the text is a prior-work concern, so the past win it
+ * reports is not a verdict.
  */
 export function isVerdict(
     raw: string | null | undefined,
@@ -803,10 +804,10 @@ const PRIZE_MOMENT = String.raw`(?:(?:when|while|as|once|before|after) (?:the )?
 /** A placard's table code said aloud: "table A12", "table a 12". */
 const TABLE_CODE = String.raw`table [a-z] ?\d{1,2}`
 /**
- * What a judge does with the projects, after "when you…" / "while you're…": nominate, deliberate,
- * judge, evaluate the projects, score / grade / rank / vote (on their own, or with the projects or
- * the team as the object), decide or pick the winners. "When you set it up", "when you rank your
- * favorite routes" and "when you vote in the poll" are not judging.
+ * What a team says a judge does with the projects, after "when you…" / "while you're…": nominate,
+ * deliberate, judge, evaluate the projects, score / grade / rank / vote (on their own, or with the
+ * projects or the team as the object), decide or pick the winners. "When you set it up", "when you
+ * rank your favorite routes" and "when you vote in the poll" are not judging.
  */
 const JUDGING_ACT = String.raw`(?:nominat\w*|deliberat\w*|judg(?:e|es|ing)\b(?! (?:the |a |an |how )?(?:distance|speed|quality|ripeness|freshness|size|weather|traffic|depth|angle)\b)|evaluat(?:e|es|ing) (?:us|them|the (?:projects?|teams?|hacks?)|projects|teams|everyone)\b|(?:scor|grad|rank|vot)(?:e|es|ed|ing|s)?(?= *(?:$|[.,!?;:])| (?:us|them|the (?:projects?|teams?|hacks?|tables?)|projects|teams|hacks|tables|everyone|everything|tonight|later|today|this|it)\b)|(?:decid|pick|choos|select|hand|giv|award|announc)\w*(?: (?:on|out|up))? (?:the |your |this year's )?(?:prizes?|awards?|winners?|nominations?|finalists?|rankings?|final (?:picks?|list|rankings?))\b)`
 /**
@@ -941,7 +942,7 @@ function advocacySource(names: readonly string[]): string {
         String.raw`\bkeep (?:the (?:[\w.'-]+ ){0,3}(?:app|project|team|hack|idea|one|name)|this (?:one|project|team|app|hack)|our (?:team|project|app|hack|idea|product|demo|names?|table)|${TABLE_CODE}${N}) in (?:your |y'all's )?mind\b`,
         // On the judge's radar ("keep neuralmesh on your radar", "put us on your radar").
         String.raw`\b(?:keep|put|have|add|get) (?:us|this (?:one|project|team|app|hack)|our (?:project|team|app|hack|idea|product|demo|table)|the (?:[\w.'-]+ ){0,3}(?:app|project|team|hack)|${TABLE_CODE}${N}) on (?:your|y'all's|the judges'?|the) radar\b`,
-        // While the judge ranks or scores the team ("when you're ranking us").
+        // While the judge decides on the team ("when you're ranking us", "while you're scoring us").
         String.raw`\b(?:when|while|as|once|before) (?:you|y'all|the judges?|judges)(?:'re| are)? (?:rank|scor|grad|nominat|deliberat|judg|evaluat|vot)\w* (?:on |for )?(?:${US_ALT})\b`,
         // If the judge picks the team ("it would mean a lot if you picked us"), never "if you pick
         // us up at the station".

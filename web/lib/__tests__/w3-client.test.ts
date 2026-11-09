@@ -40,11 +40,13 @@ import {
     sentWinner,
     stillSending,
     writeDraft,
+    type ActionReply,
     type ActionOutcome,
     type KV,
     type OutboxItem,
     type OutboxWrite,
 } from "../outbox"
+import { PROJECT_WRITE_STALE, ROUND2_CLOSED } from "../copy"
 
 const memory = (): KV & { data: Map<string, string> } => {
     const data = new Map<string, string>()
@@ -72,13 +74,18 @@ const forgetful = (): KV => ({
 
 const j1 = { eventId: "hackillinois-2027", judgeId: "j1" }
 const at = "2027-02-28T19:00:00.000Z"
-const evaluation = (clientId: string, notes = ""): OutboxWrite => ({
+const evaluation = (
+    clientId: string,
+    notes = "",
+    revision?: number,
+): OutboxWrite => ({
     kind: "evaluation",
     clientId,
     projectId: "p01",
     notes,
     nominations: [],
     createdAt: at,
+    ...(revision != null ? { revision } : {}),
 })
 const vote = (clientId: string): OutboxWrite => ({
     kind: "vote",
@@ -567,8 +574,8 @@ describe("25 · every write for a table goes through one helper that queues it b
     })
     it("draft, evaluation, skip and 'can't find' all use it", () => {
         for (const needle of [
-            "draftWrite(text, n),",
-            "write,\n                () => submitEvaluation",
+            "const write = draftWrite(text, n)",
+            "write,\n                async () => {\n                    const r = await submitEvaluation(",
             'kind: "skip"',
             'kind: "defer"',
         ])
@@ -637,6 +644,64 @@ describe("25 · behaviour: a table's writes wait behind its own queued check-in"
 })
 
 describe("17 · a newer write that is out right now is not overtaken by the older copy it replaces", () => {
+    it("a newer project write stays queued until the older in-flight request settles", async () => {
+        const kv = memory()
+        let settleOld!: (
+            r: ActionReply<{ evaluation: { revision: number } }>,
+        ) => void
+        const oldCall = new Promise<
+            ActionReply<{ evaluation: { revision: number } }>
+        >((resolve) => (settleOld = resolve))
+        const old = deliver(
+            kv,
+            j1,
+            evaluation("old", "older notes", 0),
+            () => oldCall,
+            { online: true, timeoutMs: 1 },
+        )
+        expect(await old).toMatchObject({
+            status: "queued",
+            why: "unreachable",
+        })
+
+        const newCall = vi.fn(async () => ({ ok: true }))
+        const newer = await deliver(
+            kv,
+            j1,
+            evaluation("new", "newer notes", 0),
+            newCall,
+            { online: true },
+        )
+        expect(newer).toEqual({ status: "queued", why: "behind" })
+        expect(newCall).not.toHaveBeenCalled()
+        expect(readQueue(kv, j1).map((x) => x.clientId)).toEqual(["new"])
+
+        const send = vi.fn(async (item: OutboxItem) =>
+            item.kind === "evaluation"
+                ? { ok: true, revision: item.revision! + 1 }
+                : { ok: true },
+        )
+        const waiting = await flushOutbox(kv, j1, send, () => at, 1)
+        expect(send).not.toHaveBeenCalled()
+        expect(waiting.retryInMs).not.toBeNull()
+
+        settleOld({
+            ok: true,
+            data: { evaluation: { revision: 1 } },
+        })
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        const queued = readQueue(kv, j1)[0]
+        expect(queued.kind).toBe("evaluation")
+        if (queued.kind === "evaluation") expect(queued.revision).toBe(1)
+        const sent = await flushOutbox(kv, j1, send, () => at)
+        expect(send).toHaveBeenCalledTimes(1)
+        const sentItem = send.mock.calls[0][0]
+        expect(sentItem.kind).toBe("evaluation")
+        if (sentItem.kind === "evaluation") expect(sentItem.revision).toBe(1)
+        expect(sent.sent).toBe(1)
+        expect(readQueue(kv, j1)).toEqual([])
+    })
+
     it("a flush during the send leaves the older copy alone, and nothing replays once the newer one lands", async () => {
         const kv = memory()
         enqueueItem(kv, j1, evaluation("old", "first notes"))
@@ -696,6 +761,65 @@ describe("17 · a newer write that is out right now is not overtaken by the olde
         const q = readQueue(kv, j1)
         expect(q.map((x) => x.clientId)).toEqual(["new"])
         expect(q[0].supersededBy).toBeUndefined()
+    })
+})
+
+describe("Round 2 close is a final outbox refusal", () => {
+    it("dead-letters the ranking with the designed reason instead of retrying it", async () => {
+        const kv = memory()
+        const write: OutboxWrite = {
+            kind: "round2",
+            clientId: "r2-closed",
+            prizeId: "ux",
+            order: ["p01"],
+            createdAt: at,
+        }
+        const result = await deliver(
+            kv,
+            j1,
+            write,
+            async () => ({
+                ok: false,
+                status: 409,
+                code: "Round2Closed",
+                error: ROUND2_CLOSED,
+            }),
+            { online: true },
+        )
+        expect(result).toMatchObject({
+            status: "refused",
+            code: "Round2Closed",
+            dead: true,
+            error: ROUND2_CLOSED,
+        })
+        expect(readDead(kv, j1)[0]).toMatchObject({
+            item: { clientId: "r2-closed" },
+            error: ROUND2_CLOSED,
+            code: "Round2Closed",
+            status: 409,
+        })
+    })
+})
+
+describe("a stale project revision is a final, designed conflict", () => {
+    it("keeps the server's current revision and conflict copy in the dead letter", async () => {
+        const kv = memory()
+        enqueueItem(kv, j1, draft("draft-stale"))
+        const report = await flushOutbox(kv, j1, async () => ({
+            ok: false,
+            status: 409,
+            code: "StaleWrite",
+            error: PROJECT_WRITE_STALE,
+            details: { revision: 4 },
+        }))
+        expect(report).toMatchObject({ dead: 1, retryInMs: null })
+        expect(readQueue(kv, j1)).toEqual([])
+        expect(readDead(kv, j1)[0]).toMatchObject({
+            error: PROJECT_WRITE_STALE,
+            code: "StaleWrite",
+            status: 409,
+            revision: 4,
+        })
     })
 })
 

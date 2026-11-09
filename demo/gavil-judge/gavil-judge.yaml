@@ -1,0 +1,852 @@
+app:
+  url: "http://localhost:3190/login"
+  viewport:
+    width: 390
+    height: 844
+  scale: 1
+  zoom: 1
+  colorScheme: "light"
+  setup:
+    - run: "demo/ndemo-reset.sh web 3190"
+tts:
+  provider: "openai"
+  voice: "en-US-AndrewNeural"
+  speed: 1.05
+recording:
+  outputDir: "."
+  fps: 30
+segments:
+  - id: "lead"
+    intent: "hold the login screen for half a second before the voice starts"
+    actions:
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 501
+  - id: "sign-in-email"
+    narration: "This is Gav-IL, the judging app for HackIllinois 2027. A judge types their email, and gets a one-time code. No passwords."
+    intent: "show the login screen while the first sentence plays (1.9 s), then type the judge's email as the second sentence starts (A judge types their email at 4.4 s), ask for the sign-in link as No passwords is said"
+    actions:
+      - type: "wait"
+        duration: 1900
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "Email"
+        text: "sarah.kim@stripe.com"
+        delay: 90
+      - type: "wait"
+        duration: 500
+      - type: "click"
+        target:
+          role: "button"
+          name: "Email me a sign-in link"
+        done:
+          text:
+            selector: "main"
+            has: "Link sent to sarah.kim@stripe.com"
+          timeout: 60000
+      - type: "wait"
+        duration: 600
+    timing: "parallel"
+    audioDuration: 8592
+    videoDuration: 8594
+  - id: "sign-in-code"
+    narration: "They type the six-digit code from the email, and tap Sign in."
+    intent: "enter the mock code 123456 and tap Sign in with code"
+    actions:
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "6-digit code"
+        text: "123456"
+        delay: 120
+      - type: "wait"
+        duration: 150
+      - type: "click"
+        target:
+          role: "button"
+          name: "Sign in with code"
+    timing: "parallel"
+    audioDuration: 3432
+    videoDuration: 3470
+  - id: "to-welcome"
+    intent: "wait for the check-in screen (silent: the page load, and the Signing in state, are cut or kept short)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          text:
+            selector: "main"
+            has: "Welcome, Sarah"
+          timeout: 60000
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 720
+  - id: "enter"
+    narration: "And they are signed in."
+    intent: "the check-in screen is on screen"
+    actions:
+      - type: "wait"
+        duration: 1300
+    timing: "parallel"
+    audioDuration: 1176
+    videoDuration: 1302
+  - id: "check-in"
+    narration: "Then check-in shows each judge who they are, which Path they judge, and the teams they won't be sent to."
+    intent: "the check-in screen: identity, path, room, the conflicts list"
+    actions:
+      - type: "wait"
+        duration: 2200
+      - type: "scroll"
+        target:
+          selector: "text=/be sent to/"
+      - type: "wait"
+        duration: 1800
+    timing: "parallel"
+    audioDuration: 5592
+    videoDuration: 5595
+  - id: "how-tonight"
+    narration: "Below that, a short guide to how tonight works."
+    intent: "scroll down to how tonight works"
+    actions:
+      - type: "scroll"
+        target:
+          text: "Nominate standouts for prizes as you go"
+      - type: "wait"
+        duration: 1800
+    timing: "parallel"
+    audioDuration: 2880
+    videoDuration: 2882
+  - id: "looks-right"
+    narration: "Looks right sends the judge to their room."
+    intent: "tap Looks right once the line is spoken (the page load that follows is silent, so postcut.mjs can cut its skeleton and blank frames); the load is waited out in the next (silent) segment"
+    actions:
+      - type: "wait"
+        duration: 600
+      - type: "click"
+        target:
+          role: "button"
+          name: "Looks right"
+    timing: "parallel"
+    audioDuration: 2112
+    videoDuration: 2114
+  - id: "to-room"
+    intent: "wait for the en route signpost (silent: the page load, that is Checking in..., the empty background and the skeleton, is cut from the video)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: "text=/look for/i >> nth=0"
+          timeout: 60000
+      - type: "wait"
+        duration: 200
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 1046
+  - id: "signpost"
+    narration: "Then a signpost points to the first table, A12, and names the team to look for."
+    intent: "the en route signpost to Table A12"
+    actions:
+      - type: "wait"
+        duration: 4200
+    timing: "parallel"
+    audioDuration: 5112
+    videoDuration: 5113
+  - id: "floor-plan"
+    narration: "The floor plan shows where that table is."
+    intent: "open the floor plan sheet; the table is highlighted"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Floor plan"
+        done:
+          visible: "[role=dialog]"
+          timeout: 60000
+      - type: "wait"
+        duration: 1300
+    timing: "parallel"
+    audioDuration: 2160
+    videoDuration: 2731
+  - id: "clock"
+    narration: "And the clock at the top counts down the time left to judge."
+    intent: "close the floor plan; the judging clock stays on screen at the top"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Close map"
+        done:
+          hidden: "[role=dialog]"
+          timeout: 60000
+      - type: "wait"
+        duration: 2300
+    timing: "parallel"
+    audioDuration: 3408
+    videoDuration: 3914
+  - id: "at-table"
+    narration: "At the table, the judge types the code printed on the placard."
+    intent: "tap I'm at the table, type A14 into the placard field"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "at the table"
+        done:
+          text:
+            selector: "main"
+            has: "Are you NeuralMesh"
+          timeout: 60000
+      - type: "wait"
+        duration: 100
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "Placard code"
+        text: "A14"
+        delay: 220
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 3552
+    videoDuration: 4047
+  - id: "wrong-table"
+    narration: "At the wrong table, Gav-IL says right away where the team really is."
+    intent: "tap Check: the mismatch message naming LedgerLite and where NeuralMesh is"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Check"
+        done:
+          text:
+            selector: "main"
+            has: "A14 is LedgerLite"
+          timeout: 60000
+      - type: "wait"
+        duration: 3600
+    timing: "parallel"
+    audioDuration: 4128
+    videoDuration: 5062
+  - id: "right-table"
+    narration: "The right table code, plus the two characters after the dot, confirms it: right table, right team."
+    intent: "type A12 K7, Check: matched"
+    actions:
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "Placard code"
+        text: "A12 K7"
+        delay: 200
+      - type: "wait"
+        duration: 500
+      - type: "click"
+        target:
+          role: "button"
+          name: "Check"
+        done:
+          text:
+            selector: "main"
+            has: "Checked by the placard code"
+          timeout: 60000
+      - type: "wait"
+        duration: 1300
+    timing: "parallel"
+    audioDuration: 6216
+    videoDuration: 6220
+  - id: "ask-team"
+    narration: "Table talk can take notes while the team demos, but only after everyone at the table says yes."
+    intent: "tap Ask and record: the consent sheet opens"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Ask and record"
+        done:
+          visible: "[role=dialog]"
+          timeout: 60000
+      - type: "wait"
+        duration: 2200
+    timing: "parallel"
+    audioDuration: 5208
+    videoDuration: 5210
+  - id: "consent"
+    narration: "The sheet gives the judge a line to read out loud, and says who gets what. The audio is not kept."
+    intent: "read the consent sheet, scroll it to the retention line, tap Everyone agreed; the recording screen then runs silent for 2 s, so that in the next segment the first 00:05 of the sample recording is over (and Mark this moment can be tapped) as the words one tap are said"
+    actions:
+      - type: "wait"
+        duration: 1200
+      - type: "scroll"
+        target:
+          text: "transcripts are deleted"
+      - type: "wait"
+        duration: 2200
+      - type: "click"
+        target:
+          role: "button"
+          name: "Everyone agreed"
+        done:
+          hidden: "[role=dialog]"
+          timeout: 60000
+      - type: "wait"
+        duration: 2000
+    timing: "parallel"
+    audioDuration: 5568
+    videoDuration: 7270
+  - id: "recording"
+    narration: "While the team talks, the phone listens, and the judge can mark a moment with one tap."
+    intent: "the sample recording runs; once the clock reads 00:05 or later, mark a moment (a mark before 00:05 anchors to the greeting line and adds a junk Notable row)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: ".gv-rec__time:text-matches(\"^00:(0[5-9]|[1-5][0-9])$\")"
+          timeout: 60000
+      - type: "click"
+        target:
+          role: "button"
+          name: "Mark this moment"
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 4848
+    videoDuration: 5359
+  - id: "pulling"
+    narration: "When they stop, Gav-IL pulls out the highlights. It takes a few seconds."
+    intent: "stop the recording; the Pulling out highlights spinner, then the list"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Stop recording"
+        done:
+          visible: "h2:has-text(\"From table talk\")"
+          timeout: 60000
+    timing: "parallel"
+    audioDuration: 4464
+    videoDuration: 4464
+  - id: "keep"
+    narration: "The judge keeps the highlights that are right, and they go into the notes."
+    intent: "scroll the highlights, Keep all"
+    actions:
+      - type: "wait"
+        duration: 1000
+      - type: "click"
+        target:
+          role: "button"
+          name: "Keep all"
+        done:
+          visible: "button:has-text(\"All kept\")"
+          timeout: 60000
+      - type: "wait"
+        duration: 1200
+    timing: "parallel"
+    audioDuration: 3744
+    videoDuration: 3746
+  - id: "status"
+    narration: "Next, the judge marks how the demo went."
+    intent: "pick the demo status Ran live"
+    actions:
+      - type: "click"
+        target:
+          role: "radio"
+          name: "Ran live"
+        done:
+          attribute:
+            selector: "[role=radio]"
+            name: "aria-checked"
+            value: "true"
+          timeout: 60000
+      - type: "wait"
+        duration: 600
+    timing: "parallel"
+    audioDuration: 2616
+    videoDuration: 2619
+  - id: "private-note"
+    narration: "Then adds a private note, one that only they can see."
+    intent: "type a short private note on the first line of the notes, above the kept highlights"
+    actions:
+      - type: "click"
+        target:
+          role: "textbox"
+          name: "Private notes"
+      - type: "press"
+        key: "Meta+ArrowUp"
+      - type: "press"
+        key: "Enter"
+      - type: "press"
+        key: "ArrowUp"
+      - type: "press"
+        key: "H"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "a"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "l"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "d"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "Space"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "i"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "t"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "s"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "l"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "f"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "Space"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "l"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "i"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "v"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "."
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "Space"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "G"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "r"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "a"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "t"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "Space"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "d"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "e"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "m"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "o"
+      - type: "wait"
+        duration: 40
+      - type: "press"
+        key: "."
+      - type: "wait"
+        duration: 40
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 3312
+    videoDuration: 3534
+  - id: "nominate"
+    narration: "If the project stands out, they nominate it for a prize."
+    intent: "nominate for Most Creative"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Most Creative"
+        done:
+          visible: "button[aria-pressed=\"true\"]:has-text(\"Most Creative\")"
+          timeout: 60000
+      - type: "wait"
+        duration: 1500
+    timing: "parallel"
+    audioDuration: 3216
+    videoDuration: 3217
+  - id: "submit"
+    narration: "Then they submit."
+    intent: "submit the evaluation"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Submit evaluation"
+    timing: "parallel"
+    audioDuration: 1872
+    videoDuration: 1871
+  - id: "to-next"
+    intent: "wait for the Table A17 signpost to be drawn (silent: Sending... and the page swap, about 0.5 s on the current app)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: "text=/look for/i >> nth=0"
+          timeout: 60000
+      - type: "wait"
+        duration: 150
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 299
+  - id: "sent"
+    narration: "The evaluation is saved, and the app points them to the next table."
+    intent: "the signpost to Table A17 stays on screen; the app's own toast, Saved. Next table below., is up for 2.6 s from the moment the screen changes, so the word saved lands while it is visible"
+    actions:
+      - type: "wait"
+        duration: 3300
+    timing: "parallel"
+    audioDuration: 4104
+    videoDuration: 4106
+  - id: "second-table"
+    narration: "At the next table, it is the same placard check. The judge types the code, and the app confirms the team."
+    intent: "tap I'm at the table, type A17 M3, Check; the confirmation is held for 1.7 s (the next segment's tap scrolls it away)"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "at the table"
+        done:
+          text:
+            selector: "main"
+            has: "Are you EcoLens"
+          timeout: 60000
+      - type: "wait"
+        duration: 300
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "Placard code"
+        text: "A17 M3"
+        delay: 180
+      - type: "wait"
+        duration: 400
+      - type: "click"
+        target:
+          role: "button"
+          name: "Check"
+        done:
+          text:
+            selector: "main"
+            has: "Checked by the placard code"
+          timeout: 60000
+      - type: "wait"
+        duration: 1700
+    timing: "parallel"
+    audioDuration: 6000
+    videoDuration: 7380
+  - id: "no-record"
+    narration: "This team says no to recording. The judge taps Not this time, and it does not affect judging."
+    intent: "Ask and record, then Not this time; once the sheet is gone the real pointer is parked on the Judging ends in label in the header (a quiet hover: no disc, nothing under it reacts), so the Skip button below is not left hovered"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Ask and record"
+        done:
+          visible: "[role=dialog]"
+          timeout: 60000
+      - type: "wait"
+        duration: 700
+      - type: "click"
+        target:
+          role: "button"
+          name: "Not this time"
+        done:
+          hidden: "[role=dialog]"
+          text:
+            selector: "main"
+            has: "No recording at this table"
+          timeout: 60000
+      - type: "wait"
+        duration: 400
+      - type: "hover"
+        target:
+          selector: "text=/Judging ends in/i >> nth=0"
+        text: "park"
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 5472
+    videoDuration: 5472
+  - id: "second-note"
+    narration: "The judge picks how the demo went, and types a short note to remember it."
+    intent: "Partly ran, a short private note (typed key by key; the post-process never cuts inside this segment, see HOLDS in postcut.mjs)"
+    actions:
+      - type: "click"
+        target:
+          role: "radio"
+          name: "Partly ran"
+        done:
+          attribute:
+            selector: "[role=radio]"
+            name: "aria-checked"
+            value: "true"
+          timeout: 60000
+      - type: "type"
+        target:
+          role: "textbox"
+          name: "Private notes"
+        text: "Water bottle worked."
+        delay: 70
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 4032
+    videoDuration: 4689
+  - id: "second-submit"
+    narration: "Then they submit."
+    intent: "tap Submit evaluation"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Submit evaluation"
+    timing: "parallel"
+    audioDuration: 1872
+    videoDuration: 1875
+  - id: "go-compare"
+    intent: "submit the second evaluation and wait for the compare screen (silent: the page load is cut from the video)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: "h1:has-text(\"Which was stronger\")"
+          url: "**/judge/compare"
+          timeout: 60000
+      - type: "wait"
+        duration: 200
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 212
+  - id: "compare"
+    narration: "The app opens the comparison of the last two projects. Recall rows bring back what they noted at each table."
+    intent: "the compare screen (both cards fit on one screen, so nothing scrolls); as the recall rows are mentioned the disc points at the short EcoLens row, Water bottle worked., not at the first card's rows (the app clamps them to two lines)"
+    actions:
+      - type: "wait"
+        duration: 2800
+      - type: "hover"
+        target:
+          text: "Water bottle worked."
+        text: "rest"
+      - type: "wait"
+        duration: 2300
+    timing: "parallel"
+    audioDuration: 6120
+    videoDuration: 6189
+  - id: "pick"
+    narration: "They pick the stronger project, then tap Confirm."
+    intent: "tap the radio circle of the NeuralMesh card (the whole card is the radio, so a tap on its middle would put the disc on the card's text), then Confirm: NeuralMesh; Vote recorded is up as the line ends"
+    actions:
+      - type: "click"
+        target:
+          selector: "[role=\"radio\"][aria-label^=\"NeuralMesh\"] .gv-compare__radio"
+        done:
+          visible: "button:has-text(\"Confirm: NeuralMesh\")"
+          timeout: 60000
+      - type: "click"
+        target:
+          role: "button"
+          name: "Confirm: NeuralMesh"
+        done:
+          visible: "text=Vote recorded"
+          timeout: 60000
+    timing: "parallel"
+    audioDuration: 2856
+    videoDuration: 3026
+  - id: "undo"
+    narration: "A pick can be undone for a few seconds, and the Undo button counts down."
+    intent: "the Undo countdown runs (8 down to about 4 while the line plays; the line is short enough to be over before the count shows 3, so the silent count-wait that follows is a few tenths of a second)"
+    actions:
+      - type: "wait"
+        duration: 500
+    timing: "parallel"
+    audioDuration: 4392
+    videoDuration: 4395
+  - id: "count-wait"
+    intent: "silent: wait until the Undo count shows 3, so the next line starts at 3: its words run out and the vote is sent land on the count's last two seconds, 2 and 1, and the last word ends about 0.4 s before the screen goes to Sending your vote"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: ".gv-recorded__secs:text-matches(\"^[(][0-3][)]$\")"
+          timeout: 60000
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 804
+  - id: "vote-sent"
+    narration: "When the count runs out, the vote is sent."
+    intent: "the count goes 3, 2, 1: runs out is said as it passes 2 and sent as it reads 1 (no word claims a 0, which is never on screen); the line is over before the screen changes (the Sending your vote ghost is cut in post)"
+    actions:
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 2664
+    videoDuration: 2665
+  - id: "to-pocketlab"
+    intent: "wait for the PocketLab signpost to be drawn (silent: Sending your vote and the page load)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          text:
+            selector: "main"
+            has: "PocketLab"
+          timeout: 60000
+      - type: "wait"
+        duration: 200
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 504
+  - id: "pocketlab"
+    narration: "Then the app moves the judge on to the next table, PocketLab."
+    intent: "the signpost to Table A20, PocketLab, held at the top of the page (TABLE, A20, Floor plan, Look for PocketLab, the team)"
+    actions:
+      - type: "wait"
+        duration: 3300
+    timing: "parallel"
+    audioDuration: 3552
+    videoDuration: 3554
+  - id: "memo"
+    narration: "Since EcoLens said no, the judge can still dictate a memo while they walk."
+    intent: "tap the Memo - EcoLens cue above the signpost: the page scrolls down so the whole Memo card for EcoLens is in view (record button, START MEMO and the audio note; it is a real app card: Dictate a memo about EcoLens, only your voice), and hold it"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Memo · EcoLens"
+        done:
+          visible: "text=/start memo/i >> nth=0"
+          timeout: 60000
+      - type: "wait"
+        duration: 3000
+    timing: "parallel"
+    audioDuration: 4368
+    videoDuration: 4538
+  - id: "tap-notes"
+    narration: "Then they open My notes."
+    intent: "tap My notes"
+    actions:
+      - type: "click"
+        target:
+          role: "link"
+          name: "My notes"
+    timing: "parallel"
+    audioDuration: 1872
+    videoDuration: 1873
+  - id: "to-notes"
+    intent: "wait for the My notes page (silent: the page load)"
+    actions:
+      - type: "press"
+        key: "Shift"
+        done:
+          visible: "text=/highlights kept/i >> nth=0"
+          url: "**/judge/notes**"
+          timeout: 60000
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 325
+  - id: "my-notes"
+    narration: "Everything they wrote, and every highlight they kept, stays here."
+    intent: "My notes: scroll to the first project card (the 6 highlights kept badge), then on to the second one, so the first card's rows (the app clamps them to two lines) are on screen only about 1.3 s"
+    actions:
+      - type: "wait"
+        duration: 800
+      - type: "scroll"
+        target:
+          text: "highlights kept"
+      - type: "wait"
+        duration: 900
+      - type: "scroll"
+        target:
+          selector: "text=Water bottle worked. >> nth=0"
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 3816
+    videoDuration: 3817
+  - id: "wrap"
+    narration: "Only the judge sees them. That is Gav-IL on a judge's phone: sign in, judge, compare, and keep notes."
+    intent: "the second project stays up while the first sentence plays, then a slow scroll (5 s, duration on the scroll action) back up to the My notes heading while the closing line plays, so something moves for the whole outro"
+    actions:
+      - type: "wait"
+        duration: 1300
+      - type: "scroll"
+        target:
+          selector: "h1 >> nth=0"
+        duration: 5000
+      - type: "wait"
+        duration: 300
+    timing: "parallel"
+    audioDuration: 7248
+    videoDuration: 7249
+  - id: "tail"
+    intent: "hold the last screen for a moment after the voice ends"
+    actions:
+      - type: "wait"
+        duration: 350
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 351

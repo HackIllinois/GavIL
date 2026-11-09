@@ -4,8 +4,23 @@
     {
       "name": "design-system",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "design-system"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8765",
+        "--directory",
+        "design-system"
+      ],
       "port": 8765
+    },
+    {
+      "name": "web-plain",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "cd web && GAVIL_THEME=plain npx next dev -p 3100"
+      ],
+      "port": 3100
     }
   ]
 }

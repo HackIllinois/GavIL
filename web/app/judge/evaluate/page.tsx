@@ -5,6 +5,7 @@ import { getApi } from "@/lib/api/server"
 import type { NextProject, SkipChoice } from "@/lib/api/types"
 import { SKIP_TOAST } from "@/lib/copy"
 import { mockEnabled } from "@/lib/env"
+import { own } from "@/lib/format"
 import { scanFromParams } from "@/lib/judge-ui"
 import { EvaluateScreen } from "./EvaluateScreen"
 import { WaitScreen } from "./WaitScreen"
@@ -67,9 +68,8 @@ export default async function EvaluatePage({
     const message =
         toast === "moved"
             ? `Staff moved you to Room ${me.room.id}. Your tables are there now.`
-            : toast
-              ? (TOASTS[toast] ?? null)
-              : null
+            : // ?toast= is a word from the link: only the table's own words are messages.
+              (own(TOASTS, toast) ?? null)
     // On the wait screen a deferral can't come back "after your next table": the screen says when.
     const waitToast =
         toast === "busy"
@@ -100,15 +100,17 @@ export default async function EvaluatePage({
             project={next.project}
             visit={next.visit}
             room={me.room}
+            tableRoom={next.room}
             position={next.position}
             estimatedTotal={next.estimatedTotal}
             prizes={next.prizes ?? me.prizes}
             draft={next.draft}
+            projectRevision={next.projectRevision}
             secondsLeft={secondsLeft}
             totalSeconds={me.round.totalSeconds}
             initialToast={message}
             scan={scan}
-            plan={me.plan}
+            plan={next.plan ?? me.plan}
             talk={me.talk}
             talkEngine={mockEnabled() ? "fixture" : "mic"}
         />

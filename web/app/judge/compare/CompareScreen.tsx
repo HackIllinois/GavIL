@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRefreshWhenReachable } from "@/lib/security/refresh"
 import {
     Button,
     Card,
@@ -31,6 +31,7 @@ import {
 } from "@/lib/judge-ui"
 import { afterVote, castVote } from "../actions"
 import { JudgeScreen } from "../JudgeScreen"
+import { CompareNotesSheet } from "./CompareNotesSheet"
 import { useJudgeToast } from "../JudgeToast"
 import { ScanNote } from "../ScanNote"
 import { useJudgeOutbox } from "../useJudgeOutbox"
@@ -82,7 +83,7 @@ export function CompareScreen({
     /** More tables are owed after this vote and time isn't up: the button says "Next table", else "Finish Round 1". */
     more?: boolean
 }) {
-    const router = useRouter()
+    const refresh = useRefreshWhenReachable()
     const go = useSwapNavigate()
     const toast = useJudgeToast()
     const { online, items, dead, flush, scope } = useJudgeOutbox()
@@ -93,6 +94,8 @@ export function CompareScreen({
     const [over, setOver] = useState(secondsLeft === 0)
     /** The server already has this pair's vote: the winner it kept. */
     const [already, setAlready] = useState<string | null>(null)
+    /** "Full notes" is open (a sheet on this page: the undo window keeps running). */
+    const [notesOpen, setNotesOpen] = useState(false)
     const pendingVote = useRef<VoteInput | null>(null)
     const scopeRef = useRef(scope)
     scopeRef.current = scope
@@ -120,13 +123,13 @@ export function CompareScreen({
                 `Vote not counted: ${deadVote.error} Pick again.`,
                 "danger",
             )
-            router.refresh()
+            void refresh()
         } else if (scopeRef.current) {
             const w = sentVote(scopeRef.current, clientId)
             if (w) setAlready(w)
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- `toast.show` is stable
-    }, [onPhone, deadVote, clientId, router])
+    }, [onPhone, deadVote, clientId, refresh])
 
     useEffect(
         () => () => {
@@ -150,15 +153,15 @@ export function CompareScreen({
     useEffect(() => {
         if (!checkedRender.current) {
             checkedRender.current = true
-            if (mountedRenders.has(renderId)) router.refresh()
+            if (mountedRenders.has(renderId)) void refresh()
             mountedRenders.add(renderId)
         }
         const onShow = (e: PageTransitionEvent) => {
-            if (e.persisted) router.refresh()
+            if (e.persisted) void refresh()
         }
         window.addEventListener("pageshow", onShow)
         return () => window.removeEventListener("pageshow", onShow)
-    }, [renderId, router])
+    }, [renderId, refresh])
     // Until then (or offline), the phone knows which pairs it already sent.
     const judgeId = scope?.judgeId
     useEffect(() => {
@@ -227,7 +230,7 @@ export function CompareScreen({
             setSent(null)
             setRec(null)
             toast.show(step.message, "danger")
-            if (!step.stay) router.refresh()
+            if (!step.stay) void refresh()
             return
         }
         rememberSentVote(scope, clientId, step.winnerId)
@@ -298,6 +301,15 @@ export function CompareScreen({
             : already === task.b.id
               ? task.b.name
               : null
+    // The pair is no longer open for a vote (sending, saved on the phone, or already voted): the
+    // notes sheet goes with it, so it can never sit over a screen it doesn't belong to.
+    const voteGone =
+        (!!already && !onPhone && sent !== "sending") ||
+        saved ||
+        sent === "sending"
+    useEffect(() => {
+        if (voteGone) setNotesOpen(false)
+    }, [voteGone])
     // What the judge kept from Table talk (and their demo tap) reads across both cards.
     const [ra, rb] = recallPair(task.a, task.b)
 
@@ -386,6 +398,16 @@ export function CompareScreen({
                     onConfirm={confirm}
                     onUndo={undo}
                     onNext={() => void commit()}
+                    onOpenNotes={() => setNotesOpen(true)}
+                />
+            )}
+            {notesOpen && !voteGone && (
+                <CompareNotesSheet
+                    a={task.a}
+                    b={task.b}
+                    recallA={ra}
+                    recallB={rb}
+                    onClose={() => setNotesOpen(false)}
                 />
             )}
         </JudgeScreen>

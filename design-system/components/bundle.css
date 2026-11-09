@@ -51,8 +51,8 @@
 .gv-btn{--cx:var(--cut-sm);--cy:calc(var(--cx) * .75);--h:var(--tap-min);
   appearance:none;border:0;margin:0;position:relative;display:inline-flex;align-items:center;justify-content:center;gap:var(--space-2);min-height:var(--tap-min);padding:0 var(--space-5);font:var(--type-button);letter-spacing:var(--tracking-button);text-transform:uppercase;text-decoration:none;cursor:pointer;white-space:nowrap;user-select:none;-webkit-user-select:none;color:inherit;background:transparent;clip-path:var(--gv-chamfer);
   transition-property:transform,background-color,box-shadow,color,filter;transition-duration:var(--dur-release);transition-timing-function:var(--ease-out)}
-.gv-btn:active:not(:disabled){transform:scale(var(--press-scale));transition-duration:var(--dur-press)}
-.gv-btn:disabled{cursor:not-allowed}
+.gv-btn:active:not(:disabled,[aria-disabled="true"]){transform:scale(var(--press-scale));transition-duration:var(--dur-press)}
+.gv-btn:disabled,.gv-btn[aria-disabled="true"]{cursor:not-allowed}
 .gv-btn[aria-busy="true"]{cursor:progress}
 .gv-btn[data-settling]{cursor:default}
 .gv-btn--block{width:100%}
@@ -61,18 +61,18 @@
 /* Dense admin buttons are 36px on a laptop; on a phone every control is a thumb target again. */
 @media (max-width:600px){.gv-btn--sm{--h:var(--tap-min);min-height:var(--h)}}
 .gv-btn--primary{background:var(--gold);color:var(--on-gold)}
-.gv-btn--primary:active:not(:disabled){filter:brightness(.94)}
+.gv-btn--primary:active:not(:disabled,[aria-disabled="true"]){filter:brightness(.94)}
 /* Secondary: an inked edge on paper or ground, so it never reads as an input. */
 .gv-btn--secondary{background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 var(--stroke) var(--ink);clip-path:none;border-radius:var(--radius-sm)}
-.gv-btn--secondary:active:not(:disabled){background:var(--surface-sunken)}
+.gv-btn--secondary:active:not(:disabled,[aria-disabled="true"]){background:var(--surface-sunken)}
 .gv-btn--ghost,.gv-btn--ghost-danger{background:transparent;clip-path:none;border-radius:var(--radius-sm)}
 .gv-btn--ghost{color:inherit}
-.gv-btn--ghost:active:not(:disabled){background:var(--hover-tint)}
+.gv-btn--ghost:active:not(:disabled,[aria-disabled="true"]){background:var(--hover-tint)}
 .gv-btn--ghost-danger{color:var(--danger)}
-.gv-btn--ghost-danger:active:not(:disabled){background:var(--danger-tint)}
+.gv-btn--ghost-danger:active:not(:disabled,[aria-disabled="true"]){background:var(--danger-tint)}
 /* Danger: a solid fill, only for the destructive commit itself (Revoke, Remove, Deny, Sign out). */
 .gv-btn--danger{background:var(--danger);color:var(--on-select)}
-.gv-btn--danger:active:not(:disabled){filter:brightness(.9)}
+.gv-btn--danger:active:not(:disabled,[aria-disabled="true"]){filter:brightness(.9)}
 /* Wood: the real plank (Registration default plank, art-plank-flat), drawn as a 3-slice border-image so the two chamfered ends
    keep their cut at any width and only the grain between them stretches. The clip-path takes the art's own end cut, so the focus
    ring and the hit area follow the plank's edge. Lettering is cream with the carved sign edge; the plank is its own ground, so
@@ -84,7 +84,7 @@
    between the end caps and fading to nothing across each cap, so no edge shows), so the grain's thin gold highlights never take the cream under 4.5:1. */
 .gv-btn--wood::before,.gv-way:not(.gv-way--hero)::before{content:"";position:absolute;z-index:-1;inset:var(--stroke) 0;background:var(--plank-scrim);pointer-events:none;
   -webkit-mask-image:linear-gradient(90deg,transparent,var(--wood-deep) var(--cap),var(--wood-deep) calc(100% - var(--cap)),transparent);mask-image:linear-gradient(90deg,transparent,var(--wood-deep) var(--cap),var(--wood-deep) calc(100% - var(--cap)),transparent)}
-.gv-btn--wood:disabled:not([aria-busy="true"])::before{content:none}
+.gv-btn--wood:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"])::before{content:none}
 .gv-btn.gv-btn--wood.gv-btn--next{border-image-source:var(--art-plank-point-right);padding:0 calc(var(--h) * var(--plank-tip) + var(--space-3)) 0 calc(var(--h) * var(--plank-tip) + var(--space-3))}
 .gv-btn.gv-btn--wood.gv-btn--back{border-image-source:var(--art-plank-point-left);padding:0 calc(var(--h) * var(--plank-tip) + var(--space-3)) 0 calc(var(--h) * var(--plank-tip) + var(--space-3))}
 /* A plank's focus ring is a cream band that follows the plank's own cut (the flat chamfer, or the 45-degree arrow), one stroke-focus in
@@ -106,7 +106,10 @@
 .gv-btn--wood.gv-btn--back:focus-visible::after{clip-path:polygon(evenodd,
     calc(var(--o1) * var(--plank-ring-apex)) 50%,calc(var(--arrow-tip) + calc(var(--o1) * var(--plank-ring-k135))) var(--o1),calc(100% - calc(var(--o1) * var(--plank-ring-k45))) var(--o1),calc(100% - var(--cut-md) - calc(var(--o1) * var(--plank-ring-apex))) 50%,calc(100% - calc(var(--o1) * var(--plank-ring-k45))) calc(100% - var(--o1)),calc(var(--arrow-tip) + calc(var(--o1) * var(--plank-ring-k135))) calc(100% - var(--o1)),
     calc(var(--o2) * var(--plank-ring-apex)) 50%,calc(var(--arrow-tip) + calc(var(--o2) * var(--plank-ring-k135))) var(--o2),calc(100% - calc(var(--o2) * var(--plank-ring-k45))) var(--o2),calc(100% - var(--cut-md) - calc(var(--o2) * var(--plank-ring-apex))) 50%,calc(100% - calc(var(--o2) * var(--plank-ring-k45))) calc(100% - var(--o2)),calc(var(--arrow-tip) + calc(var(--o2) * var(--plank-ring-k135))) calc(100% - var(--o2)))}
-.gv-btn--wood:disabled:not([aria-busy="true"]){border-image:none;background:var(--surface-sunken);color:var(--ink-muted);text-shadow:none}
+.gv-btn--wood:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"]){border-image:none;background:var(--surface-sunken);color:var(--ink-muted);text-shadow:none}
+.gv-btn--wood[aria-disabled="true"]:not([aria-busy="true"]):focus-visible::after{background:var(--focus)}
+/* Held on wood the plate is wood-deep (see the disabled rule below), where an ink band is 1.02:1: the held plank's band turns cream (11:1). A busy plank keeps its art and its cream band. */
+:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--wood[aria-disabled="true"]:not([aria-busy="true"]):focus-visible::after{background:var(--on-wood)}
 /* A settling button (it just appeared under the thumb) absorbs the tap without looking pressed; the tap never falls through. */
 .gv-btn.gv-btn[data-settling]:active{transform:none;filter:none}
 .gv-btn.gv-btn--next{clip-path:polygon(0 0,calc(100% - var(--arrow-tip)) 0,100% 50%,calc(100% - var(--arrow-tip)) 100%,0 100%,var(--cut-md) 50%);padding:0 var(--space-8) 0 var(--space-6)}
@@ -114,10 +117,12 @@
 .gv-btn--secondary:is(.gv-btn--back,.gv-btn--next){background:var(--surface-sunken);box-shadow:none}
 /* On wood a secondary is a paper plank: sunken fill, the chamfer, no ring. Ghosts wash in cream. */
 :where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--secondary{background:var(--surface-sunken);box-shadow:none;clip-path:var(--gv-chamfer)}
-:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--ghost:active:not(:disabled){background:var(--hover-tint-on-wood)}
-.gv-btn:disabled:not([aria-busy="true"]){background:var(--surface-sunken);color:var(--ink-muted);box-shadow:none;filter:none}
-.gv-btn--ghost:disabled,.gv-btn--ghost-danger:disabled{background:transparent;color:var(--ink-muted)}
-:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn:disabled:not([aria-busy="true"]){background:var(--wood-deep);color:var(--on-wood-soft)}
+:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--ghost:active:not(:disabled,[aria-disabled="true"]){background:var(--hover-tint-on-wood)}
+.gv-btn:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"]){background:var(--surface-sunken);color:var(--ink-muted);filter:none}
+/* A held button has focus, so it keeps its focus ring: the plate drops its edge only while no ring is drawn. */
+.gv-btn:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"],:focus-visible){box-shadow:none}
+.gv-btn--ghost:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"]),.gv-btn--ghost-danger:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"]){background:transparent;color:var(--ink-muted)}
+:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"]){background:var(--wood-deep);color:var(--on-wood-soft)}
 .gv-spin{flex:none;width:var(--icon-sm);height:var(--icon-sm);border-radius:50%;box-shadow:inset 0 0 0 var(--stroke) currentColor;clip-path:polygon(50% 50%,50% 0,100% 0,100% 100%,0 100%,0 50%);animation:gv-spin var(--dur-spin) linear var(--loop)}
 
 /* Badge. Tints are composited over paper inside the badge, so a badge reads the same on any row tint. */
@@ -148,6 +153,10 @@
 .gv-chip[aria-pressed="true"] .gv-chip__check{opacity:1;transform:none;filter:none}
 .gv-chip__dot{flex:none;width:var(--icon-sm);height:var(--icon-sm);border-radius:50%;background:var(--surface);box-shadow:inset 0 0 0 var(--stroke) var(--line-strong);transition:box-shadow var(--dur-release) var(--ease-out)}
 .gv-chip[aria-checked="true"] .gv-chip__dot{box-shadow:inset 0 0 0 calc((var(--icon-sm) - var(--space-1) * 1.5) / 2) var(--select)}
+/* ThemeSwitch: a toggle chip whose mark is the sun (day) or the moon (night), cross-fading like the check does. */
+.gv-themeswitch__moon{opacity:0;transform:scale(calc(1 - .75 * var(--motion)));filter:blur(calc(var(--space-1) * var(--motion)))}
+.gv-themeswitch[aria-pressed="true"] .gv-themeswitch__sun{opacity:0;transform:scale(calc(1 - .75 * var(--motion)));filter:blur(calc(var(--space-1) * var(--motion)))}
+.gv-themeswitch[aria-pressed="true"] .gv-themeswitch__moon{opacity:1;transform:none;filter:none}
 .gv-choices{display:flex;flex-wrap:wrap;gap:var(--space-2)}
 .gv-nominate__head{display:flex;justify-content:space-between;align-items:baseline;gap:var(--space-2);margin-bottom:var(--space-3);width:100%;padding:0}
 .gv-nominate__count,.gv-card__aside{font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--ink-soft)}
@@ -249,6 +258,8 @@
 :where(.gv-way,.gv-wood,.gv-shell__top,.gv-actionbar) .gv-link:active{background:var(--hover-tint-on-wood)}
 .gv-link--block{display:flex;width:fit-content;max-width:100%;margin-inline-start:calc(-1 * var(--space-3))}
 .gv-link--block>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The name check-in's disclosure is a sentence, not a URL: it wraps (two short lines) instead of ending in an ellipsis, which it did at 320px. */
+.gv-tc__name .gv-link--block>span{overflow:visible;text-overflow:clip;white-space:normal;text-wrap:balance}
 .gv-link--retry{margin:calc(-1 * var(--space-4)) calc(-1 * var(--space-2)) calc(-1 * var(--space-4)) var(--space-1);color:var(--danger)}
 .gv-link--muted{color:var(--ink-muted);text-decoration:none;cursor:default}
 
@@ -361,7 +372,7 @@
 .gv-compare[aria-checked="true"] .gv-compare__radio{background:var(--select);box-shadow:none}
 .gv-compare[aria-checked="true"] .gv-compare__radio .gv-icon{opacity:1;transform:none;filter:none}
 .gv-compare__name{font:var(--type-display-sm);margin:var(--space-2) 0 0}
-.gv-compare__desc{font:var(--type-body-sm);font-weight:400;color:var(--ink-muted);margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gv-compare__desc{font:var(--type-body-sm);font-weight:400;color:var(--ink-muted);margin:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2}
 .gv-compare__mine{margin-top:var(--space-3);padding-top:var(--space-3);box-shadow:0 calc(-1 * var(--stroke-hair)) 0 var(--line)}
 .gv-compare .gv-compare__mine-top{display:flex;align-items:center;gap:var(--space-2);min-width:0}
 .gv-compare__k{flex:none;font:var(--type-eyebrow);letter-spacing:var(--tracking-eyebrow);text-transform:uppercase;color:var(--ink-soft)}
@@ -528,6 +539,9 @@ button.gv-table__name{appearance:none;border:0;margin:0;padding:0;background:non
    eyebrows and ledes sit on it; every piece of content sits on paper. The flat ground colour under it is the fallback while the
    painting loads or if it never does. Fixed means the viewport, or the phone frame of a preview (a transform makes it the box). */
 .gv-ground{position:fixed;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(var(--scrim),var(--scrim)),var(--art-ground) var(--art-ground-pos)/cover no-repeat,var(--ground)}
+/* The shell's two sticky bands (the app bar with its timer, the action bar) write their measured heights here (JudgeShell). A control focused
+   from the keyboard scrolls out from under them: scroll-padding is their height plus a little air. Without a shell they are 0. */
+:root{--gv-top-h:0px;--gv-dock-h:0px;scroll-padding-top:calc(var(--gv-top-h) + var(--space-2));scroll-padding-bottom:calc(var(--gv-dock-h) + var(--space-2))}
 .gv-shell__top{position:sticky;top:0;z-index:5;padding-top:env(safe-area-inset-top);background-color:var(--wood);background-image:var(--gv-wood);color:var(--on-wood);box-shadow:var(--shadow-plank-edge)}
 .gv-shell__top::after{content:"";display:block;height:var(--space-1);background:linear-gradient(90deg,var(--sky-1) 0 25%,var(--sky-2) 25% 50%,var(--sky-3) 50% 75%,var(--sky-4) 75%)}
 .gv-shell__top:has(.gv-timer)::after{display:none}
@@ -949,13 +963,13 @@ button.gv-note:active{transform:scale(var(--press-scale-lg));transition-duration
 
 /* Hover only where a real pointer hovers; on touch it would stick after a tap. */
 @media (hover:hover) and (pointer:fine){
-  .gv-btn--primary:hover:not(:disabled){filter:brightness(1.07)}
-  .gv-btn--secondary:hover:not(:disabled){background:var(--surface-sunken)}
-  .gv-btn--ghost:hover:not(:disabled){background:var(--hover-tint)}
-  :where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--ghost:hover:not(:disabled){background:var(--hover-tint-on-wood)}
-  .gv-btn--ghost-danger:hover:not(:disabled){background:var(--danger-tint)}
-  .gv-btn--danger:hover:not(:disabled){filter:brightness(1.08)}
-  .gv-btn--wood:hover:not(:disabled){filter:brightness(1.1)}
+  .gv-btn--primary:hover:not(:disabled,[aria-disabled="true"]){filter:brightness(1.07)}
+  .gv-btn--secondary:hover:not(:disabled,[aria-disabled="true"]){background:var(--surface-sunken)}
+  .gv-btn--ghost:hover:not(:disabled,[aria-disabled="true"]){background:var(--hover-tint)}
+  :where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--ghost:hover:not(:disabled,[aria-disabled="true"]){background:var(--hover-tint-on-wood)}
+  .gv-btn--ghost-danger:hover:not(:disabled,[aria-disabled="true"]){background:var(--danger-tint)}
+  .gv-btn--danger:hover:not(:disabled,[aria-disabled="true"]){filter:brightness(1.08)}
+  .gv-btn--wood:hover:not(:disabled,[aria-disabled="true"]){filter:brightness(1.1)}
   .gv-link:hover{background:var(--select-tint)}
   :where(.gv-way,.gv-wood,.gv-shell__top,.gv-actionbar) .gv-link:hover{background:var(--hover-tint-on-wood)}
   .gv-chip:hover:not(:disabled){box-shadow:inset 0 0 0 var(--stroke) var(--line-strong)}
@@ -994,5 +1008,38 @@ button.gv-note:focus-visible{box-shadow:inset 0 0 0 var(--stroke-focus) var(--fo
 :where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--primary:focus-visible{box-shadow:inset 0 0 0 var(--stroke-focus) var(--wood-deep),inset 0 0 0 calc(var(--stroke-focus) * 2) var(--on-wood)}
 /* A secondary on wood is a cream plank, so a cream ring would vanish (1.1:1): it takes an ink ring (10:1 on the plank). */
 :where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--secondary:focus-visible{box-shadow:inset 0 0 0 var(--stroke-focus) var(--focus)}
+/* Held (aria-disabled, not busy), that cream plank is the wood-deep plate every held button on wood becomes, where the ink ring is 1.02:1: the ring turns cream (11:1). A busy one keeps its cream plank and its ink ring. */
+:where(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood) .gv-btn--secondary[aria-disabled="true"]:not([aria-busy="true"]):focus-visible{box-shadow:inset 0 0 0 var(--stroke-focus) var(--on-wood)}
 /* Every number uses tabular figures, even where a font shorthand reset them. */
 :where(.gv-root) [class*="gv-"]{font-variant-numeric:tabular-nums}
+
+/* ── Plain theme: year-agnostic (tokens.json theme "plain") ──────────────────────────────────────────────────────
+   For a year without its own art, or a team that wants the clean look: one sans family, flat white bars instead of
+   wood, square-cornered controls with a small radius instead of the chamfer, no rope, grain, nails or painted art.
+   Colours, shadows and art come from the theme's tokens; this block only switches the materials off. To brand a new
+   year, add a theme to tokens.json and its art to assets/brand/: no component changes. */
+:root[data-theme="plain"]{--font-display:var(--font-sans);--font-western:var(--font-sans);--font-condensed:var(--font-sans);
+  --gv-grain:none;--gv-wood:none;--gv-rope:none;--gv-nails:none}
+:root[data-theme="plain"] :is(.gv-btn,.gv-timer__over,.gv-empty__icon,.gv-sign){--gv-chamfer:none;clip-path:none;border-radius:var(--radius-sm)}
+:root[data-theme="plain"] .gv-btn{text-transform:none;letter-spacing:normal}
+:root[data-theme="plain"] .gv-btn--wood,:root[data-theme="plain"] .gv-btn.gv-btn--wood:is(.gv-btn--next,.gv-btn--back){border-image:none;border:0;padding:0 var(--space-5);
+  background:var(--surface);color:var(--ink);text-shadow:none;box-shadow:inset 0 0 0 var(--stroke-hair) var(--line-strong)}
+:root[data-theme="plain"] .gv-btn--wood::before,:root[data-theme="plain"] .gv-way::before{content:none}
+:root[data-theme="plain"] .gv-way{border-image:none;border:0;clip-path:none;border-radius:var(--radius-md);padding:var(--space-2) var(--space-4);
+  background:var(--surface);box-shadow:var(--shadow-ledge)}
+:root[data-theme="plain"] .gv-way :is(.gv-way__k,.gv-way__v,.gv-link){color:var(--ink)}
+:root[data-theme="plain"] .gv-way__icon{background:var(--surface-sunken);color:var(--ink);box-shadow:none}
+:root[data-theme="plain"] :is(.gv-shell__top,.gv-actionbar,.gv-pair__confirm,.gv-wood){background-image:none}
+:root[data-theme="plain"] .gv-ground{background:var(--ground)}
+:root[data-theme="plain"] .gv-seal:empty{display:none}
+@supports (corner-shape:bevel){:root[data-theme="plain"] :where([class^="gv-"],[class*=" gv-"]){corner-shape:round}}
+/* The hero sign's lettering tilts to follow the painted boards; with no boards it sits straight. */
+:root[data-theme="plain"] .gv-sign :is(.gv-way__k,.gv-way__noun,.gv-way__room,.gv-sign__map,.gv-way__board){transform:none}
+:root[data-theme="plain"] .gv-sign .gv-sign__map:active{transform:scale(var(--press-scale))}
+:root[data-theme="plain"] .gv-compare__order{background:var(--gold);border-radius:var(--radius-sm)}
+/* A focus ring the colour of the fill can't be seen: on a filled primary the ring is its own text colour, inside a focus band. */
+:root[data-theme="plain"] .gv-btn--primary:focus-visible:not(:is(:disabled,[aria-disabled="true"]):not([aria-busy="true"])){box-shadow:inset 0 0 0 var(--stroke-focus) var(--on-gold),0 0 0 var(--stroke) var(--focus)}
+/* Done: a plain disc, not the sheriff's six points. */
+:root[data-theme="plain"] .gv-star::before{clip-path:none;border-radius:50%;background:var(--success)}
+:root[data-theme="plain"] .gv-btn--wood:focus-visible::after{content:none}
+:root[data-theme="plain"] .gv-btn--wood:focus-visible{box-shadow:inset 0 0 0 var(--stroke-focus) var(--focus)}

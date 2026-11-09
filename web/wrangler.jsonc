@@ -10,6 +10,18 @@
         "directory": ".open-next/assets",
         "binding": "ASSETS"
     },
+    // 600 placard scans/minute per session or IP: generous for a venue behind one NAT.
+    // namespace_id is a positive integer unique to the HackIllinois Cloudflare account.
+    "ratelimits": [
+        {
+            "name": "PLACARD_RATELIMIT",
+            "namespace_id": "271023",
+            "simple": {
+                "limit": 600,
+                "period": 60
+            }
+        }
+    ],
     // Workers Logs: what the app prints (console output, uncaught errors) is kept and searchable in
     // the dashboard. A sign-in link (/auth/magic?token=...) and a placard scan (/t/A12?k=...) carry
     // a token in the first request's URL, so two settings keep it out of Cloudflare's log store:
@@ -19,7 +31,7 @@
     //                        braces, so a token never depends on the redaction alone.
     // Gav-IL's own code never logs a URL. The cost of invocation_logs=false: no one-line-per-request
     // listing (the Metrics tab still counts requests and errors). To see request lines during an
-    // incident, set invocation_logs to true, deploy, and set it back (README, Deploy, step 8);
+    // incident, set invocation_logs to true, deploy, and set it back (README, Deploy, step 9);
     // redact_query_string stays true either way.
     "observability": {
         "enabled": true,
@@ -36,7 +48,7 @@
     // and list what is set with `npx wrangler secret list`. Every one the code reads in
     // production (web/.env.example says what each is for):
     //   GAVIL_GRANT_SECRET     REQUIRED. 32+ random characters, Gav-IL only (openssl rand -base64 32)
-    //   GAVIL_JWT_SECRET       recommended. adonix's JWT_SECRET, copied, not generated
+    //   GAVIL_JWT_SECRET       REQUIRED. adonix's JWT_SECRET, copied, not generated
     //   GAVIL_TALK_SECRET      only for Table talk. 32+ characters, shared with adonix
     //   CF_ACCOUNT_ID          only for Table talk (Workers AI speech to text)
     //   CF_API_TOKEN           only for Table talk (a Workers AI token for that account)

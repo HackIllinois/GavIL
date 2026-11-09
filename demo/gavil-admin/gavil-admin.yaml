@@ -1,0 +1,430 @@
+app:
+  url: "http://localhost:3191/auth/mock?role=admin"
+  viewport:
+    width: 1280
+    height: 800
+  scale: 2
+  zoom: 1
+  colorScheme: "light"
+  setup:
+    - run: "demo/gavil-admin/reset-admin.sh web 3191 >/dev/null 2>&1 </dev/null"
+    - run: "node demo/gavil-admin/seed.mjs 3191 </dev/null"
+tts:
+  provider: "openai"
+  voice: "en-US-AndrewNeural"
+  speed: 1.05
+recording:
+  outputDir: "."
+  fps: 30
+segments:
+  - id: "lead"
+    intent: "a third of a second of the console before the voice starts"
+    actions:
+      - type: "wait"
+        duration: 350
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 353
+  - id: "overview"
+    narration: "Staff run the event from the admin console. The presence map shows every table: teams that are here, a judge at a table, projects held for review, and teams not here yet."
+    intent: "the admin home: scroll down to the presence map, then point at one cell of each state as it is named, then scroll back up to the tab bar"
+    actions:
+      - type: "wait"
+        until: 2300
+      - type: "scroll"
+        target:
+          role: "list"
+          name: "Room 4217 tables"
+      - type: "wait"
+        until: 4300
+      - type: "hover"
+        target:
+          selector: "li[aria-label^='A12 ']"
+      - type: "wait"
+        until: 5500
+      - type: "hover"
+        target:
+          selector: "li[aria-label^='A22 ']"
+      - type: "wait"
+        until: 6900
+      - type: "hover"
+        target:
+          selector: "li[aria-label^='A09 ']"
+      - type: "wait"
+        until: 8300
+      - type: "hover"
+        target:
+          selector: "li[aria-label^='A03 ']"
+      - type: "wait"
+        until: 9800
+      - type: "scroll"
+        target:
+          role: "tab"
+          name: "Judges"
+    timing: "parallel"
+    audioDuration: 10656
+    videoDuration: 11045
+  - id: "tap-judges"
+    intent: "silent tap on the Judges tab, so the Judges line starts on the Judges page"
+    actions:
+      - type: "click"
+        target:
+          role: "tab"
+          name: "Judges"
+        done:
+          visible: "table"
+          url: "**/admin/judges"
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 1598
+  - id: "judges"
+    narration: "The Judges tab shows each judge's pace. A judge rushing through tables gets a Fast visits flag, with the numbers behind it."
+    intent: "point at the Signals column, then at the Fast visits flag, then at the numbers behind it"
+    actions:
+      - type: "wait"
+        until: 400
+      - type: "hover"
+        target:
+          role: "columnheader"
+          name: "Signals"
+        at:
+          x: 84
+      - type: "wait"
+        until: 3400
+      - type: "hover"
+        target:
+          text: "Fast visits"
+        at:
+          x: 103
+      - type: "wait"
+        until: 5100
+      - type: "hover"
+        target:
+          text: "3 of 3 visits under"
+        after: true
+    timing: "parallel"
+    audioDuration: 7464
+    videoDuration: 7466
+  - id: "void-votes"
+    narration: "An admin can void that judge's votes. It needs a reason, which goes in the audit log, and every room is ranked again without those votes. The row is stamped Votes voided."
+    intent: "Void votes, pick a reason, point at the explanation, confirm, then point at the stamp"
+    actions:
+      - type: "click"
+        target:
+          role: "button"
+          name: "Void votes"
+        done:
+          visible: ".ad-void select"
+      - type: "wait"
+        until: 2000
+      - type: "select"
+        target:
+          selector: ".ad-void select"
+        option: "Judged too fast to have seen the demos"
+      - type: "wait"
+        until: 3500
+      - type: "hover"
+        target:
+          text: "Their comparisons are removed"
+        after: true
+      - type: "wait"
+        until: 5600
+      - type: "scroll"
+        target:
+          selector: ".ad-void select"
+      - type: "wait"
+        until: 6500
+      - type: "click"
+        target:
+          role: "button"
+          name: "Void 2 votes"
+        done:
+          text:
+            selector: "td"
+            has: "Votes voided"
+      - type: "park"
+        target:
+          selector: "tr:has-text('Sarah Kim') td[data-label='Room']"
+      - type: "scroll"
+        target:
+          selector: "span.gv-badge--stamp"
+      - type: "hover"
+        target:
+          selector: "span.gv-badge--stamp"
+        at:
+          x: 114
+    timing: "parallel"
+    audioDuration: 10176
+    videoDuration: 10180
+  - id: "tap-flagged"
+    intent: "silent tap on the Flagged tab, so the Flagged line starts on the Flagged page"
+    actions:
+      - type: "click"
+        target:
+          role: "tab"
+          name: "Flagged"
+        done:
+          visible: "h2:has-text('Flagged projects')"
+          url: "**/admin/flagged"
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 1700
+  - id: "flags"
+    narration: "The Flagged tab is the review queue: late commits, a teammate who isn't registered, a path mismatch. An admin clears a project into judging, or escalates it with a written reason, and an escalated project stays out until the organizers decide."
+    intent: "point at the three kinds of flag as they are named, hover Clear, escalate SoundScape with a typed reason (its card moves under Escalated, with the organizers), then point at that group's heading"
+    actions:
+      - type: "wait"
+        until: 1400
+      - type: "hover"
+        target:
+          selector: ".gv-flag:has-text('SoundScape') .gv-flag__reason:has-text('Commits after deadline')"
+        at:
+          x: 4
+      - type: "wait"
+        until: 2900
+      - type: "hover"
+        target:
+          selector: ".gv-flag:has-text('SoundScape') .gv-flag__reason:has-text('Team member not registered')"
+        at:
+          x: 4
+      - type: "wait"
+        until: 4500
+      - type: "hover"
+        target:
+          selector: ".gv-flag:has-text('HealthBridge') .gv-flag__reason:has-text('Path mismatch')"
+        at:
+          x: 4
+      - type: "wait"
+        until: 6000
+      - type: "hover"
+        target:
+          selector: ".gv-flag:has-text('SoundScape') button:has-text('Clear')"
+        at:
+          x: 14
+      - type: "wait"
+        until: 7800
+      - type: "click"
+        target:
+          selector: ".gv-flag:has-text('SoundScape') button:has-text('Escalate')"
+        done:
+          visible: ".gv-flag-confirm textarea"
+      - type: "type"
+        target:
+          selector: ".gv-flag-confirm textarea"
+        text: "Late commits. Organizers to decide."
+        delay: 15
+      - type: "wait"
+        until: 11050
+      - type: "click"
+        target:
+          selector: ".gv-flag-confirm button:has-text('Escalate')"
+        done:
+          visible: ".ad-flaggrp:has(.ad-flaggrp__k:has-text('Escalated')) .gv-flag:has-text('SoundScape')"
+      - type: "park"
+        target:
+          text: "Clear sends a project into judging"
+      - type: "wait"
+        until: 12500
+      - type: "hover"
+        target:
+          selector: ".ad-flaggrp__k:has-text('Escalated')"
+        after: true
+    timing: "parallel"
+    audioDuration: 14880
+    videoDuration: 14882
+  - id: "tap-overview"
+    intent: "silent tap on the Overview tab, so the placards line starts on the Overview"
+    actions:
+      - type: "click"
+        target:
+          role: "tab"
+          name: "Overview"
+        done:
+          visible: "h2:has-text('Rooms right now')"
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 2375
+  - id: "open-placards"
+    narration: "From the Overview, Print placards opens a sheet for every table, one placard per page."
+    intent: "scroll to Print placards and open it"
+    actions:
+      - type: "scroll"
+        target:
+          role: "link"
+          name: "Print placards"
+      - type: "click"
+        target:
+          role: "link"
+          name: "Print placards"
+        done:
+          visible: "article[aria-label='Placard for table A01']"
+          url: "**/admin/placards"
+    timing: "parallel"
+    audioDuration: 5784
+    videoDuration: 5786
+  - id: "placards"
+    narration: "Each sheet has its own QR code and check code. Judges scan it, or type the code, to prove they are at the right table."
+    intent: "point at the QR code and the check code, scroll to A12 and its check code, then close the sheet and move the pointer off the header (it would rest on the Night theme button)"
+    actions:
+      - type: "wait"
+        until: 300
+      - type: "hover"
+        target:
+          selector: "article[aria-label='Placard for table A01'] svg.gv-placard__qr"
+      - type: "wait"
+        until: 1300
+      - type: "hover"
+        target:
+          selector: "article[aria-label='Placard for table A01'] .gv-placard__check"
+        after: true
+      - type: "wait"
+        until: 2400
+      - type: "scroll"
+        target:
+          selector: "article[aria-label='Placard for table A12']"
+      - type: "hover"
+        target:
+          selector: "article[aria-label='Placard for table A12'] .gv-placard__check"
+        after: true
+      - type: "wait"
+        until: 5300
+      - type: "click"
+        target:
+          role: "button"
+          name: "Close"
+        done:
+          visible: "[role=tab]:has-text('Settings')"
+      - type: "park"
+        target:
+          selector: "h2:has-text('Needs review')"
+    timing: "parallel"
+    audioDuration: 6984
+    videoDuration: 6986
+  - id: "tap-settings"
+    intent: "silent tap on the Settings tab, so the Settings line starts on the Settings page"
+    actions:
+      - type: "click"
+        target:
+          role: "tab"
+          name: "Settings"
+        done:
+          visible: "h2:has-text('Judging')"
+          url: "**/admin/settings"
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 1546
+  - id: "settings"
+    narration: "The Settings tab holds the event-wide switches. Table talk goes on, then off again, and each flip is recorded."
+    intent: "point at the switches, flip Table talk on and off (tapping the switch itself), then scroll to the audit log"
+    actions:
+      - type: "wait"
+        until: 400
+      - type: "hover"
+        target:
+          selector: ".gv-switch__btn:has-text('Freeze new sign-ins') .gv-switch__track"
+      - type: "wait"
+        until: 2600
+      - type: "click"
+        target:
+          selector: ".gv-switch__btn:has-text('Table talk') .gv-switch__track"
+        done:
+          text:
+            selector: "[role=status]"
+            has: "Table talk on"
+      - type: "wait"
+        until: 4000
+      - type: "click"
+        target:
+          selector: ".gv-switch__btn:has-text('Table talk') .gv-switch__track"
+        done:
+          text:
+            selector: "[role=status]"
+            has: "Table talk off"
+      - type: "wait"
+        until: 6000
+      - type: "scroll"
+        target:
+          selector: ".ad-audit li:nth-child(3)"
+        done:
+          visible: ".ad-audit li:has-text('Turned Table talk off')"
+    timing: "parallel"
+    audioDuration: 7320
+    videoDuration: 7324
+  - id: "audit"
+    narration: "That record is the audit log. Every switch, escalation and voided vote lands there: who did it, when, and any reason they gave."
+    intent: "point at the switch, the escalation, the voided vote, who and when, and the reason, as each is named; then scroll back up to the tab bar"
+    actions:
+      - type: "wait"
+        until: 1400
+      - type: "hover"
+        target:
+          selector: ".ad-audit li:has-text('Turned Table talk off') b"
+        at:
+          x: 176
+      - type: "wait"
+        until: 2400
+      - type: "hover"
+        target:
+          selector: ".ad-audit li:has-text('Escalated SoundScape') b"
+        at:
+          x: 329
+      - type: "wait"
+        until: 3400
+      - type: "hover"
+        target:
+          selector: ".ad-audit li:has-text('Voided Sarah Kim') b"
+        at:
+          x: 210
+      - type: "wait"
+        until: 4800
+      - type: "hover"
+        target:
+          selector: ".ad-audit li:has-text('Voided Sarah Kim') span:nth-of-type(1)"
+        at:
+          x: 255
+      - type: "wait"
+        until: 6600
+      - type: "hover"
+        target:
+          selector: ".ad-audit li:has-text('Voided Sarah Kim') span:has-text('Reason')"
+        at:
+          x: 335
+      - type: "wait"
+        until: 7900
+      - type: "scroll"
+        target:
+          role: "tab"
+          name: "Overview"
+    timing: "parallel"
+    audioDuration: 8640
+    videoDuration: 9051
+  - id: "tap-outro"
+    intent: "silent tap on the Overview tab, so the closing line starts on the Overview"
+    actions:
+      - type: "click"
+        target:
+          role: "tab"
+          name: "Overview"
+        done:
+          visible: "h2:has-text('Needs review')"
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 2439
+  - id: "outro"
+    narration: "That's Gav-IL: fair, fast judging for HackIllinois 2027."
+    intent: "the Overview while the closing line plays, pointer moved off the tab"
+    actions:
+      - type: "park"
+        target:
+          selector: "h2:has-text('Needs review')"
+    timing: "parallel"
+    audioDuration: 4560
+    videoDuration: 4562
+  - id: "tail"
+    intent: "a short silent tail after the last word"
+    actions:
+      - type: "wait"
+        duration: 400
+    timing: "parallel"
+    audioDuration: 0
+    videoDuration: 401

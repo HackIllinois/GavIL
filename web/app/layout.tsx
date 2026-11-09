@@ -3,6 +3,7 @@ import type { ReactNode } from "react"
 import { cookies } from "next/headers"
 import { Manrope, Oswald, Rye, Ultra } from "next/font/google"
 import { INSTALL } from "@/lib/security/install"
+import { THEME_COOKIE, pageTheme } from "@/lib/theme"
 import "./styles/tokens.css"
 import "./styles/gavil.css"
 import "./styles/app.css"
@@ -54,15 +55,12 @@ export const viewport: Viewport = {
     themeColor: INSTALL.theme,
 }
 
-const THEMES = ["sunset", "night"] as const
-
 export default async function RootLayout({
     children,
 }: {
     children: ReactNode
 }) {
-    const saved = (await cookies()).get("gavil_theme")?.value
-    const theme = THEMES.find((t) => t === saved) ?? "sunset"
+    const theme = pageTheme((await cookies()).get(THEME_COOKIE)?.value)
     return (
         <html
             lang="en"

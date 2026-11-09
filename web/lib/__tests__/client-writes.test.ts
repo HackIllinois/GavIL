@@ -46,7 +46,7 @@ describe("writes carry an allow-listed Origin (CONTRACT §0: adonix refuses BadO
         const a = api()
         await a.judging.me()
         await a.judging.checkIn({ judgeId: "j1" })
-        await a.judging.saveDraft("p01", "n", [], { judgeId: "j1" })
+        await a.judging.saveDraft("p01", "n", [], { judgeId: "j1" }, 4)
         await a.admin.removeStaff("x@hackillinois.org")
         expect(sent.map((s) => [s.method, s.headers.Origin])).toEqual([
             ["GET", undefined],
@@ -56,6 +56,7 @@ describe("writes carry an allow-listed Origin (CONTRACT §0: adonix refuses BadO
         ])
         expect(sent.every((s) => s.headers.Authorization === "jwt")).toBe(true)
         expect(sent.every((s) => s.signal instanceof AbortSignal)).toBe(true)
+        expect(sent[2].body).toMatchObject({ revision: 4 })
         expect(ADONIX_TIMEOUT_MS).toBeGreaterThanOrEqual(10_000)
     })
 
@@ -101,13 +102,14 @@ describe("every state-changing judge write names its judge in the body", () => {
         )
         await a.judging.renewVisit("v1", { judgeId })
         await a.judging.deferVisit("v1", { judgeId })
-        await a.judging.saveDraft("p01", "notes", ["best-ui"], { judgeId })
+        await a.judging.saveDraft("p01", "notes", ["best-ui"], { judgeId }, 7)
         await a.judging.submitEvaluation({
             judgeId,
             clientId: "c-e",
             projectId: "p01",
             notes: "",
             nominations: [],
+            revision: 8,
         })
         await a.judging.skip({
             judgeId,
@@ -147,7 +149,9 @@ describe("every state-changing judge write names its judge in the body", () => {
             judgeId,
             notes: "notes",
             nominations: ["best-ui"],
+            revision: 7,
         })
+        expect(sent[6].body).toMatchObject({ revision: 8 })
         expect(sent[9].body).toMatchObject({
             createdAt: "2027-02-28T22:00:00.000Z",
             sentAt: "2027-02-28T22:05:00.000Z",

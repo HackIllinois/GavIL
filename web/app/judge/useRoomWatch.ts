@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect } from "react"
-import { flagWrongJudge, leaveForSignIn } from "@/lib/offline"
-import { sessionEnd } from "@/lib/outbox"
+import { flagStaleBuild, flagWrongJudge, leaveForSignIn } from "@/lib/offline"
+import { isStaleBuild, sessionEnd } from "@/lib/outbox"
 import { pollStatus } from "./actions"
 import { useJudge } from "./JudgeContext"
 
@@ -25,7 +25,9 @@ export function useRoomWatch(room: string, onMoved: (room: string) => void) {
             let r: Awaited<ReturnType<typeof pollStatus>> | undefined
             try {
                 r = await pollStatus()
-            } catch {
+            } catch (e) {
+                // An old page (a redeploy): say so; the outbox's alert tells the judge to reload.
+                if (isStaleBuild(e)) flagStaleBuild()
                 return
             }
             if (!alive) return

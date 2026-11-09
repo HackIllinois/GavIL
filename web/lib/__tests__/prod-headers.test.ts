@@ -333,7 +333,7 @@ describe("applySecurityHeaders", () => {
 describe("next.config: the middleware's request-body buffer", () => {
     it("is just above the recordings route's body cap, far below Next's 10 MB default", () => {
         const limit = nextConfig("phase-production-build").experimental
-            ?.middlewareClientMaxBodySize
+            ?.proxyClientMaxBodySize
         const mb = Number(/^(\d+)mb$/i.exec(String(limit))?.[1])
         // app/api/talk/recordings/route.ts reads at most MAX_AUDIO_BYTES + 64 KB.
         expect(mb * 1024 * 1024).toBeGreaterThanOrEqual(

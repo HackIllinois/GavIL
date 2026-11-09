@@ -1,0 +1,187 @@
+1
+00:00:00,501 --> 00:00:04,400
+This is Gav-IL, the judging app for HackIllinois 2027.
+
+2
+00:00:04,400 --> 00:00:08,154
+A judge types their email, and gets a one-time code.
+
+3
+00:00:08,154 --> 00:00:09,093
+No passwords.
+
+4
+00:00:09,095 --> 00:00:12,527
+They type the six-digit code from the email, and tap Sign in.
+
+5
+00:00:13,085 --> 00:00:14,261
+And they are signed in.
+
+6
+00:00:14,387 --> 00:00:18,005
+Then check-in shows each judge who they are, which Path they judge
+
+7
+00:00:18,005 --> 00:00:19,979
+and the teams they won't be sent to.
+
+8
+00:00:19,982 --> 00:00:22,862
+Below that, a short guide to how tonight works.
+
+9
+00:00:22,864 --> 00:00:24,976
+Looks right sends the judge to their room.
+
+10
+00:00:25,524 --> 00:00:30,636
+Then a signpost points to the first table, A12, and names the team to look for.
+
+11
+00:00:30,637 --> 00:00:32,797
+The floor plan shows where that table is.
+
+12
+00:00:33,368 --> 00:00:36,776
+And the clock at the top counts down the time left to judge.
+
+13
+00:00:37,282 --> 00:00:40,834
+At the table, the judge types the code printed on the placard.
+
+14
+00:00:41,329 --> 00:00:45,457
+At the wrong table, Gav-IL says right away where the team really is.
+
+15
+00:00:46,391 --> 00:00:50,211
+The right table code, plus the two characters after the dot
+
+16
+00:00:50,211 --> 00:00:52,607
+confirms it: right table, right team.
+
+17
+00:00:52,611 --> 00:00:55,215
+Table talk can take notes while the team demos
+
+18
+00:00:55,215 --> 00:00:57,819
+but only after everyone at the table says yes.
+
+19
+00:00:57,821 --> 00:01:02,113
+The sheet gives the judge a line to read out loud, and says who gets what.
+
+20
+00:01:02,113 --> 00:01:03,389
+The audio is not kept.
+
+21
+00:01:05,091 --> 00:01:07,342
+While the team talks, the phone listens
+
+22
+00:01:07,342 --> 00:01:09,939
+and the judge can mark a moment with one tap.
+
+23
+00:01:10,450 --> 00:01:13,468
+When they stop, Gav-IL pulls out the highlights.
+
+24
+00:01:13,468 --> 00:01:14,914
+It takes a few seconds.
+
+25
+00:01:14,914 --> 00:01:18,658
+The judge keeps the highlights that are right, and they go into the notes.
+
+26
+00:01:18,660 --> 00:01:21,276
+Next, the judge marks how the demo went.
+
+27
+00:01:21,279 --> 00:01:24,591
+Then adds a private note, one that only they can see.
+
+28
+00:01:24,813 --> 00:01:28,029
+If the project stands out, they nominate it for a prize.
+
+29
+00:01:28,030 --> 00:01:29,902
+Then they submit.
+
+30
+00:01:30,167 --> 00:01:34,271
+The evaluation is saved, and the app points them to the next table.
+
+31
+00:01:34,273 --> 00:01:37,042
+At the next table, it is the same placard check.
+
+32
+00:01:37,042 --> 00:01:40,273
+The judge types the code, and the app confirms the team.
+
+33
+00:01:41,653 --> 00:01:43,497
+This team says no to recording.
+
+34
+00:01:43,497 --> 00:01:47,125
+The judge taps Not this time, and it does not affect judging.
+
+35
+00:01:47,125 --> 00:01:51,157
+The judge picks how the demo went, and types a short note to remember it.
+
+36
+00:01:51,814 --> 00:01:53,452
+Then they submit.
+
+37
+00:01:53,667 --> 00:01:56,756
+The app opens the comparison of the last two projects.
+
+38
+00:01:56,756 --> 00:01:59,787
+Recall rows bring back what they noted at each table.
+
+39
+00:01:59,856 --> 00:02:02,712
+They pick the stronger project, then tap Confirm.
+
+40
+00:02:02,882 --> 00:02:07,274
+A pick can be undone for a few seconds, and the Undo button counts down.
+
+41
+00:02:08,081 --> 00:02:10,745
+When the count runs out, the vote is sent.
+
+42
+00:02:11,050 --> 00:02:14,602
+Then the app moves the judge on to the next table, PocketLab.
+
+43
+00:02:14,604 --> 00:02:18,972
+Since EcoLens said no, the judge can still dictate a memo while they walk.
+
+44
+00:02:19,142 --> 00:02:20,617
+Then they open My notes.
+
+45
+00:02:20,774 --> 00:02:24,590
+Everything they wrote, and every highlight they kept, stays here.
+
+46
+00:02:24,591 --> 00:02:26,403
+Only the judge sees them.
+
+47
+00:02:26,403 --> 00:02:31,839
+That is Gav-IL on a judge's phone: sign in, judge, compare, and keep notes.

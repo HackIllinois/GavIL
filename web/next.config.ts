@@ -13,7 +13,7 @@ export default function nextConfig(phase: string): NextConfig {
         // route's own cap is MAX_AUDIO_BYTES + 64 KB (app/api/talk/recordings/route.ts); this is
         // just above it, so an allowed upload is never cut short and an oversize one still gets
         // the route's 413. lib/__tests__/prod-headers.test.ts keeps the two in step.
-        experimental: { middlewareClientMaxBodySize: "6mb" },
+        experimental: { proxyClientMaxBodySize: "6mb" },
         async headers() {
             // The nonce-free security headers for exactly what the middleware matcher skips (see
             // `config.matcher` in middleware.ts): Next's own build files and /_next/image, which

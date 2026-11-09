@@ -30,7 +30,10 @@ beforeEach(() => {
     }
     vi.stubEnv("NODE_ENV", "production")
     vi.stubEnv("GAVIL_MOCK", "")
+    vi.stubEnv("GAVIL_JWT_SECRET", "a".repeat(32))
+    vi.stubEnv("GAVIL_GRANT_SECRET", "a".repeat(32))
     vi.stubEnv("ADONIX_URL", "https://adonix.test")
+    vi.stubEnv("GAVIL_ADONIX_HOSTS", "adonix.test")
     vi.stubGlobal(
         "fetch",
         vi.fn(async (url: URL | string, init?: RequestInit) => {

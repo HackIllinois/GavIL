@@ -43,6 +43,12 @@ export interface ComparePairProps {
     onCommit?: (side: Side) => void
     undoSeconds?: number
     showConfirm?: boolean
+    /**
+     * "Full notes": opens both projects' whole notes in a sheet on the same page. Shown only
+     * until a vote is recorded (a sheet over Undo would let the undo window run out unseen).
+     * Left out, the button is not shown.
+     */
+    onOpenNotes?: () => void
     toast?: string
     toastId?: string | number
     orderA?: string
@@ -279,6 +285,23 @@ export function ComparePair(p: ComparePairProps) {
                     onSelect={select(1)}
                 />
             </div>
+            {/* Before the vote only: once it is recorded the undo window runs, and a sheet over Undo would let it commit unseen. */}
+            {p.onOpenNotes && !chosen && (
+                <Button
+                    variant="secondary"
+                    block
+                    icon="doc"
+                    settle
+                    onClick={(e) => {
+                        // Focus the opener first: the sheet gives focus back to what had it, and a touch
+                        // tap on iOS never focuses a button.
+                        e.currentTarget.focus({ preventScroll: true })
+                        p.onOpenNotes?.()
+                    }}
+                >
+                    Full notes
+                </Button>
+            )}
             {p.showConfirm !== false && (
                 <div className="gv-pair__confirm">
                     {p.toast !== undefined && (

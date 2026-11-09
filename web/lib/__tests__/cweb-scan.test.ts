@@ -47,6 +47,12 @@ function rig(o: { fail?: string; textAt?: number } = {}) {
     return { video, env, streams, frames: () => frames }
 }
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/**
+ * Wait for what the scan does next instead of a fixed sleep: a few ms is plenty on a quiet
+ * machine and not on a loaded one (the frame loop and the camera promise both wait their turn).
+ * Only for things that must happen; "nothing happens" checks keep `wait`.
+ */
+const until = (check: () => void) => vi.waitFor(check, { timeout: 3000 })
 afterEach(() => {
     Object.defineProperty(document, "visibilityState", {
         value: "visible",
@@ -59,8 +65,7 @@ describe("startScan", () => {
         const r = rig()
         const onCode = vi.fn()
         startScan(r.video, { onCode, onFail: vi.fn() }, r.env)
-        await wait(80)
-        expect(onCode).toHaveBeenCalledTimes(1)
+        await until(() => expect(onCode).toHaveBeenCalledTimes(1))
         expect(onCode).toHaveBeenCalledWith(
             "https://judging.hackillinois.org/t/A12?k=abc",
         )
@@ -105,13 +110,12 @@ describe("startScan", () => {
             r.env,
         )
         h.stop()
-        await wait(10)
-        expect(r.streams[0].tracks[0].stopped).toBe(true)
+        await until(() => expect(r.streams[0]?.tracks[0].stopped).toBe(true))
     })
     it("a hidden page releases the camera (nothing keeps it open without a scan in progress)", async () => {
         const r = rig({ textAt: 1000 })
         startScan(r.video, { onCode: vi.fn(), onFail: vi.fn() }, r.env)
-        await wait(20)
+        await until(() => expect(r.streams).toHaveLength(1))
         Object.defineProperty(document, "visibilityState", {
             value: "hidden",
             configurable: true,
@@ -127,8 +131,7 @@ describe("startScan", () => {
         const r = rig({ fail: name })
         const onFail = vi.fn()
         startScan(r.video, { onCode: vi.fn(), onFail }, r.env)
-        await wait(10)
-        expect(onFail).toHaveBeenCalledWith(why)
+        await until(() => expect(onFail).toHaveBeenCalledWith(why))
     })
     it("no camera API at all", async () => {
         const onFail = vi.fn()
@@ -137,8 +140,7 @@ describe("startScan", () => {
             { onCode: vi.fn(), onFail },
             { mediaDevices: undefined },
         )
-        await wait(5)
-        expect(onFail).toHaveBeenCalledWith("no-camera")
+        await until(() => expect(onFail).toHaveBeenCalledWith("no-camera"))
     })
     it("a decoder that throws on a frame does not end the scan", async () => {
         const r = rig()
@@ -149,8 +151,7 @@ describe("startScan", () => {
         }
         const onCode = vi.fn()
         startScan(r.video, { onCode, onFail: vi.fn() }, r.env)
-        await wait(80)
-        expect(onCode).toHaveBeenCalledWith("ok")
+        await until(() => expect(onCode).toHaveBeenCalledWith("ok"))
     })
     it("qrDecoder falls back to jsQR when the browser has no BarcodeDetector, and uses it when it has one", async () => {
         const jsqr = await qrDecoder()

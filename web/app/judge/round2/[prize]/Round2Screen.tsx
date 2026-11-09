@@ -11,6 +11,7 @@ import {
     Wayfinding,
 } from "@/components"
 import type { Round2Board, Round2Nominee } from "@/lib/api/types"
+import { ROUND2_CLOSED } from "@/lib/copy"
 import { clockTime } from "@/lib/format"
 import {
     inOrder,
@@ -61,6 +62,10 @@ export function Round2Screen({ board }: { board: Round2Board }) {
         setSubmitted(!!board.submittedAt)
     }
     const toast = useJudgeToast()
+    // The server said so (a queued ranking was refused: Round2Closed) before this page was
+    // re-read: the board is over now, whatever the page it was drawn with says.
+    const [sawClosed, setSawClosed] = useState(false)
+    const closed = !!board.closed || sawClosed
     const [pending, start] = useBusy()
     const router = useRouter()
     const { scope, items, dead } = useJudgeOutbox()
@@ -96,8 +101,14 @@ export function Round2Screen({ board }: { board: Round2Board }) {
         watched.current = null
         setList((l) => inOrder(l, left.order))
         if (left.kind === "refused") {
-            setSubmitted(false)
             toast.show(`Ranking not counted: ${left.error}`, "danger")
+            if (left.code === "Round2Closed") {
+                // Deliberation closed while the ranking waited: no board to open again. The page
+                // is re-read (the same refresh a refusal at the Submit button makes), and the
+                // closed screen shows at once.
+                setSawClosed(true)
+                router.refresh()
+            } else setSubmitted(false)
         } else {
             setSubmitted(true)
             router.refresh()
@@ -108,7 +119,7 @@ export function Round2Screen({ board }: { board: Round2Board }) {
         open: board.open,
         queued: !!queuedHere,
         submitted,
-        closed: board.closed,
+        closed,
     })
 
     if (mode === "over") {
@@ -171,7 +182,10 @@ export function Round2Screen({ board }: { board: Round2Board }) {
                 <WinStar icon="trophy" props={false} />
                 <h1 className="gv-h1 gj-center">Saved on this phone</h1>
                 <p className="gv-lede gj-center" role="status">
-                    {`Your ${board.prize.name} ranking sends as soon as the connection works. You can change it once it has gone.`}
+                    {closed
+                        ? // Round 2 is already over: it is still sent (staff see that it came too late), never counted.
+                          `Round 2 is over, so your ${board.prize.name} ranking will not be counted. It stays on this phone until the connection works, and then staff can see that it came too late.`
+                        : `Your ${board.prize.name} ranking sends as soon as the connection works. You can change it once it has gone.`}
                 </p>
             </JudgeScreen>
         )
@@ -238,9 +252,13 @@ export function Round2Screen({ board }: { board: Round2Board }) {
                     ),
             )
             if (d.status === "sent") setSubmitted(true)
-            else if (d.status === "refused")
-                toast.show("Not sent. " + d.error + " Try again.", "danger")
-            else if (d.status === "unsaved")
+            else if (d.status === "refused") {
+                if (d.code === "Round2Closed") {
+                    toast.show(ROUND2_CLOSED, "danger")
+                    router.refresh()
+                } else
+                    toast.show("Not sent. " + d.error + " Try again.", "danger")
+            } else if (d.status === "unsaved")
                 toast.show(
                     unsavedCopy(d.why, "Your ranking", d.sessionEnd),
                     "danger",
@@ -265,7 +283,6 @@ export function Round2Screen({ board }: { board: Round2Board }) {
                             settleKey="submit"
                             onClick={submit}
                             loading={pending}
-                            disabled={pending}
                         >
                             {pending ? "Sending…" : "Submit my ranking"}
                         </Button>

@@ -23,22 +23,8 @@ export const TALK_STT_EVENT_BUDGET_MAX = 20_000
  */
 export const SPEND_TTL_SECONDS = 60
 
-/**
- * An intended spend (SpendClaims.attemptId, stable across retries) is remembered this long: a
- * retry within it, after an answer that never arrived, is answered with the original result and
- * counts nothing more.
- */
+/** An intended vendor-call reservation (SpendClaims.attemptId) is held for this long. */
 export const SPEND_ATTEMPT_SECONDS = 15 * 60
-
-/**
- * How many times one attempt may be answered again from its original result before it is refused
- * (429) while it is NOT settled: a lost answer and its retries (the server's own ask again, then
- * the phone's tap) are replays. Once the vendor call ran the server settles the attempt and no
- * replay is answered at all (a counted slot buys exactly one vendor call); this bound only covers
- * a settle that never arrived (the request died mid-call, or the settle itself was lost), so the
- * vendor calls one counted spend can ever buy are 1 + this, and that only when a settle is lost.
- */
-export const SPEND_REPLAYS_MAX = 2
 
 /** consentAt may be up to 60 s before the placard check (the judge asked while sitting down)... */
 export const CONSENT_EARLY_SECONDS = 60

@@ -432,6 +432,10 @@ describe("the matcher", () => {
             "/manifest.webmanifest",
             "/t/A12.png",
             "/icons/h-mark.svg",
+            "/_next/staticfoo",
+            "/_next/staticfoo/chunk.js",
+            "/_next/imageevil",
+            "/_next/images",
         ])
             expect(re.test(p), p).toBe(true)
         for (const p of [
@@ -440,5 +444,53 @@ describe("the matcher", () => {
             "/_next/image",
         ])
             expect(re.test(p), p).toBe(false)
+    })
+})
+
+describe("a deployment whose ADONIX_URL is unsafe still answers (the middleware runs before /api/health)", () => {
+    // adonixUrl() throws on a plain-HTTP or off-list URL in production: that must not reach the
+    // middleware's caller (a generic 500 on /api/health, /login and every page).
+    const bad = [
+        ["a plain-HTTP URL", "http://attacker.example"],
+        ["a host off the allow list", "https://evil.example"],
+        ["not a URL", "not a url"],
+        ["credentials in the URL", "https://u:p@adonix.hackillinois.org"],
+    ] as const
+
+    for (const [name, value] of bad) {
+        it(`${name}: pages and /api/health pass through with the headers, adonix is left out of form-action, and health is 503`, async () => {
+            vi.stubEnv("GAVIL_MOCK", "0")
+            vi.stubEnv("NODE_ENV", "production")
+            vi.stubEnv("GAVIL_ORIGIN", "https://judging.hackillinois.org")
+            vi.stubEnv("GAVIL_JWT_SECRET", "j".repeat(32))
+            vi.stubEnv("GAVIL_GRANT_SECRET", "g".repeat(32))
+            vi.stubEnv("ADONIX_URL", value)
+
+            for (const path of ["/api/health", "/login", "/t/A12"]) {
+                const res = await get(path)
+                expect(res.status, path).toBe(200)
+                expect(res.headers.get("x-middleware-next"), path).toBe("1")
+                const csp = expectSecurityHeaders(res)
+                expect(csp, path).toMatch(/form-action 'self'(;|$)/)
+            }
+
+            const { GET } = await import("../../app/api/health/route")
+            const health = GET()
+            expect(health.status).toBe(503)
+            expect(await health.json()).toEqual({
+                ok: false,
+                problem: "config",
+            })
+        })
+    }
+
+    it("a good ADONIX_URL still names adonix in form-action", async () => {
+        vi.stubEnv("GAVIL_MOCK", "0")
+        vi.stubEnv("NODE_ENV", "production")
+        vi.stubEnv("ADONIX_URL", "https://adonix.hackillinois.org")
+        const csp = expectSecurityHeaders(await get("/login"))
+        expect(csp).toContain(
+            "form-action 'self' https://adonix.hackillinois.org",
+        )
     })
 })

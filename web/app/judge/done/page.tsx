@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { getApi } from "@/lib/api/server"
 import { mockEnabled } from "@/lib/env"
 import { clockTime } from "@/lib/format"
-import { scanFromParams } from "@/lib/judge-ui"
+import { round2StateOf, scanFromParams } from "@/lib/judge-ui"
 import { GRACE_SECONDS } from "@/lib/judging"
 import { DoneScreen } from "./DoneScreen"
 
@@ -50,6 +50,12 @@ export default async function DonePage({
                     Date.parse(me.round.endsAt) + GRACE_SECONDS * 1000,
                 ).toISOString(),
             )}
+            round2={round2StateOf(me.round, Date.now())}
+            dueBy={
+                me.round.deliberationEndsAt
+                    ? clockTime(me.round.deliberationEndsAt)
+                    : undefined
+            }
             prize={{ id: prize.id, name: prize.name, room: prize.room }}
             scan={scan ? { code: scan.code } : null}
             talk={me.talk}

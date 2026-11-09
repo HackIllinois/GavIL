@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Print placards" }
 export default async function PlacardsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ room?: string; names?: string }>
+    searchParams: Promise<{ room?: string | string[]; names?: string }>
 }) {
     await adminContext()
     const api = await getApi()
@@ -34,7 +34,8 @@ export default async function PlacardsPage({
                 letter: p.roomLetter,
                 color: p.roomColor,
             })
-    const asked = (sp.room ?? "").toUpperCase()
+    // (a repeated ?room= arrives as an array: only a single word picks a room)
+    const asked = (typeof sp.room === "string" ? sp.room : "").toUpperCase()
     const room =
         asked === "ALL"
             ? "all"

@@ -1,10 +1,11 @@
 "use client"
 
-import { Fragment, useState } from "react"
+import { Fragment, useRef, useState } from "react"
 import { Badge, Button, InlineConfirm } from "@/components"
 import type { Reimbursement, ReimbursementStatus } from "@/lib/api/types"
 import { setReimbursement } from "../actions"
 import { useAdminRun } from "../AdminRun"
+import { useRecoverFocus } from "../useRecoverFocus"
 import { ConfirmRow, LockFoot, LockNote } from "../ui"
 
 const TONE = {
@@ -14,8 +15,9 @@ const TONE = {
 } as const
 
 /**
- * Travel reimbursements. Admins approve, deny (inline confirm: the attendee is emailed) and undo;
- * staff read them and see the lock.
+ * Travel reimbursements. Admins approve, deny (an inline confirm, no email is promised) and undo;
+ * staff read them and see the lock. Every decision is audited by the server. Approve and Undo
+ * swap places in the row, so focus goes to the row's new button instead of falling to <body>.
  */
 export function ReimbursementsTable({
     rows,
@@ -26,8 +28,17 @@ export function ReimbursementsTable({
 }) {
     const { run, pending } = useAdminRun()
     const [denying, setDenying] = useState<string | null>(null)
-    const set = (r: Reimbursement, s: ReimbursementStatus) =>
+    const last = useRef<string | null>(null)
+    const recover = useRecoverFocus(rows, () =>
+        Array.from(document.querySelectorAll<HTMLElement>("tr[data-row]"))
+            .find((tr) => tr.dataset.row === last.current)
+            ?.querySelector<HTMLElement>("button"),
+    )
+    const set = (r: Reimbursement, s: ReimbursementStatus) => {
+        last.current = r.id
+        recover()
         run(() => setReimbursement(r.id, r.name, s))
+    }
     return (
         <div className="gv-table-wrap">
             <table className="gv-table gv-table--stack">
@@ -45,7 +56,7 @@ export function ReimbursementsTable({
                 <tbody>
                     {rows.map((x) => (
                         <Fragment key={x.id}>
-                            <tr className="static">
+                            <tr className="static" data-row={x.id}>
                                 <td>
                                     <span className="gv-table__name">
                                         {x.name}
@@ -75,7 +86,7 @@ export function ReimbursementsTable({
                                                 size="sm"
                                                 variant="secondary"
                                                 icon="check"
-                                                disabled={pending}
+                                                pending={pending}
                                                 onClick={() =>
                                                     set(x, "Approved")
                                                 }
@@ -85,7 +96,7 @@ export function ReimbursementsTable({
                                             <Button
                                                 size="sm"
                                                 variant="ghost-danger"
-                                                disabled={pending}
+                                                pending={pending}
                                                 onClick={() => setDenying(x.id)}
                                             >
                                                 Deny
@@ -95,7 +106,7 @@ export function ReimbursementsTable({
                                         <Button
                                             size="sm"
                                             variant="ghost"
-                                            disabled={pending}
+                                            pending={pending}
                                             onClick={() => set(x, "Pending")}
                                         >
                                             Undo

@@ -1,0 +1,95 @@
+1
+00:00:00,353 --> 00:00:03,097
+Staff run the event from the admin console.
+
+2
+00:00:03,097 --> 00:00:07,882
+The presence map shows every table: teams that are here, a judge at a table
+
+3
+00:00:07,882 --> 00:00:11,009
+projects held for review, and teams not here yet.
+
+4
+00:00:12,996 --> 00:00:15,422
+The Judges tab shows each judge's pace.
+
+5
+00:00:15,422 --> 00:00:18,781
+A judge rushing through tables gets a Fast visits flag
+
+6
+00:00:18,781 --> 00:00:20,460
+with the numbers behind it.
+
+7
+00:00:20,462 --> 00:00:22,730
+An admin can void that judge's votes.
+
+8
+00:00:22,730 --> 00:00:25,550
+It needs a reason, which goes in the audit log
+
+9
+00:00:25,550 --> 00:00:28,676
+and every room is ranked again without those votes.
+
+10
+00:00:28,676 --> 00:00:30,638
+The row is stamped Votes voided.
+
+11
+00:00:32,342 --> 00:00:35,406
+The Flagged tab is the review queue: late commits
+
+12
+00:00:35,406 --> 00:00:38,469
+a teammate who isn't registered, a path mismatch.
+
+13
+00:00:38,469 --> 00:00:43,283
+An admin clears a project into judging, or escalates it with a written reason
+
+14
+00:00:43,283 --> 00:00:47,222
+and an escalated project stays out until the organizers decide.
+
+15
+00:00:49,599 --> 00:00:53,937
+From the Overview, Print placards opens a sheet for every table
+
+16
+00:00:53,937 --> 00:00:55,383
+one placard per page.
+
+17
+00:00:55,385 --> 00:00:58,131
+Each sheet has its own QR code and check code.
+
+18
+00:00:58,131 --> 00:01:02,369
+Judges scan it, or type the code, to prove they are at the right table.
+
+19
+00:01:03,917 --> 00:01:07,073
+The Settings tab holds the event-wide switches.
+
+20
+00:01:07,073 --> 00:01:11,237
+Table talk goes on, then off again, and each flip is recorded.
+
+21
+00:01:11,241 --> 00:01:13,262
+That record is the audit log.
+
+22
+00:01:13,262 --> 00:01:18,139
+Every switch, escalation and voided vote lands there: who did it, when
+
+23
+00:01:18,139 --> 00:01:19,881
+and any reason they gave.
+
+24
+00:01:22,731 --> 00:01:27,291
+That's Gav-IL: fair, fast judging for HackIllinois 2027.

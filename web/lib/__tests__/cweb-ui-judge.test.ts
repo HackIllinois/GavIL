@@ -72,6 +72,15 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
+/** The accessible name of a control named by its content: its text without what is aria-hidden. */
+function nameOf(el: Element): string {
+    const clone = el.cloneNode(true) as Element
+    clone
+        .querySelectorAll("[aria-hidden=true],[aria-hidden='']")
+        .forEach((n) => n.remove())
+    return (clone.textContent ?? "").replace(/\s+/g, " ").trim()
+}
+
 describe("JudgeShell", () => {
     it("the app bar leads with one paper tag at a time: wordmark, offline, or unsent, and the recording tag beside it", () => {
         const m = mount(h(JudgeShell, null, h("h1", null, "T")))
@@ -90,8 +99,9 @@ describe("JudgeShell", () => {
                 h("h1", null, "T"),
             ),
         )
-        expect($(".gv-unsent")!.getAttribute("aria-label")).toBe(
-            "3 items not sent yet. Saved on this phone. Retry sending",
+        // (named by its own words, then what only a screen reader needs: WCAG 2.5.3)
+        expect(nameOf($(".gv-unsent")!)).toBe(
+            "3 not sent Tap to retry. Saved on this phone",
         )
         m.rerender(
             h(
@@ -107,9 +117,8 @@ describe("JudgeShell", () => {
         const onShow = vi.fn()
         mount(h(JudgeShell, { recording: { elapsed: 75, onShow } }, "x"))
         const b = $<HTMLButtonElement>(".gv-rectag")!
-        expect(b.getAttribute("aria-label")).toBe(
-            "Recording. Show the recorder",
-        )
+        expect(nameOf(b)).toBe("Recording. Show the recorder")
+        expect(b.hasAttribute("aria-label")).toBe(false)
         expect($(".gv-rectag__t")!.textContent).toBe("01:15")
         expect($(".gv-rectag__t")!.getAttribute("aria-hidden")).toBe("true")
         tap(b)
@@ -122,7 +131,7 @@ describe("JudgeShell", () => {
                 "x",
             ),
         )
-        expect($(".gv-rectag")!.getAttribute("aria-label")).toBe(
+        expect(nameOf($(".gv-rectag")!)).toBe(
             "Recording paused your memo. Show the recorder",
         )
         cleanup()
@@ -138,7 +147,8 @@ describe("JudgeShell", () => {
     })
     it("has one main landmark the shell can focus, and a polite live region", () => {
         mount(h(JudgeShell, null, h("h1", null, "T")))
-        expect($("main")!.tabIndex).toBe(-1)
+        // (no static tabindex: the shell gives the heading or the body one when it moves focus there)
+        expect($("main")!.hasAttribute("tabindex")).toBe(false)
         expect($(".gv-shell__live")!.getAttribute("role")).toBe("status")
     })
     it("a screen change moves focus to the new screen's first heading, never leaves it on <body>", () => {
@@ -493,7 +503,7 @@ describe("ComparePair", () => {
         press($<HTMLButtonElement>(".gv-pair__confirm button")!)
         expect($(".gv-recorded")).toBeTruthy()
     })
-    it("shows the judge's recall (the same four rows on both cards) in place of the description", () => {
+    it("shows the judge's recall (the same four rows on both cards) under the one-liner", () => {
         mount(
             pair({
                 a: {
@@ -515,7 +525,8 @@ describe("ComparePair", () => {
             "Notable",
             "Open",
         ])
-        expect($(".gv-compare__desc", a)).toBeNull()
+        // The one-liner (here the description, there is no tagline) stays above the recall (decision #72).
+        expect($(".gv-compare__desc", a)).not.toBeNull()
         expect($(".gv-recall__none", a)!.textContent).toContain("Nothing noted")
     })
     it('the card of a project with nothing kept shows the notes the judge typed there, not "Nothing noted", while the other card shows its rows', () => {
@@ -549,10 +560,11 @@ describe("ComparePair", () => {
         )
         expect($(".gv-recall", b)).toBeNull()
         expect(b.textContent).not.toContain("Nothing noted")
-        // Reads by a screen reader as the card's own notes.
-        expect(b.getAttribute("aria-describedby")).toBe(
+        // Reads by a screen reader as the card's one-liner, then its own notes.
+        expect(b.getAttribute("aria-describedby")!.split(" ")).toEqual([
+            $(".gv-compare__desc", b)!.id,
             $(".gv-compare__mine", b)!.id,
-        )
+        ])
     })
     it("with no notes either, the empty rows stay (nothing was noted, and the cards line up)", () => {
         const none = {

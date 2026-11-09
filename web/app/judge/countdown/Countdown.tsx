@@ -5,7 +5,7 @@ import { ButtonLink, Prop, useSwapNavigate, Wayfinding } from "@/components"
 import type { Room } from "@/lib/api/types"
 import { formatTime } from "@/lib/format"
 import { runCountdown } from "@/lib/judge-ui"
-import { useRouter } from "next/navigation"
+import { useRefreshWhenReachable } from "@/lib/security/refresh"
 import { pollStatus } from "../actions"
 import { FloorPlanSheet } from "../FloorPlan"
 import { JudgeScreen } from "../JudgeScreen"
@@ -31,7 +31,7 @@ export function CountdownScreen({
     room: Room
     hint: string
 }) {
-    const router = useRouter()
+    const refresh = useRefreshWhenReachable()
     const go = useSwapNavigate()
     const target = Date.parse(startsAt)
     const [left, setLeft] = useState<number | null>(null)
@@ -43,14 +43,14 @@ export function CountdownScreen({
                 now: Date.now,
                 poll: pollStatus,
                 open: () => go("/judge/evaluate"),
-                reread: () => router.refresh(),
+                reread: () => void refresh(),
                 setLeft,
                 every: (fn, ms) => {
                     const t = setInterval(fn, ms)
                     return () => clearInterval(t)
                 },
             }),
-        [target, router, go],
+        [target, refresh, go],
     )
     const started = left === 0
     return (
